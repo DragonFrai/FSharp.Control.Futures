@@ -1,5 +1,7 @@
 namespace FSharp.Control.Future
 
+open System
+
 
 type FutureBuilder() =
     
@@ -22,6 +24,17 @@ type FutureBuilder() =
                 let future = f ()
                 cell <- Some future
                 Future.poll waker future
+    
+    member _.Using(d: 'D, f: 'D -> Future<'r>) : Future<'r> when 'D :> IDisposable =
+        let fr = lazy(f d)
+        let mutable disposed = false
+        Future.create ^fun waker ->
+            let fr = fr.Value
+            match Future.poll waker fr with
+            | Ready x ->
+                if not disposed then d.Dispose()
+                Ready x
+            | p -> p
 
 
 [<AutoOpen>]
