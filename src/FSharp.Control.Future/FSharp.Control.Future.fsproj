@@ -2,13 +2,17 @@
 
     <PropertyGroup>
         <TargetFramework>net5.0</TargetFramework>
+        <Version>0.1.0</Version>
+        <PackageTags>F# async future</PackageTags>
     </PropertyGroup>
 
     <ItemGroup>
       <Compile Include="Utils.fs" />
-      <Compile Include="Future.fs" />
+      <Compile Include="Core.fs" />
+      <Compile Include="Optimized.fs" />
       <Compile Include="Builders.fs" />
-      <Compile Include="FutureExtensions.fs" />
+      <Compile Include="Future.fsi" />
+      <Compile Include="Future.fs" />
       <Compile Include="Channels.fs" />
       <Compile Include="ResultCell.fs" />
       <Compile Include="Runtime.fs" />
