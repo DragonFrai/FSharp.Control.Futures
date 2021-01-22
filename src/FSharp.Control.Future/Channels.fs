@@ -1,8 +1,8 @@
 module FSharp.Control.Future.Channels
 
-
 open System.Collections.Concurrent
 open System.Threading.Channels
+
 
 type ISender<'T> =
     abstract member Send: 'T -> Future<unit>
@@ -16,7 +16,7 @@ type IChannel<'T> =
     inherit IReceiver<'T>
 
 [<RequireQualifiedAccess>]
-module Channel = 
+module Channel =
     let receive (receiver: IReceiver<'a>) =
         receiver.Receive()
     
@@ -47,6 +47,7 @@ type UnboundedChannel<'T>() =
                     waker <- Some waker'
                     Pending
             Future.create innerF
+
 
 [<RequireQualifiedAccess>]
 module Channels = 

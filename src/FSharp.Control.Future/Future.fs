@@ -3,11 +3,12 @@ namespace FSharp.Control.Future
 open System
 open System.Threading
 
+
 [<Struct>]
 type Poll<'a> =
-    | Ready of 'a // Completed
-    | Pending     // Incomplete
-    | Cancelled   // Completed
+    | Ready of 'a
+    | Pending
+    | Cancelled
 
 module Poll =
     
@@ -26,15 +27,13 @@ module Poll =
         match poll with
         | Ready x -> Some x
         | _ -> None
-    
+
+
 type Waker = unit -> unit
+
 
 [<Struct>]
 type Future<'a> = Future of (Waker -> Poll<'a>)
-
-type CancellableFuture<'a> = CancellationToken -> Future<'a>
-
-exception FutureCancelledException of string
 
 [<RequireQualifiedAccess>]
 module Future = 
@@ -56,8 +55,8 @@ module Future =
     
 //    [<Struct>]
 //    type private BindState<'a, 'b> =
-//        | First of 'a
-//        | Second of 'b
+//        | First of first: 'a
+//        | Second of second: 'b
     
     let bind (binding: 'a -> Future<'b>) (fa: Future<'a>) : Future<'b> =
         let mutable stateA = ValueSome fa
@@ -85,9 +84,9 @@ module Future =
     
     // TODO: optimize
     let parallelSeq (futures: Future<'a> seq) : Future<'a[]> =
-        let mutable futures = futures |> Seq.map (fun f -> ValueSome f) |> Seq.toArray
-        // Must be filled !!!
-        let mutable results: 'a[] = Array.create (Array.length futures) (Unchecked.defaultof<_>)
+        let mutable futures = futures |> Seq.map ValueSome |> Seq.toArray
+        
+        let mutable results: 'a[] = Array.zeroCreate (Array.length futures)
         let mutable isCancelled = false
         
         let innerF waker =
@@ -96,7 +95,6 @@ module Future =
             |> Seq.map (fun (i, f) ->
                 match f with
                 | ValueSome f ->
-                    //printfn "\t %i" i 
                     let p = poll waker f
                     match p with
                     | Ready value ->
@@ -115,43 +113,17 @@ module Future =
                 | true, _ -> Ready results
         create innerF
     
-//    let parallelSeq (futures: Future<'a> seq) : Future<'a[]> =
-//        let mutable futures = futures |> Seq.map (fun f -> ValueSome f) |> Seq.toArray
-//        // Must be filled !!!
-//        let mutable results: 'a[] = Array.create (Array.length futures) (Unchecked.defaultof<_>)
-//        let mutable isCancelled = false
-//        
-//        let innerF waker =
-//            futures
-//            |> Seq.indexed
-//            |> Seq.map (fun (i, f) ->
-//                match f with
-//                | ValueSome f ->
-//                    //printfn "\t %i" i 
-//                    let p = poll waker f
-//                    match p with
-//                    | Ready value ->
-//                        futures.[i] <- ValueNone
-//                        results.[i] <- value
-//                        true
-//                    | Pending -> false
-//                    | Cancelled -> isCancelled <- true; true
-//                | ValueNone -> true
-//            )
-//            |> Seq.reduce (&&)
-//            |> fun x ->
-//                match x, isCancelled with
-//                | _, true -> Cancelled
-//                | false, _ -> Pending
-//                | true, _ -> Ready results
-//        create innerF
-
-    
     let cancellable future = fun (ct: CancellationToken) ->
         create ^fun waker ->
             if ct.IsCancellationRequested
             then Cancelled
             else poll waker future
+
+
+type CancellableFuture<'a> = CancellationToken -> Future<'a>
+
+exception FutureCancelledException of string
+
 
 [<AutoOpen>]
 module FutureExt = 
@@ -173,10 +145,8 @@ module FutureExt =
                 | Cancelled -> raise (FutureCancelledException "Future was cancelled")
             
             wait (Future.poll waker f)
-
         
-        let getWaker = Future.create (fun w -> Ready w)
-        
+        let getWaker = Future.create Ready
         
         let sleep (duration: int) =
             // if None the time out

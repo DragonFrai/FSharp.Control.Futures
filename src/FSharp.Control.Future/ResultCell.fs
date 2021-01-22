@@ -3,10 +3,12 @@ namespace FSharp.Control.Future
 open System
 open System.Threading
 
+
 [<AutoOpen>]
-module private Halpers =
+module private Helpers =
     let fake ()  = Unchecked.defaultof<AsyncReturn>
     let unfake (_ : AsyncReturn)  = ()
+
 
 type ResultCell<'a>() =
 
