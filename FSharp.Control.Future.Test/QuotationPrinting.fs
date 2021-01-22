@@ -1,4 +1,4 @@
-module Futures.QuotationPrinting
+module FSharp.Control.Future.Test.QuotationPrinting
 
 open FSharp.Quotations
 open System.Text

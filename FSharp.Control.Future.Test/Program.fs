@@ -1,20 +1,14 @@
 ﻿open System
 open System.Diagnostics
 open System.Threading.Tasks
-open Futures
 open System.Threading
+
 open FSharp.Control.Tasks.V2
 
-//type FutureBuilder with
-//    member _.Run(expr: Expr) = expr
-//    member _.Quote() = ()
-//    
-//    
+open FSharp.Control.Future
+
 
 module Snowball =
-    open Futures
-    
-    
     
     type Tree<'a> =
         | Leaf

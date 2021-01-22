@@ -6,18 +6,16 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <Compile Include="Utils.fs" />
-        <Compile Include="ResultCell.fs" />
-        <Compile Include="Future.fs" />
-        <Compile Include="Builders.fs" />
-        <Compile Include="Channels.fs" />
-        <Compile Include="Runtime.fs" />
         <Compile Include="QuotationPrinting.fs" />
         <Compile Include="Program.fs" />
     </ItemGroup>
 
     <ItemGroup>
       <PackageReference Include="TaskBuilder.fs" Version="2.2.0-alpha" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <ProjectReference Include="..\src\FSharp.Control.Future\FSharp.Control.Future.fsproj" />
     </ItemGroup>
 
 </Project>

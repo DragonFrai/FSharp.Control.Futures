@@ -1,4 +1,4 @@
-namespace Futures
+namespace FSharp.Control.Future
 
 
 type FutureBuilder() =

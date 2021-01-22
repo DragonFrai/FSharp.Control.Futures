@@ -1,8 +1,9 @@
-module Futures.Runtime
+module FSharp.Control.Future.Runtime
 
 open System
 open System.Collections.Generic
 open System.Threading
+
 
 type Spawner<'a> = Future<'a> -> unit
 
