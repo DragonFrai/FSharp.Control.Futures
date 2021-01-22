@@ -14,7 +14,9 @@ type FutureBuilder() =
     member _.ReturnFrom(f: Future<'a>): Future<'a> = f
     
     member _.Combine(u: Future<unit>, f: Future<'a>): Future<'a> = Future.bind (fun () -> f) u
-
+    
+    member _.MergeSources(x1, x2): Future<'a * 'b> = Future.merge x1 x2
+    
     member _.Delay(f: unit -> Future<'a>): Future<'a> =
         let mutable cell = None
         Future.create ^fun waker ->

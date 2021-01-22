@@ -102,6 +102,29 @@ let runTask depth =
 [<EntryPoint>]
 let main argv =
     
+    printfn "Main"
+    future {
+        let! x1 = future {
+            printfn "[x1] Start"
+            do! Future.sleep 2000
+            printfn "[x1] End"
+            return 2
+        }
+        and! x2 = future {
+            printfn "[x2] Start"
+            do! Future.sleep 3000
+            printfn "[x2] End"
+            return 3
+        }
+        and! x3 = future {
+            printfn "[x3]"
+            return 1
+        }
+        printfn "Merged"
+        return x1 + x2 + x3
+    }
+    |> Runtime.runSync
+    |> printfn "R: %i"
     
     0 // return an integer exit code
     
