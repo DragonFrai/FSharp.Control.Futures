@@ -1,6 +1,4 @@
-namespace FSharp.Control.Future
-
-open System.Threading
+namespace FSharp.Control.Futures
 
 [<Struct>]
 type Poll<'a> =

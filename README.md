@@ -1,3 +1,3 @@
-# FSharp.Control.Future
+# FSharp.Control.Futures
 
 Based on Rust Futures.

@@ -1,4 +1,4 @@
-module FSharp.Control.Future.Test.QuotationPrinting
+module FSharp.Control.Futures.Test.QuotationPrinting
 
 open FSharp.Quotations
 open System.Text
@@ -19,16 +19,16 @@ module rec Format =
     open System
     open System.Reflection
     open Microsoft.FSharp.Reflection
-    
+
     let var' (var: Var) =
         var.Name
-    
+
     let value' (value: obj) (typ: Type) =
         string value
-    
+
     let propertyGet' (expr: Expr option) (propInfo: PropertyInfo) (argExprs: Expr list) =
         propInfo.Name
-    
+
     let let' (var: Var) (expr1: Expr) (expr2: Expr) =
         Lines.toStr [
 //            $"let {var.Name} ="
@@ -39,14 +39,14 @@ module rec Format =
             yield! expr' expr1 |> Lines.ofStr |> Lines.appendIndent 4
             expr' expr2
         ]
-    
+
     let lambda' (param: Var) (body: Expr) =
         Lines.toStr [
 //            $"fun ({param.Name}: {string param.Type}) ->"
             $"fun {param.Name} ->"
             yield! expr' body |> Lines.ofStr |> Lines.appendIndent 4
         ]
-    
+
     let call' (caller: Expr option) (methodInfo: MethodInfo) (exprList: Expr list) =
         Lines.toStr [
             Line.ofTokens [
@@ -63,7 +63,7 @@ module rec Format =
                 |> fun s -> s + ","
             ")"
         ]
-    
+
     let newObject' (info: ConstructorInfo) (argExprs: Expr list) =
         Lines.toStr [
             info.DeclaringType.Name + "("
@@ -75,7 +75,7 @@ module rec Format =
                 |> fun s -> s + ","
             ")"
         ]
-    
+
     let newUnionCase (info: UnionCaseInfo) (exprs: Expr list) =
         Lines.toStr [
             info.Name + "("
@@ -87,7 +87,7 @@ module rec Format =
                 |> fun s -> s + ","
             ")"
         ]
-    
+
     let application' (expr1: Expr) (expr2: Expr) =
         Lines.toStr [
             expr' expr1
@@ -97,7 +97,7 @@ module rec Format =
                 |> Lines.ofStr
                 |> Lines.appendIndent 4
         ]
-    
+
     let sequential' (expr1: Expr) (expr2: Expr) =
         Lines.toStr [
             yield!
@@ -108,17 +108,17 @@ module rec Format =
                 |> List.rev
             expr' expr2
         ]
-    
+
     let corce' (expr: Expr) (typ: Type) =
         let sexpr = expr' expr
         $"{sexpr} :!> {typ.Name}"
-    
-    
+
+
     let expr' (expr: Expr) =
         match expr with
         | Patterns.Application(expr1, expr2) -> Format.application' expr1 expr2
         | Patterns.Sequential(expr1, expr2) -> Format.sequential' expr1 expr2
-        | Patterns.Coerce(expr, typ) -> Format.corce' expr typ            
+        | Patterns.Coerce(expr, typ) -> Format.corce' expr typ
         | Patterns.NewUnionCase (info, args) -> Format.newUnionCase info args
         | Patterns.NewObject (info, argExprs) -> Format.newObject' info argExprs
         | Patterns.Call(caller, methodInfo, exprList) -> Format.call' caller methodInfo exprList

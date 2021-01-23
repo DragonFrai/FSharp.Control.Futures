@@ -1,4 +1,4 @@
-module FSharp.Control.Future.Runtime
+module FSharp.Control.Futures.Runtime
 
 open System
 open System.Collections.Generic

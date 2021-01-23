@@ -1,4 +1,4 @@
-namespace FSharp.Control.Future
+namespace FSharp.Control.Futures
 
 open System.Threading
 

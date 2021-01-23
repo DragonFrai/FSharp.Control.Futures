@@ -1,6 +1,6 @@
-module FSharp.Control.Future.Benchmarks.Fibonacci
+module FSharp.Control.Futures.Benchmarks.Fibonacci
 
-open FSharp.Control.Future
+open FSharp.Control.Futures
 
 
 module SerialFun =

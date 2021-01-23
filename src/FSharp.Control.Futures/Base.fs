@@ -1,9 +1,8 @@
-module FSharp.Control.Future.Base
+module FSharp.Control.Futures.Base
 
 open System
 open System.Threading
 open System.Timers
-open FSharp.Control.Future
 
 
 [<RequireQualifiedAccess>]
@@ -66,7 +65,7 @@ module Future =
                 | true -> Ready results
         Future innerF
 
-    let catch (f: Future<'a>) : Future<Result<'a, Exception>> =
+    let catch (f: Future<'a>) : Future<Result<'a, exn>> =
         let mutable result = ValueNone
         Future ^fun waker ->
             if ValueNone = result then
