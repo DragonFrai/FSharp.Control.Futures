@@ -15,13 +15,24 @@ module Snowball =
         | Leaf
         | Node of Tree<'a> * 'a * Tree<'a>
 
+    let snowballFunction n =
+        let rec loop x i : Tree<int> =
+            if i >= n then
+                Leaf
+            else
+            let left = loop (x + i) (i + 1)
+            let right = loop (x + i + 1) (i + 1)
+            Node (left, x ,right)
+        loop 0 0
+
+
     let snowballFuture n = future {
         let rec loop x i : Future<Tree<int>> = future {
             if i >= n then
                 return Leaf
             else
             let! left = loop (x + i) (i + 1)
-            let! right = loop (x + i + 1) (i + 1)
+            and! right = loop (x + i + 1) (i + 1)
             return Node (left, x ,right)
         }
         return! loop 0 0
@@ -81,7 +92,7 @@ module Snowball =
 
 let runFuture depth =
     let f = Snowball.snowballFuture depth
-    Runtime.runSync f
+    Future.run f
 
 let runFutureParallel depth =
     let f = Snowball.snowballFutureParallel depth
@@ -126,5 +137,31 @@ let main argv =
     }
     |> Runtime.runSync
     |> printfn "R: %i"
+
+    let depth = 17
+
+    let sw = Stopwatch()
+
+    printfn "Test function..."
+    sw.Start()
+    for i in 1..20 do (Snowball.snowballFunction depth) |> ignore
+    let ms = sw.ElapsedMilliseconds
+    printfn "Total %i ms\n" ms
+
+    printfn "Test async..."
+    sw.Start()
+    for i in 1..20 do (runAsync depth) |> ignore
+    let ms = sw.ElapsedMilliseconds
+    printfn "Total %i ms\n" ms
+
+    printfn "Test future..."
+    sw.Restart()
+    for i in 1..20 do (runFuture depth) |> ignore
+    let ms = sw.ElapsedMilliseconds
+    printfn "Total %i ms\n" ms
+
+
+
+
 
     0 // return an integer exit code
