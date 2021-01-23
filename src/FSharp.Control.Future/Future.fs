@@ -8,26 +8,7 @@ type Poll<'a> =
     | Ready of 'a
     | Pending
 
-module Poll =
-
-    let ready x = Ready x
-
-    let bind binding = function
-        | Ready x -> binding x
-        | Pending -> Pending
-
-    let map mapping = bind (mapping >> ready)
-
-    let join poll = poll |> bind id
-
-    let tryReady poll =
-        match poll with
-        | Ready x -> Some x
-        | _ -> None
-
-
 type Waker = unit -> unit
-
 
 [<Struct>]
 type Future<'a> = Future of (Waker -> Poll<'a>)
@@ -38,6 +19,11 @@ exception FutureCancelledException of string
 
 [<RequireQualifiedAccess>]
 module Future =
+
+    let inline private bindPoll' (f: 'a -> Poll<'b>) (x: Poll<'a>) : Poll<'b> =
+        match x with
+        | Ready x -> f x
+        | Pending -> Pending
 
     let poll waker (Future f) = f waker
 
@@ -52,34 +38,31 @@ module Future =
         Future ^fun _ -> Pending
 
     let bind (binder: 'a -> Future<'b>) (fut: Future<'a>) : Future<'b> =
-        let mutable stateA = ValueSome fut
-        let mutable (stateB: Future<'b> voption) = ValueNone
+        let mutable futCell = ValueSome fut
+        let mutable (futCall': Future<'b> voption) = ValueNone
         Future ^fun waker ->
-            match stateB with
-            | ValueSome fb -> poll waker fb
+            match futCall' with
+            | ValueSome fut' -> poll waker fut'
             | ValueNone ->
-                match stateA with
-                | ValueSome fa ->
-                    match poll waker fa with
-                    | Ready x ->
-                        let fb = binder x
-                        stateB <- ValueSome fb
-                        stateA <- ValueNone
-                        poll waker fb
-                    | Pending -> Pending
-                | ValueNone -> invalidOp "Unreachable"
+                futCell
+                |> ValueOption.get
+                |> poll waker
+                |> bindPoll' ^fun x ->
+                    let fb = binder x
+                    futCall' <- ValueSome fb
+                    futCell <- ValueNone
+                    poll waker fb
 
     let map (mapping: 'a -> 'b) (fut: Future<'a>) : Future<'b> =
         let mutable value = None
         Future ^fun waker ->
             match value with
             | None ->
-                match poll waker fut with
-                | Ready x ->
+                poll waker fut
+                |> bindPoll' ^fun x ->
                     let r = mapping x
                     value <- Some r
                     Ready r
-                | Pending -> Pending
             | Some x -> Ready x
 
     let apply (f: Future<'a -> 'b>) (fut: Future<'a>) : Future<'b> =
@@ -127,4 +110,7 @@ module Future =
 
     let getWaker = Future Ready
 
-    let ignore future = Future ^fun waker -> (poll waker future) |> Poll.map ignore
+    let ignore future = Future ^fun waker ->
+        match poll waker future with
+        | Ready _ -> Ready ()
+        | Pending -> Pending
