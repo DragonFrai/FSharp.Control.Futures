@@ -45,20 +45,17 @@ module Future =
         Future ^fun _ -> Pending
 
     let bind (binder: 'a -> Future<'b>) (fut: Future<'a>) : Future<'b> =
-        let mutable futCell = ValueSome fut
-        let mutable (futCall': Future<'b> voption) = ValueNone
+        let mutable (fut2: Future<'b> voption) = ValueNone
         Future ^fun waker ->
-            match futCall' with
-            | ValueSome fut' -> poll waker fut'
+            match fut2 with
+            | ValueSome fut2 -> poll waker fut2
             | ValueNone ->
-                futCell
-                |> ValueOption.get
+                fut
                 |> poll waker
                 |> bindPoll' ^fun x ->
-                    let fb = binder x
-                    futCall' <- ValueSome fb
-                    futCell <- ValueNone
-                    poll waker fb
+                    let fut2' = binder x
+                    fut2 <- ValueSome fut2'
+                    poll waker fut2'
 
     let map (mapping: 'a -> 'b) (fut: Future<'a>) : Future<'b> =
         let mutable value = None
