@@ -1,5 +1,6 @@
 module FSharp.Control.Future.Base
 
+open System
 open System.Threading
 open System.Timers
 open FSharp.Control.Future
@@ -64,6 +65,18 @@ module Future =
                 | false -> Pending
                 | true -> Ready results
         Future innerF
+
+    let tryAsResult (f: Future<'a>) : Future<Result<'a, Exception>> =
+        let mutable result = ValueNone
+        Future ^fun waker ->
+            if ValueNone = result then
+                try
+                    Future.poll waker f |> Poll.onReady ^fun x -> result <- ValueSome (Ok x)
+                with
+                | e -> result <- ValueSome (Error e)
+            match result with
+            | ValueSome r -> Ready r
+            | ValueNone -> Pending
 
     // TODO: fix it
     let run (f: Future<'a>) : 'a =

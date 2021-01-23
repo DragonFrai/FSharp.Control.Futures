@@ -8,6 +8,12 @@ type Poll<'a> =
     | Ready of 'a
     | Pending
 
+module Poll =
+    let inline onReady (f: 'a -> unit) (x: Poll<'a>) : unit =
+        match x with
+        | Ready x -> f x
+        | Pending -> ()
+
 type Waker = unit -> unit
 
 [<Struct>]
@@ -24,11 +30,6 @@ module Future =
         match x with
         | Ready x -> f x
         | Pending -> Pending
-
-    let inline private onReady' (f: 'a -> unit) (x: Poll<'a>) : unit =
-        match x with
-        | Ready x -> f x
-        | Pending -> ()
 
     let poll waker (Future f) = f waker
 
