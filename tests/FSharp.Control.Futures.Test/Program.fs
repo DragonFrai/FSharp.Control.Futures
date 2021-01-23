@@ -2,11 +2,11 @@
 open System.Diagnostics
 open System.Threading.Tasks
 open System.Threading
-open FSharp.Control.Future.Base
 
 //open FSharp.Control.Tasks.V2
 
-open FSharp.Control.Future
+open FSharp.Control.Futures.Base
+open FSharp.Control.Futures
 
 
 module Snowball =

@@ -1,6 +1,5 @@
-module FSharp.Control.Future.Cancellable
+module FSharp.Control.Futures.Cancellable
 
-open System.Threading
 
 type MaybeCancel<'a> =
     | Completed of 'a

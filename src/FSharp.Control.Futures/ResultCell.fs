@@ -1,4 +1,4 @@
-namespace FSharp.Control.Future
+namespace FSharp.Control.Futures
 
 open System
 open System.Threading
@@ -12,7 +12,7 @@ type ResultCell<'a>() =
     let mutable resEvent = null
 
     let mutable disposed = false
-    
+
     let mutable onRegisterResult = fun () -> ()
 
     // All writers of result are protected by lock on syncRoot.
@@ -30,10 +30,10 @@ type ResultCell<'a>() =
                 ev
             | ev ->
                 ev)
-    
+
     member this.SetOnRegisterResultNoLock(f) =
         onRegisterResult <- f
-    
+
     member x.Close() =
         lock syncRoot (fun () ->
             if not disposed then
@@ -51,7 +51,7 @@ type ResultCell<'a>() =
         match result with
         | Some res -> res
         | None -> failwith "Unexpected no result"
-    
+
     member private x.RegisterResultNoLock (res:'a) =
         // Ignore multiple sets of the result. This can happen, e.g. for a race between a cancellation and a success
         if x.ResultAvailable then
@@ -70,14 +70,14 @@ type ResultCell<'a>() =
                 | ev ->
                     // Setting the event need to happen under lock so as not to race with Close()
                     ev.Set () |> ignore
-    
-    
+
+
     /// Record the result in the ResultCell.
     member x.RegisterResult (res: 'a) =
         lock syncRoot (fun () ->
             x.RegisterResultNoLock(res)
         )
-    
+
     member x.RegisterResultIfNotAvailable (res: 'a) =
         lock syncRoot (fun () ->
             // Ignore multiple sets of the result. This can happen, e.g. for a race between a cancellation and a success

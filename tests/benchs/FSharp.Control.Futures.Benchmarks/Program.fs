@@ -1,11 +1,13 @@
-﻿module FSharp.Control.Future.Benchmarks.Program
+﻿module FSharp.Control.Futures.Benchmarks.Program
 
 open System
-open BenchmarkDotNet.Attributes
 
+open BenchmarkDotNet.Attributes
 open BenchmarkDotNet.Running
-open FSharp.Control.Future
-open FSharp.Control.Future.Benchmarks.Fibonacci
+
+open FSharp.Control.Futures
+
+open FSharp.Control.Futures.Benchmarks.Fibonacci
 
 
 type FibonacciBenchmark() =

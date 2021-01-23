@@ -1,4 +1,4 @@
-module FSharp.Control.Future.Channels
+module FSharp.Control.Futures.Channels
 
 open System.Collections.Concurrent
 open System.Threading.Channels

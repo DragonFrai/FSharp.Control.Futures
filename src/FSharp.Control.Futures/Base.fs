@@ -1,9 +1,8 @@
-module FSharp.Control.Future.Base
+module FSharp.Control.Futures.Base
 
 open System
 open System.Threading
 open System.Timers
-open FSharp.Control.Future
 
 
 [<RequireQualifiedAccess>]

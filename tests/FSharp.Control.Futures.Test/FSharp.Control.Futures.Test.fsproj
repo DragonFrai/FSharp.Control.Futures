@@ -6,16 +6,16 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <Compile Include="Fibonacci.fs" />
+        <Compile Include="QuotationPrinting.fs" />
         <Compile Include="Program.fs" />
     </ItemGroup>
 
     <ItemGroup>
-      <PackageReference Include="BenchmarkDotNet" Version="0.12.1" />
+      <PackageReference Include="TaskBuilder.fs" Version="2.2.0-alpha" />
     </ItemGroup>
 
     <ItemGroup>
-      <ProjectReference Include="..\..\..\src\FSharp.Control.Future\FSharp.Control.Future.fsproj" />
+      <ProjectReference Include="..\..\src\FSharp.Control.Futures\FSharp.Control.Futures.fsproj" />
     </ItemGroup>
 
 </Project>
