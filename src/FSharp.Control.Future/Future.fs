@@ -25,6 +25,11 @@ module Future =
         | Ready x -> f x
         | Pending -> Pending
 
+    let inline private onReady' (f: 'a -> unit) (x: Poll<'a>) : unit =
+        match x with
+        | Ready x -> f x
+        | Pending -> ()
+
     let poll waker (Future f) = f waker
 
     let ready value : Future<'a> =
@@ -69,12 +74,8 @@ module Future =
         let mutable rf = None
         let mutable r1 = None
         Future ^fun waker ->
-            match poll waker f with
-            | Ready f -> rf <- Some f
-            | _ -> ()
-            match poll waker fut with
-            | Ready x1 -> r1 <- Some x1
-            | _ -> ()
+            poll waker f |> onReady' ^fun f -> rf <- Some f
+            poll waker fut |> onReady' ^fun x1 -> r1 <- Some x1
             match rf, r1 with
             | Some f, Some x1 ->
                 Ready (f x1)
@@ -84,12 +85,8 @@ module Future =
         let mutable r1 = None
         let mutable r2 = None
         Future ^fun waker ->
-            match poll waker fut1 with
-            | Ready x1 -> r1 <- Some x1
-            | _ -> ()
-            match poll waker fut2 with
-            | Ready x2 -> r2 <- Some x2
-            | _ -> ()
+            poll waker fut1 |> onReady' ^fun x1 -> r1 <- Some x1
+            poll waker fut2 |> onReady' ^fun x2 -> r2 <- Some x2
             match r1, r2 with
             | Some x1, Some x2 -> Ready (x1, x2)
             | _ -> Pending
@@ -97,13 +94,7 @@ module Future =
     let join (fut: Future<Future<'a>>) : Future<'a> =
         let mutable inner = ValueNone
         Future ^fun waker ->
-            if inner.IsNone then
-                match poll waker fut with
-                | Ready inner' ->
-                    inner <- ValueSome inner'
-                    Pending
-                | Pending -> Pending
-            else
+            if inner.IsNone then poll waker fut |> onReady' ^fun inner' -> inner <- ValueSome inner'
             match inner with
             | ValueSome x -> poll waker x
             | ValueNone -> Pending
