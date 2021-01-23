@@ -35,7 +35,6 @@ let rec spawnOnPool (task: RuntimeTask<'a>) =
                  match result with
                  | Ready x -> task.ResultCell.RegisterResultIfNotAvailable(x)
                  | Pending -> ()
-                 | Cancelled -> failwith "TODO"
              else ()
      ) |> ignore
 
