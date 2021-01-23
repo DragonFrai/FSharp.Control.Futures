@@ -50,8 +50,7 @@ module Future =
             match fut2 with
             | ValueSome fut2 -> poll waker fut2
             | ValueNone ->
-                fut
-                |> poll waker
+                poll waker fut
                 |> bindPoll' ^fun x ->
                     let fut2' = binder x
                     fut2 <- ValueSome fut2'
