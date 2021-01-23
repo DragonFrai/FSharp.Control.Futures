@@ -80,7 +80,7 @@ module Future =
 
     // TODO: fix it
     let run (f: Future<'a>) : 'a =
-        use wh = new EventWaitHandle(false, EventResetMode.ManualReset)
+        use wh = new EventWaitHandle(false, EventResetMode.AutoReset)
         let waker () = wh.Set |> ignore
 
         let rec wait (current: Poll<'a>) =
