@@ -2,18 +2,19 @@
 open System.Diagnostics
 open System.Threading.Tasks
 open System.Threading
+open FSharp.Control.Future.Base
 
-open FSharp.Control.Tasks.V2
+//open FSharp.Control.Tasks.V2
 
 open FSharp.Control.Future
 
 
 module Snowball =
-    
+
     type Tree<'a> =
         | Leaf
         | Node of Tree<'a> * 'a * Tree<'a>
-    
+
     let snowballFuture n = future {
         let rec loop x i : Future<Tree<int>> = future {
             if i >= n then
@@ -25,12 +26,12 @@ module Snowball =
         }
         return! loop 0 0
     }
-    
+
     let snowballFutureParallel n = future {
         let rec loop x i : Future<Tree<int>> = future {
             if i >= n then
                 return Leaf
-            else            
+            else
             let left = loop (x + i) (i + 1) |> Runtime.runOnPoolAsync
             let right = loop (x + i + 1) (i + 1) |> Runtime.runOnPoolAsync
             let! left = left
@@ -39,12 +40,12 @@ module Snowball =
         }
         return! loop 0 0
     }
-    
+
     let snowballAsyncParallel n = async {
         let rec loop x i : Async<Tree<int>> = async {
             if i >= n then
                 return Leaf
-            else 
+            else
             let left = loop (x + i) (i + 1)
             let right = loop (x + i + 1) (i + 1)
             let! [|left; right|] = Async.Parallel [left; right]
@@ -52,30 +53,30 @@ module Snowball =
         }
         return! loop 0 0
     }
-    
+
     let snowballAsync n = async {
         let rec loop x i : Async<Tree<int>> = async {
             if i >= n then
                 return Leaf
-            else 
+            else
             let! left = loop (x + i) (i + 1)
             let! right = loop (x + i + 1) (i + 1)
             return Node (left, x ,right)
         }
         return! loop 0 0
     }
-    
-    let snowballTask n = task {
-        let rec loop x i : Task<Tree<int>> = task {
-            if i >= n then
-                return Leaf
-            else 
-            let! left = loop (x + i) (i + 1)
-            let! right = loop (x + i + 1) (i + 1)
-            return Node (left, x ,right)
-        }
-        return! loop 0 0
-    }
+
+//    let snowballTask n = task {
+//        let rec loop x i : Task<Tree<int>> = task {
+//            if i >= n then
+//                return Leaf
+//            else
+//            let! left = loop (x + i) (i + 1)
+//            let! right = loop (x + i + 1) (i + 1)
+//            return Node (left, x ,right)
+//        }
+//        return! loop 0 0
+//    }
 
 
 let runFuture depth =
@@ -94,14 +95,14 @@ let runAsyncParallel depth =
     let a = Snowball.snowballAsyncParallel depth
     Async.RunSynchronously a
 
-let runTask depth =
-    let task = Snowball.snowballTask depth
-    task.GetAwaiter().GetResult()
+//let runTask depth =
+//    let task = Snowball.snowballTask depth
+//    task.GetAwaiter().GetResult()
 
 
 [<EntryPoint>]
 let main argv =
-    
+
     printfn "Main"
     future {
         let! x1 = future {
@@ -125,6 +126,5 @@ let main argv =
     }
     |> Runtime.runSync
     |> printfn "R: %i"
-    
+
     0 // return an integer exit code
-    

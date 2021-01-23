@@ -13,11 +13,11 @@ type IRuntime =
 type RuntimeTask<'a>(future: Future<'a>) =
     let res: ResultCell<'a> = new ResultCell<'a>()
     let sync = obj()
-    
+
     member _.ResultCell = res
     member _.Future = future
     member _.Sync = sync
-    
+
     interface IDisposable with
         member _.Dispose() =
             (res :> IDisposable).Dispose()
@@ -27,7 +27,7 @@ let rec spawnOnPool (task: RuntimeTask<'a>) =
      let waker () =
         if not task.ResultCell.ResultAvailable then
             spawnOnPool task
-     
+
      ThreadPool.QueueUserWorkItem(fun _ ->
          lock task.Sync ^fun () ->
              if not task.ResultCell.ResultAvailable then
@@ -52,7 +52,7 @@ let runOnPoolAsync (f: Future<'a>) : Future<'a> =
             else
                 task.ResultCell.SetOnRegisterResultNoLock(waker)
                 Pending
-    Future.create innerF
+    Future innerF
 
 let runSync (f: Future<'a>) : 'a =
     use task = new RuntimeTask<'a>(f)

@@ -1,20 +1,38 @@
 namespace FSharp.Control.Future
 
-type Future<'a> = FSharp.Control.Future.Core.Future<'a>
+open System.Threading
+
+[<Struct>]
+type Poll<'a> =
+    | Ready of 'a
+    | Pending
+
+type Waker = unit -> unit
+
+[<Struct>]
+type Future<'a> = Future of (Waker -> Poll<'a>)
 
 module Future =
 
+    val poll: waker: Waker -> fut: Future<'a> -> Poll<'a>
+
     val ready: value: 'a -> Future<'a>
+
+    val lazy': f: (unit -> 'a) -> Future<'a>
+
+    val never: unit -> Future<'a>
 
     val bind: binder: ('a -> Future<'b>) -> fut: Future<'a> -> Future<'b>
 
     val map: mapping: ('a -> 'b) -> fut: Future<'a> -> Future<'b>
 
-    val never: unit -> Future<'a>
+    val apply: f: Future<'a -> 'b> -> fut: Future<'a> -> Future<'b>
 
-    val ignore: future: Future<'a> -> Future<unit>
-
-//    val merge: fut1: Future<'a> -> fut2: Future<'b> -> Future<'a * 'b>
+    val merge: fut1: Future<'a> -> fut2: Future<'b> -> Future<'a * 'b>
 
     val join: fut: Future<Future<'a>> -> Future<'a>
+
+    val getWaker: Future<Waker>
+
+    val ignore: future: Future<'a> -> Future<unit>
 
