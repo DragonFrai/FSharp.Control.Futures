@@ -7,6 +7,7 @@ open FSharp.Control.Future.Base
 //open FSharp.Control.Tasks.V2
 
 open FSharp.Control.Future
+open FSharp.Control.Future.Test
 
 
 module Snowball =
@@ -110,58 +111,123 @@ let runAsyncParallel depth =
 //    let task = Snowball.snowballTask depth
 //    task.GetAwaiter().GetResult()
 
+module Fib =
+
+//    let inline private futureM1 n = Future.ready (n - 1)
+//    let inline private futureM2 n = Future.ready (n - 2)
+
+    let rec fibFunction () : int -> int =
+        fun n ->
+            if n < 0 then raise (InvalidOperationException "n < 0")
+            if n < 2 then n
+            else fibFunction () (n - 1) + fibFunction () (n - 2)
+
+    let rec fibAsync (n: int) = async {
+        if n < 2 then
+            return n
+        else
+            let! a = fibAsync (n - 1)
+            let! b = fibAsync (n - 2)
+            return a + b
+    }
+
+    let rec fibFuture (n: int) = future {
+        if n < 2 then
+            return n
+        else
+            let! a = fibFuture (n - 1)
+            let! b = fibFuture (n - 2)
+            return a + b
+    }
+
+    let rec fibFutureNoBuilder (n: int) : Future<int> =
+        if n < 0 then raise (InvalidOperationException "n < 0")
+        if n < 2
+        then Future.ready n
+        else
+            let mutable value = -1
+            let f1 = fibFutureNoBuilder (n - 1)
+            let f2 = fibFutureNoBuilder (n - 2)
+            Future (fun waker ->
+                match value with
+                | -1 ->
+                    match Future.poll waker f1, Future.poll waker f2 with
+                    | Ready a, Ready b -> value <- (a + b); Ready (a + b)
+                    | _ -> Pending
+                | x -> Ready x
+            )
+
+module QuoteBuilders =
+    open FSharp.Quotations
+
+    type StateMachineFutureBuilder with
+        member _.Quote() = ()
+        member _.Run(x: Expr) = x
+
+    let print x =
+        QuotationPrinting.
 
 [<EntryPoint>]
 let main argv =
 
-    printfn "Main"
-    future {
-        let! x1 = future {
-            printfn "[x1] Start"
-            do! Future.sleep 2000
-            printfn "[x1] End"
-            return 2
-        }
-        and! x2 = future {
-            printfn "[x2] Start"
-            do! Future.sleep 3000
-            printfn "[x2] End"
-            return 3
-        }
-        and! x3 = future {
-            printfn "[x3]"
-            return 1
-        }
-        printfn "Merged"
-        return x1 + x2 + x3
+    let fut = smfuture {
+        return 12
     }
-    |> Runtime.runSync
-    |> printfn "R: %i"
 
-    let depth = 17
+    let r = fut |> Future.run
 
-    let sw = Stopwatch()
+    printfn $"{r}"
 
-    printfn "Test function..."
-    sw.Start()
-    for i in 1..20 do (Snowball.snowballFunction depth) |> ignore
-    let ms = sw.ElapsedMilliseconds
-    printfn "Total %i ms\n" ms
+//    printfn "Main"
+//    future {
+//        let! x1 = future {
+//            printfn "[x1] Start"
+//            do! Future.sleep 2000
+//            printfn "[x1] End"
+//            return 2
+//        }
+//        and! x2 = future {
+//            printfn "[x2] Start"
+//            do! Future.sleep 3000
+//            printfn "[x2] End"
+//            return 3
+//        }
+//        and! x3 = future {
+//            printfn "[x3]"
+//            return 1
+//        }
+//        printfn "Merged"
+//        return x1 + x2 + x3
+//    }
+//    |> Runtime.runSync
+//    |> printfn "R: %i"
 
-    printfn "Test async..."
-    sw.Start()
-    for i in 1..20 do (runAsync depth) |> ignore
-    let ms = sw.ElapsedMilliseconds
-    printfn "Total %i ms\n" ms
-
-    printfn "Test future..."
-    sw.Restart()
-    for i in 1..20 do (runFuture depth) |> ignore
-    let ms = sw.ElapsedMilliseconds
-    printfn "Total %i ms\n" ms
-
-
-
-
+//    let depth = 25
+//
+//    let sw = Stopwatch()
+//
+//    printfn "Test function..."
+//    sw.Start()
+//    for i in 1..20 do (Fib.fibFunction () depth) |> ignore
+//    let ms = sw.ElapsedMilliseconds
+//    printfn "Total %i ms\n" ms
+//
+//    printfn "Test async..."
+//    sw.Restart()
+//    for i in 1..20 do (Async.RunSynchronously(Fib.fibAsync depth)) |> ignore
+//    let ms = sw.ElapsedMilliseconds
+//    printfn "Total %i ms\n" ms
+//
+//    printfn "Test future..."
+//    sw.Restart()
+//    for i in 1..20 do (Fib.fibFuture depth |> Future.run) |> ignore
+//    let ms = sw.ElapsedMilliseconds
+//    printfn "Total %i ms\n" ms
+//
+//    printfn "Test futureNoBuilder..."
+//    sw.Restart()
+//    for i in 1..20 do (Fib.fibFutureNoBuilder depth |> Future.run) |> ignore
+//    let ms = sw.ElapsedMilliseconds
+//    printfn "Total %i ms\n" ms
 
     0 // return an integer exit code
