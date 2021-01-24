@@ -36,7 +36,7 @@ module Future =
         | Ready x -> f x
         | Pending -> Pending
 
-    let create (f: Waker -> Poll<'a>) = FuncFuture f :> IFuture<'a>
+    let inline create (f: Waker -> Poll<'a>) = FuncFuture(f) :> IFuture<'a>
 
     let inline poll waker (fut: IFuture<_>) = fut.Poll(waker)
 
