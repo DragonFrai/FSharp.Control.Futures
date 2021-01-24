@@ -26,9 +26,7 @@ exception FutureCancelledException of string
 
 [<NoComparison; NoEquality>]
 type FuncFuture<'a>(poller: Waker -> Poll<'a>) =
-    class
-    end
-    with interface IFuture<'a> with member _.Poll(waker) = poller waker
+    interface IFuture<'a> with member _.Poll(waker) = poller waker
 
 [<RequireQualifiedAccess>]
 module Future =
