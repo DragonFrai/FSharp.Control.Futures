@@ -13,6 +13,10 @@ type Waker = unit -> unit
 type IFuture<'a> =
     abstract member Poll: Waker -> Poll<'a>
 
+type FuncFuture<'a> =
+    new: poll: (Waker -> Poll<'a>) -> FuncFuture<'a>
+    interface IFuture<'a>
+
 module Future =
 
     val inline create: f: (Waker -> Poll<'a>) -> IFuture<'a>
