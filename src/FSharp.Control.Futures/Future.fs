@@ -31,7 +31,7 @@ type FuncFuture<'a>(poller: Waker -> Poll<'a>) =
 [<RequireQualifiedAccess>]
 module Future =
 
-    let inline private bindPoll' (f: 'a -> Poll<'b>) (x: Poll<'a>) : Poll<'b> =
+    let inline bindPoll' (f: 'a -> Poll<'b>) (x: Poll<'a>) : Poll<'b> =
         match x with
         | Ready x -> f x
         | Pending -> Pending
