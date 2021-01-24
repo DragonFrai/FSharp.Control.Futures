@@ -15,7 +15,7 @@ type IFuture<'a> =
 
 module Future =
 
-    val create: f: (Waker -> Poll<'a>) -> IFuture<'a>
+    val inline create: f: (Waker -> Poll<'a>) -> IFuture<'a>
 
     val inline poll: waker: Waker -> fut: IFuture<'a> -> Poll<'a>
 

@@ -24,21 +24,18 @@ type CancellableFuture<'a> = CancellationToken -> IFuture<'a>
 
 exception FutureCancelledException of string
 
-[<NoComparison; NoEquality>]
 type FuncFuture<'a>(poller: Waker -> Poll<'a>) =
-    class
-    end
-    with interface IFuture<'a> with member _.Poll(waker) = poller waker
+    interface IFuture<'a> with member _.Poll(waker) = poller waker
 
 [<RequireQualifiedAccess>]
 module Future =
 
-    let inline private bindPoll' (f: 'a -> Poll<'b>) (x: Poll<'a>) : Poll<'b> =
+    let inline bindPoll' (f: 'a -> Poll<'b>) (x: Poll<'a>) : Poll<'b> =
         match x with
         | Ready x -> f x
         | Pending -> Pending
 
-    let create (f: Waker -> Poll<'a>) = FuncFuture f :> IFuture<'a>
+    let inline create (f: Waker -> Poll<'a>) = FuncFuture(f) :> IFuture<'a>
 
     let inline poll waker (fut: IFuture<_>) = fut.Poll(waker)
 
