@@ -24,8 +24,8 @@ type CancellableFuture<'a> = CancellationToken -> IFuture<'a>
 
 exception FutureCancelledException of string
 
-type FuncFuture<'a>(poller: Waker -> Poll<'a>) =
-    interface IFuture<'a> with member _.Poll(waker) = poller waker
+type FuncFuture<'a>(poll: Waker -> Poll<'a>) =
+    interface IFuture<'a> with member _.Poll(waker) = poll waker
 
 [<RequireQualifiedAccess>]
 module Future =

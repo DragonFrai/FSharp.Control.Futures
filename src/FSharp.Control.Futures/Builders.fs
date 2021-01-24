@@ -43,16 +43,14 @@ module StateMachines =
                 | ValueSome r -> Ready r
 
     [<Struct; NoComparison; NoEquality>]
-    type IfElseStateMachine<'a, 'ft, 'ff when 'ft :> IFuture<'a> and 'ff :> IFuture<'a>> =
-        val condition: bool
-        val futureIfTrue: 'ft
-        val futureIfFalse: 'ff
-        new(c, t, f) = { condition = c; futureIfTrue = t; futureIfFalse = f }
+    type EitherStateMachine<'a, 'ft, 'ff when 'ft :> IFuture<'a> and 'ff :> IFuture<'a>> =
+        | OnTrue of onTrue: 'ft
+        | OnFalse of onFalse: 'ff
         interface IFuture<'a> with
             member this.Poll(waker) =
-                if this.condition
-                then this.futureIfTrue.Poll(waker)
-                else this.futureIfFalse.Poll(waker)
+                match this with
+                | OnTrue ft -> ft.Poll(waker)
+                | OnFalse ff -> ff.Poll(waker)
 
     [<Struct; NoComparison; NoEquality>]
     type BindStateMachine<'a, 'b, 'fa, 'fb when 'fa :> IFuture<'a> and 'fb :> IFuture<'b>> =
