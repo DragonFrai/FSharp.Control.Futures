@@ -7,7 +7,7 @@
         <Title>FSharp.Control.Futures</Title>
         <Authors />
         <PackageProjectUrl>https://github.com/VAVUS7/FSharp.Control.Futures</PackageProjectUrl>
-        <PackageLicenseUrl>https://licenses.nuget.org/MIT</PackageLicenseUrl>
+        <PackageLicenseExpression>MIT</PackageLicenseExpression>
         <RepositoryUrl>https://github.com/VAVUS7/FSharp.Control.Futures</RepositoryUrl>
     </PropertyGroup>
 
