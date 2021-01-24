@@ -4,15 +4,11 @@ open System
 open System.Runtime.CompilerServices
 
 
-
-
-
 module BuilderFutures =
 
     type IMakeNotDelayed<'a, 'fa when 'fa :> IFuture<'a>> =
         inherit IFuture<'a>
         abstract member MakeNotDelayed: unit -> 'fa
-
 
     [<Struct; NoComparison; NoEquality>]
     type ReadyFuture<'a>(value: 'a) =
@@ -26,11 +22,9 @@ module BuilderFutures =
 
     [<Struct; NoComparison; NoEquality>]
     type LazyFuture<'a, 'fa when 'fa :> IFuture<'a>> =
-        struct
-            val func: unit -> 'fa
-            val mutable future: 'fa voption
-            new(func) = { func = func; future = ValueNone }
-        end
+        val func: unit -> 'fa
+        val mutable future: 'fa voption
+        new func = { func = func; future = ValueNone }
         interface IFuture<'a> with
             member this.Poll(waker) =
                 match this.future with
@@ -43,12 +37,10 @@ module BuilderFutures =
 
     [<Struct; NoComparison; NoEquality>]
     type ConditionalFuture<'a, 'ft, 'ff when 'ft :> IFuture<'a> and 'ff :> IFuture<'a>> =
-        struct
-            val condition: bool
-            val futureIfTrue: 'ft
-            val futureIfFalse: 'ff
-            new(c, t, f) = { condition = c; futureIfTrue = t; futureIfFalse = f }
-        end
+        val condition: bool
+        val futureIfTrue: 'ft
+        val futureIfFalse: 'ff
+        new(c, t, f) = { condition = c; futureIfTrue = t; futureIfFalse = f }
         interface IFuture<'a> with
             member this.Poll(waker) =
                 if this.condition
