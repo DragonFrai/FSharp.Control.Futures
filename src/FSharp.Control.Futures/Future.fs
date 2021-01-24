@@ -24,7 +24,6 @@ type CancellableFuture<'a> = CancellationToken -> IFuture<'a>
 
 exception FutureCancelledException of string
 
-[<NoComparison; NoEquality>]
 type FuncFuture<'a>(poller: Waker -> Poll<'a>) =
     interface IFuture<'a> with member _.Poll(waker) = poller waker
 
