@@ -9,6 +9,8 @@ open FSharp.Control.Futures.Base
 open FSharp.Control.Futures
 
 
+let inline ( ^ ) f x = f x
+
 //module Snowball =
 //
 //    type Tree<'a> =
@@ -89,6 +91,7 @@ open FSharp.Control.Futures
 ////        return! loop 0 0
 ////    }
 
+open FSharp.Control.Futures.StateMachines
 open FSharp.Control.Futures.Test
 open FSharp.Quotations
 
@@ -154,17 +157,27 @@ module Fib =
 
 
     let rec fibSMFuture n =
-        future {
-            if n < 0 then invalidOp "n < 0"
-            return!
-                if n <= 1 then  future { return n }
-                else
-                    future {
-                        let! a = fibSMFuture (n - 1)
-                        let! b = fibSMFuture (n - 2)
-                        return a + b
-                    }
+        if n < 0 then future { return invalidOp "n < 0" }
+        else if n <= 1 then future { return n }
+        else
+            future {
+                let! a = fibSMFuture (n - 1)
+                let! b = fibSMFuture (n - 2)
+                return a + b
+            }
+
+    //let futureIfElse cond f1 f2 = EitherStateMachine(cond, f1, f2)
+
+    let rec fibFuture2 n = future {
+        if n < 0 then invalidOp "n < 0"
+        if n <= 1
+        then return! OnTrue ^smfuture { return n }
+        else return! OnFalse ^smfuture {
+            let! a = fibFuture2 (n - 1)
+            let! b = fibFuture2 (n - 2)
+            return a + b
         }
+    }
 
 //let runTask depth =
 //    let task = Snowball.snowballTask depth
@@ -207,10 +220,10 @@ let main argv =
     let ms = sw.ElapsedMilliseconds
     printfn "Total %i ms\n" ms
 
-//    printfn "Test legacy future..."
-//    sw.Restart()
-//    for i in 1..20 do (Fib.fibFuture n |> Future.run) |> ignore
-//    let ms = sw.ElapsedMilliseconds
-//    printfn "Total %i ms\n" ms
+    printfn "Test State Machine Future if-else state machine..."
+    sw.Restart()
+    for i in 1..20 do (Fib.fibFuture2 n |> Future.run) |> ignore
+    let ms = sw.ElapsedMilliseconds
+    printfn "Total %i ms\n" ms
 
     0 // return an integer exit code
