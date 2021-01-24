@@ -106,14 +106,15 @@ module Fib =
         if n <= 1 then n
         else fib (n - 1) + fib (n - 2)
 
-    let rec fibAsync n = async {
+    let rec fibAsync n =
         if n < 0 then invalidOp "n < 0"
-        if n <= 1 then return n
-        else
+        if n <= 1 then async { return n }
+        else async {
             let! a = fibAsync (n - 1)
             let! b = fibAsync (n - 2)
             return a + b
-    }
+        }
+
 
     let rec fibFutureNoBuilder (n: int) : IFuture<int> =
         if n < 0 then raise (InvalidOperationException "n < 0")
@@ -141,31 +142,29 @@ module Fib =
             return a + b
     }
 
-    let rec fibSMFuture n = future {
+    open FSharp.Control.Tasks
+    let rec fibTask n = task {
         if n < 0 then invalidOp "n < 0"
-        if n <= 1 then return! future { return n } |> shadow
+        if n <= 1 then return n
         else
-            return! future {
-                let! a = fibSMFuture (n - 1)
-                let! b = fibSMFuture (n - 2)
-                return a + b
-            } |> shadow
+            let! a = fibTask (n - 1)
+            let! b = fibTask (n - 2)
+            return a + b
     }
 
-    let rec fibSMFuture2 n =
+
+    let rec fibSMFuture n =
         future {
             if n < 0 then invalidOp "n < 0"
             return!
-                futureIfElse
-                    (n <= 1)
-                    (future { return n })
-                    (future {
-                        let! a = fibSMFuture2 (n - 1)
-                        let! b = fibSMFuture2 (n - 2)
+                if n <= 1 then  future { return n }
+                else
+                    future {
+                        let! a = fibSMFuture (n - 1)
+                        let! b = fibSMFuture (n - 2)
                         return a + b
-                    })
+                    }
         }
-        |> shadow
 
 //let runTask depth =
 //    let task = Snowball.snowballTask depth
@@ -176,12 +175,17 @@ module Fib =
 let main argv =
 
     let sw = Stopwatch()
-
     let n = 25
 
     printfn "Test function..."
     sw.Start()
     for i in 1..20 do (Fib.fib n) |> ignore
+    let ms = sw.ElapsedMilliseconds
+    printfn "Total %i ms\n" ms
+
+    printfn "Test tasks..."
+    sw.Start()
+    for i in 1..20 do (Fib.fibTask n).GetAwaiter().GetResult() |> ignore
     let ms = sw.ElapsedMilliseconds
     printfn "Total %i ms\n" ms
 
@@ -203,16 +207,10 @@ let main argv =
     let ms = sw.ElapsedMilliseconds
     printfn "Total %i ms\n" ms
 
-    printfn "Test State Machine Future V2..."
-    sw.Restart()
-    for i in 1..20 do (Fib.fibSMFuture2 n |> Future.run) |> ignore
-    let ms = sw.ElapsedMilliseconds
-    printfn "Total %i ms\n" ms
-
-    printfn "Test legacy future..."
-    sw.Restart()
-    for i in 1..20 do (Fib.fibFuture n |> Future.run) |> ignore
-    let ms = sw.ElapsedMilliseconds
-    printfn "Total %i ms\n" ms
+//    printfn "Test legacy future..."
+//    sw.Restart()
+//    for i in 1..20 do (Fib.fibFuture n |> Future.run) |> ignore
+//    let ms = sw.ElapsedMilliseconds
+//    printfn "Total %i ms\n" ms
 
     0 // return an integer exit code

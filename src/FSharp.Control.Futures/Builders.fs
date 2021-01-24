@@ -7,30 +7,21 @@ open System.Runtime.CompilerServices
 
 
 
-module BuilderFutures =
-
-    type IMakeNotDelayed<'a, 'fa when 'fa :> IFuture<'a>> =
-        inherit IFuture<'a>
-        abstract member MakeNotDelayed: unit -> 'fa
-
+module StateMachines =
 
     [<Struct; NoComparison; NoEquality>]
-    type ReadyFuture<'a>(value: 'a) =
+    type ReadyStateMachine<'a>(value: 'a) =
         interface IFuture<'a> with member this.Poll(_) = Ready value
-        interface IMakeNotDelayed<'a, ReadyFuture<'a>> with member this.MakeNotDelayed() = this
 
     [<Struct; NoComparison; NoEquality>]
-    type ZeroFuture(_u: unit) =
+    type ZeroStateMachine(_u: unit) =
         interface IFuture<unit> with member this.Poll(_) = Ready ()
-        interface IMakeNotDelayed<unit, ZeroFuture> with member this.MakeNotDelayed() = this
 
     [<Struct; NoComparison; NoEquality>]
-    type LazyFuture<'a, 'fa when 'fa :> IFuture<'a>> =
-        struct
-            val func: unit -> 'fa
-            val mutable future: 'fa voption
-            new(func) = { func = func; future = ValueNone }
-        end
+    type DelayStateMachine<'a, 'fa when 'fa :> IFuture<'a>> =
+        val func: unit -> 'fa
+        val mutable future: 'fa voption
+        new(func) = { func = func; future = ValueNone }
         interface IFuture<'a> with
             member this.Poll(waker) =
                 match this.future with
@@ -39,25 +30,22 @@ module BuilderFutures =
                     this.future <- ValueSome future
                     future.Poll(waker)
                 | ValueSome future -> future.Poll(waker)
-        interface IMakeNotDelayed<'a, 'fa> with member this.MakeNotDelayed() = this.func ()
 
     [<Struct; NoComparison; NoEquality>]
-    type ConditionalFuture<'a, 'ft, 'ff when 'ft :> IFuture<'a> and 'ff :> IFuture<'a>> =
-        struct
-            val condition: bool
-            val futureIfTrue: 'ft
-            val futureIfFalse: 'ff
-            new(c, t, f) = { condition = c; futureIfTrue = t; futureIfFalse = f }
-        end
+    type ConditionalStateMachine<'a, 'ft, 'ff when 'ft :> IFuture<'a> and 'ff :> IFuture<'a>> =
+        val condition: bool
+        val futureIfTrue: 'ft
+        val futureIfFalse: 'ff
+        new(c, t, f) = { condition = c; futureIfTrue = t; futureIfFalse = f }
+
         interface IFuture<'a> with
             member this.Poll(waker) =
                 if this.condition
                 then this.futureIfTrue.Poll(waker)
                 else this.futureIfFalse.Poll(waker)
-        interface IMakeNotDelayed<'a, ConditionalFuture<'a, 'ft, 'ff>> with member this.MakeNotDelayed() = this
 
     [<Struct; NoComparison; NoEquality>]
-    type BindFuture<'a, 'b, 'fa, 'fb when 'fa :> IFuture<'a> and 'fb :> IFuture<'b>> =
+    type BindStateMachine<'a, 'b, 'fa, 'fb when 'fa :> IFuture<'a> and 'fb :> IFuture<'b>> =
         { FutureA: 'fa
           mutable FutureB: 'fb voption
           Binder: 'a -> 'fb }
@@ -76,56 +64,74 @@ module BuilderFutures =
                 | ValueSome fb ->
                     let mutable fb = fb
                     fb.Poll(waker)
-        interface IMakeNotDelayed<'b, BindFuture<'a, 'b, 'fa, 'fb>> with member this.MakeNotDelayed() = this
 
     [<Struct; NoComparison; NoEquality>]
-    type CombineFuture<'fu, 'fa, 'a when 'fu :> IFuture<unit> and 'fa :> IFuture<'a>>(fu: 'fu, fa: 'fa) =
+    type CombineStateMachine<'fu, 'fa, 'a when 'fu :> IFuture<unit> and 'fa :> IFuture<'a>>(fu: 'fu, fa: 'fa) =
         interface IFuture<'a> with
             member this.Poll(waker) =
                 match fu.Poll(waker) with
                 | Ready () ->
                     fa.Poll(waker)
                 | Pending -> Pending
-        interface IMakeNotDelayed<'a, CombineFuture<'fu, 'fa, 'a>> with member this.MakeNotDelayed() = this
 
-open BuilderFutures
+
+open StateMachines
 
 // -------------------------
 // StateMachineFutureBuilder
 // -------------------------
 
-type FutureBuilder() =
+type StateMachineFutureBuilder() =
 
-    member inline _.Return(x: 'a) = ReadyFuture(x)
+    member inline _.Return(x: 'a) = ReadyStateMachine(x)
 
-    member inline _.Zero() = ZeroFuture(())
+    member inline _.Zero() = ZeroStateMachine(())
 
     member inline _.Bind(x: 'fa when 'fa :> IFuture<'a>, f: 'a -> 'fb) =
-        { BindFuture.FutureA = x
-          BindFuture.FutureB = ValueNone
-          BindFuture.Binder = f }
+        { BindStateMachine.FutureA = x
+          BindStateMachine.FutureB = ValueNone
+          BindStateMachine.Binder = f }
 
     member inline _.ReturnFrom(fut: #IFuture<'a>) = fut
 
-    member inline _.Combine(u: 'fu, fut: 'fa) = CombineFuture(u, fut)
+    member inline _.Combine(u: 'fu, fut: 'fa) = CombineStateMachine(u, fut)
 
 //    member inline _.MergeSources(x1, x2): Future<'a * 'b> = Future.merge x1 x2
 
-    member inline _.Delay(f: unit -> 'fa) = LazyFuture(f)
+    member inline _.Delay(f: unit -> 'fa) = DelayStateMachine(f)
 
     //member inline this.Run(fut: #IFuture<'a>): #IFuture<'a> = fut
 
-    member inline _.Run<'a, 'fut, 'fnd when 'fut :> IFuture<'a> and 'fut :> IMakeNotDelayed<'a, 'fnd>>(fut: 'fut) =
-        fut //LazyStateMachine(fut.MakeNotDelayed)
+    member inline _.Run(fut: 'fut) = fut
 
 
 [<AutoOpen>]
 module StateMachineFutureBuilderImpl =
+    let smfuture = StateMachineFutureBuilder()
+
+
+type FutureBuilder() =
+    member inline _.Return(x) = smfuture.Return(x)
+
+    member inline _.Zero() = smfuture.Zero()
+
+    member inline _.Bind(x, f) = smfuture.Bind(x, f)
+
+    member inline _.ReturnFrom(fut) = smfuture.ReturnFrom(fut)
+
+    member inline _.Combine(u, fut) = smfuture.Combine(u, fut)
+
+//    member inline _.MergeSources(x1, x2): Future<'a * 'b> = Future.merge x1 x2
+
+    member inline _.Delay(f) = smfuture.Delay(f)
+
+    //member inline this.Run(fut: #IFuture<'a>): #IFuture<'a> = fut
+
+    member inline _.Run(fut): IFuture<_> = fut
+
+[<AutoOpen>]
+module FutureBuilderImpl =
     let future = FutureBuilder()
-
-    let inline shadow (fut: #IFuture<'a>) = fut :> IFuture<'a>
-
-    let inline futureIfElse c t f = ConditionalFuture(c, t, f)
 
 
 // -------------------
@@ -169,5 +175,5 @@ type LegacyFutureBuilder() =
 
 
 [<AutoOpen>]
-module FutureBuilderImpl =
+module LegacyFutureBuilderImpl =
     let legacyfuture = LegacyFutureBuilder()
