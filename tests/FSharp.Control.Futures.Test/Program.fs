@@ -170,6 +170,7 @@ module Fib =
 //    let task = Snowball.snowballTask depth
 //    task.GetAwaiter().GetResult()
 
+let inline (|HasRemoveDelay|) (x: ^a when ^a: (static member RemoveDelay: 'fa1 -> 'fa2) and 'fa1 :> IFuture<'a> and 'fa2 :> IFuture<'a>) = x
 
 [<EntryPoint>]
 let main argv =

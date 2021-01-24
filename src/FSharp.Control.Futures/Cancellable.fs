@@ -1,13 +1,15 @@
 module FSharp.Control.Futures.Cancellable
 
+open System
+
 
 type MaybeCancel<'a> =
     | Completed of 'a
-    | Cancelled
+    | Cancelled of OperationCanceledException
 
 type CancellableFuture<'a> = IFuture<MaybeCancel<'a>>
 
-exception FutureCancelledException of string
+exception FutureCancelledException of OperationCanceledException
 
 [<RequireQualifiedAccess>]
 module Future =
