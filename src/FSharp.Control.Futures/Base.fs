@@ -27,7 +27,7 @@ module Future =
                     | None -> ()
             )
             Some t
-        Future ^fun waker ->
+        Future.create ^fun waker ->
             match timer with
             | Some timer ->
                 lock sync ^fun () ->
@@ -39,11 +39,11 @@ module Future =
 
 
     // TODO: optimize
-    let parallelSeq (futures: Future<'a> seq) : Future<'a[]> =
+    let parallelSeq (futures: IFuture<'a> seq) : IFuture<'a[]> =
         let mutable futures = futures |> Seq.map ValueSome |> Seq.toArray
         let mutable results: 'a[] = Array.zeroCreate (Array.length futures)
 
-        let innerF waker =
+        Future.create ^fun waker ->
             futures
             |> Seq.indexed
             |> Seq.map (fun (i, f) ->
@@ -63,11 +63,10 @@ module Future =
                 match x with
                 | false -> Pending
                 | true -> Ready results
-        Future innerF
 
-    let catch (f: Future<'a>) : Future<Result<'a, exn>> =
+    let catch (f: IFuture<'a>) : IFuture<Result<'a, exn>> =
         let mutable result = ValueNone
-        Future ^fun waker ->
+        Future.create ^fun waker ->
             if ValueNone = result then
                 try
                     Future.poll waker f |> Poll.onReady ^fun x -> result <- ValueSome (Ok x)
@@ -78,7 +77,7 @@ module Future =
             | ValueNone -> Pending
 
     // TODO: fix it
-    let run (f: Future<'a>) : 'a =
+    let run (f: IFuture<'a>) : 'a =
         use wh = new EventWaitHandle(false, EventResetMode.AutoReset)
         let waker () = wh.Set |> ignore
 

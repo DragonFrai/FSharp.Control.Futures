@@ -115,7 +115,7 @@ module Fib =
             return a + b
     }
 
-    let rec fibFutureNoBuilder (n: int) : Future<int> =
+    let rec fibFutureNoBuilder (n: int) : IFuture<int> =
         if n < 0 then raise (InvalidOperationException "n < 0")
         if n < 2
         then Future.ready n
@@ -123,7 +123,7 @@ module Fib =
             let mutable value = -1
             let f1 = fibFutureNoBuilder (n - 1)
             let f2 = fibFutureNoBuilder (n - 2)
-            Future (fun waker ->
+            Future.create (fun waker ->
                 match value with
                 | -1 ->
                     match Future.poll waker f1, Future.poll waker f2 with
@@ -132,7 +132,7 @@ module Fib =
                 | x -> Ready x
             )
 
-    let rec fibFuture n = future {
+    let rec fibFuture n = legacyfuture {
         if n < 0 then invalidOp "n < 0"
         if n <= 1 then return n
         else
@@ -141,31 +141,31 @@ module Fib =
             return a + b
     }
 
-    let rec fibRawSMFuture n = rawsmfuture {
-        let! r =
-            futIfElse
-                (n <= 1)
-                (rawsmfuture { return n })
-                (rawsmfuture {
-                    let! a = fibRawSMFuture (n - 1) |> asFuture
-                    let! b = fibRawSMFuture (n - 2) |> asFuture
-                    return a + b
-                })
-        return r
-    }
-
-    let rec fibSMFuture n = smfuture {
+    let rec fibSMFuture n = future {
         if n < 0 then invalidOp "n < 0"
-
-        if n <= 1 then return! future { return n }
+        if n <= 1 then return! future { return n } |> shadow
         else
             return! future {
                 let! a = fibSMFuture (n - 1)
                 let! b = fibSMFuture (n - 2)
                 return a + b
-            }
+            } |> shadow
     }
 
+    let rec fibSMFuture2 n =
+        future {
+            if n < 0 then invalidOp "n < 0"
+            return!
+                futureIfElse
+                    (n <= 1)
+                    (future { return n })
+                    (future {
+                        let! a = fibSMFuture2 (n - 1)
+                        let! b = fibSMFuture2 (n - 2)
+                        return a + b
+                    })
+        }
+        |> shadow
 
 //let runTask depth =
 //    let task = Snowball.snowballTask depth
@@ -197,24 +197,22 @@ let main argv =
     let ms = sw.ElapsedMilliseconds
     printfn "Total %i ms\n" ms
 
-    printfn "Test future..."
-    sw.Restart()
-    for i in 1..20 do (Fib.fibFuture n |> Future.run) |> ignore
-    let ms = sw.ElapsedMilliseconds
-    printfn "Total %i ms\n" ms
-
     printfn "Test State Machine Future..."
     sw.Restart()
     for i in 1..20 do (Fib.fibSMFuture n |> Future.run) |> ignore
     let ms = sw.ElapsedMilliseconds
     printfn "Total %i ms\n" ms
 
-    printfn "Test Raw State Machine Future..."
+    printfn "Test State Machine Future V2..."
     sw.Restart()
-    for i in 1..20 do (Fib.fibRawSMFuture n |> asFuture |> Future.run) |> ignore
+    for i in 1..20 do (Fib.fibSMFuture2 n |> Future.run) |> ignore
     let ms = sw.ElapsedMilliseconds
     printfn "Total %i ms\n" ms
 
-
+    printfn "Test legacy future..."
+    sw.Restart()
+    for i in 1..20 do (Fib.fibFuture n |> Future.run) |> ignore
+    let ms = sw.ElapsedMilliseconds
+    printfn "Total %i ms\n" ms
 
     0 // return an integer exit code

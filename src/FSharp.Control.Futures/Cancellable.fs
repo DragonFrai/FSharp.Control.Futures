@@ -5,7 +5,7 @@ type MaybeCancel<'a> =
     | Completed of 'a
     | Cancelled
 
-type CancellableFuture<'a> = Future<MaybeCancel<'a>>
+type CancellableFuture<'a> = IFuture<MaybeCancel<'a>>
 
 exception FutureCancelledException of string
 
