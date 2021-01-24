@@ -4,9 +4,6 @@ open System
 open System.Runtime.CompilerServices
 
 
-
-
-
 module StateMachines =
 
     [<Struct; NoComparison; NoEquality>]
@@ -32,12 +29,25 @@ module StateMachines =
                 | ValueSome future -> future.Poll(waker)
 
     [<Struct; NoComparison; NoEquality>]
-    type ConditionalStateMachine<'a, 'ft, 'ff when 'ft :> IFuture<'a> and 'ff :> IFuture<'a>> =
+    type LazyStateMachine<'a> =
+        val func: unit -> 'a
+        val mutable funcResult: 'a voption
+        new(func) = { func = func; funcResult = ValueNone }
+        interface IFuture<'a> with
+            member this.Poll(waker) =
+                match this.funcResult with
+                | ValueNone ->
+                    let r = this.func ()
+                    this.funcResult <- ValueSome r
+                    Ready r
+                | ValueSome r -> Ready r
+
+    [<Struct; NoComparison; NoEquality>]
+    type IfElseStateMachine<'a, 'ft, 'ff when 'ft :> IFuture<'a> and 'ff :> IFuture<'a>> =
         val condition: bool
         val futureIfTrue: 'ft
         val futureIfFalse: 'ff
         new(c, t, f) = { condition = c; futureIfTrue = t; futureIfFalse = f }
-
         interface IFuture<'a> with
             member this.Poll(waker) =
                 if this.condition
@@ -46,19 +56,20 @@ module StateMachines =
 
     [<Struct; NoComparison; NoEquality>]
     type BindStateMachine<'a, 'b, 'fa, 'fb when 'fa :> IFuture<'a> and 'fb :> IFuture<'b>> =
-        { FutureA: 'fa
-          mutable FutureB: 'fb voption
-          Binder: 'a -> 'fb }
+        val futureA: 'fa
+        val mutable futureB: 'fb voption
+        val binder: 'a -> 'fb
+        new(binder, fut) = { futureA = fut; binder = binder; futureB = ValueNone }
         interface IFuture<'b> with
             member this.Poll(waker) =
-                match this.FutureB with
+                match this.futureB with
                 | ValueNone ->
-                    let mutable fa = this.FutureA
+                    let mutable fa = this.futureA
                     let pa = fa.Poll(waker)
                     match pa with
                     | Ready va ->
-                        let mutable fb = this.Binder va
-                        this.FutureB <- ValueSome fb
+                        let mutable fb = this.binder va
+                        this.futureB <- ValueSome fb
                         fb.Poll(waker)
                     | Pending -> Pending
                 | ValueSome fb ->
@@ -66,7 +77,7 @@ module StateMachines =
                     fb.Poll(waker)
 
     [<Struct; NoComparison; NoEquality>]
-    type CombineStateMachine<'fu, 'fa, 'a when 'fu :> IFuture<unit> and 'fa :> IFuture<'a>>(fu: 'fu, fa: 'fa) =
+    type CombineStateMachine<'a, 'fu, 'fa when 'fu :> IFuture<unit> and 'fa :> IFuture<'a>>(fu: 'fu, fa: 'fa) =
         interface IFuture<'a> with
             member this.Poll(waker) =
                 match fu.Poll(waker) with
@@ -74,6 +85,15 @@ module StateMachines =
                     fa.Poll(waker)
                 | Pending -> Pending
 
+    [<Struct; NoComparison; NoEquality>]
+    type MergeStateMachine<'a, 'b, 'fa, 'fb when 'fa :> IFuture<'a> and 'fb :> IFuture<'b>>(fa: 'fa, fb: 'fb) =
+        interface IFuture<'a * 'b> with
+            member this.Poll(waker) =
+                let ra = fa.Poll(waker)
+                let rb = fb.Poll(waker)
+                match ra, rb with
+                | Ready a, Ready b -> Ready (a, b)
+                | _ -> Pending
 
 open StateMachines
 
@@ -87,16 +107,13 @@ type StateMachineFutureBuilder() =
 
     member inline _.Zero() = ZeroStateMachine(())
 
-    member inline _.Bind(x: 'fa when 'fa :> IFuture<'a>, f: 'a -> 'fb) =
-        { BindStateMachine.FutureA = x
-          BindStateMachine.FutureB = ValueNone
-          BindStateMachine.Binder = f }
+    member inline _.Bind(x: 'fa when 'fa :> IFuture<'a>, f: 'a -> 'fb) = BindStateMachine(f, x)
 
     member inline _.ReturnFrom(fut: #IFuture<'a>) = fut
 
     member inline _.Combine(u: 'fu, fut: 'fa) = CombineStateMachine(u, fut)
 
-//    member inline _.MergeSources(x1, x2): Future<'a * 'b> = Future.merge x1 x2
+    member inline _.MergeSources(x1, x2) = MergeStateMachine(x1, x2)
 
     member inline _.Delay(f: unit -> 'fa) = DelayStateMachine(f)
 
@@ -121,11 +138,9 @@ type FutureBuilder() =
 
     member inline _.Combine(u, fut) = smfuture.Combine(u, fut)
 
-//    member inline _.MergeSources(x1, x2): Future<'a * 'b> = Future.merge x1 x2
+    member inline _.MergeSources(x1, x2) = smfuture.MergeSources(x1, x2)
 
     member inline _.Delay(f) = smfuture.Delay(f)
-
-    //member inline this.Run(fut: #IFuture<'a>): #IFuture<'a> = fut
 
     member inline _.Run(fut): IFuture<_> = fut
 
