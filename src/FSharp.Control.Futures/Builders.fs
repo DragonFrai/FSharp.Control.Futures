@@ -151,6 +151,48 @@ module FutureBuilderImpl =
 // LegacyFutureBuilder
 // -------------------
 
+module private BuilderFutures =
+
+    [<Struct>]
+    type DelayState<'a> =
+        | Function of func: (unit -> IFuture<'a>)
+        | Future of fut: IFuture<'a>
+
+    type DelayFuture<'a> =
+        val mutable state: DelayState<'a>
+        new(f: unit -> IFuture<'a>) = { state = Function f }
+        interface IFuture<'a> with
+            member this.Poll(waker) =
+                match this.state with
+                | Function f ->
+                    let fut = f ()
+                    this.state <- Future fut
+                    Future.poll waker fut
+                | Future fut ->
+                    Future.poll waker fut
+
+    [<Struct>]
+    type CombineState<'a> =
+        | Step1 of step1: IFuture<unit> * IFuture<'a>
+        | Step2 of step2: IFuture<'a>
+
+    type CombineFuture<'a> =
+        val mutable state: CombineState<'a>
+        new(first: IFuture<unit>, second: IFuture<'a>) = { state = Step1 (first, second) }
+        interface IFuture<'a> with
+            member this.Poll(waker) =
+                match this.state with
+                | Step1 (fu, fa) ->
+                    match Future.poll waker fu with
+                    | Ready () ->
+                        this.state <- Step2 fa
+                        Future.poll waker fa
+                    | Pending -> Pending
+                | Step2 fa ->
+                    Future.poll waker fa
+
+
+
 type LegacyFutureBuilder() =
 
     member _.Return(x): IFuture<'a> = Future.ready x
@@ -161,19 +203,11 @@ type LegacyFutureBuilder() =
 
     member _.ReturnFrom(f: IFuture<'a>): IFuture<'a> = f
 
-    member _.Combine(u: IFuture<unit>, f: IFuture<'a>): IFuture<'a> = Future.bind (fun () -> f) u
+    member _.Combine(u: IFuture<unit>, f: IFuture<'a>): IFuture<'a> = BuilderFutures.CombineFuture(u, f) :> IFuture<_>
 
     member _.MergeSources(x1, x2): IFuture<'a * 'b> = Future.merge x1 x2
 
-    member _.Delay(f: unit -> IFuture<'a>): IFuture<'a> =
-        let mutable cell = ValueNone
-        Future.create ^fun waker ->
-            match cell with
-            | ValueSome future -> Future.poll waker future
-            | ValueNone ->
-                let future = f ()
-                cell <- ValueSome future
-                Future.poll waker future
+    member _.Delay(f: unit -> IFuture<'a>): IFuture<'a> = BuilderFutures.DelayFuture(f) :> IFuture<_>
 
 //    member _.Using(d: 'D, f: 'D -> Future<'r>) : Future<'r> when 'D :> IDisposable =
 //        let fr = lazy(f d)
@@ -185,6 +219,7 @@ type LegacyFutureBuilder() =
 //                if not disposed then d.Dispose()
 //                Ready x
 //            | p -> p
+
 
 
 [<AutoOpen>]

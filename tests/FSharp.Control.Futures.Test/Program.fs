@@ -116,12 +116,12 @@ module Fib =
                 | x -> Ready x
             )
 
-    let rec fibFuture n = legacyfuture {
+    let rec fibFutureLegacy n = legacyfuture {
         if n < 0 then invalidOp "n < 0"
         if n <= 1 then return n
         else
-            let! a = fibFuture (n - 1)
-            let! b = fibFuture (n - 2)
+            let! a = fibFutureLegacy (n - 1)
+            let! b = fibFutureLegacy (n - 2)
             return a + b
     }
 
@@ -136,26 +136,17 @@ module Fib =
     }
 
 
-    let rec fibSMFuture n =
-        if n < 0 then future { return invalidOp "n < 0" }
-        else if n <= 1 then future { return n }
-        else
-            future {
-                let! a = fibSMFuture (n - 1)
-                let! b = fibSMFuture (n - 2)
-                return a + b
-            }
-
-    let rec fibFuture2 n = future {
-        if n < 0 then invalidOp "n < 0"
-        if n <= 1
-        then return! OnTrue ^smfuture { return n }
-        else return! OnFalse ^smfuture {
-            let! a = fibFuture2 (n - 1)
-            let! b = fibFuture2 (n - 2)
-            return a + b
-        }
-    }
+    let rec fibFutureOptimized n =
+        let rec fib n =
+            if n < 0 then future { return invalidOp "n < 0" }
+            else if n <= 1 then future { return n }
+            else
+                future {
+                    let! a = fib (n - 1)
+                    let! b = fib (n - 2)
+                    return a + b
+                }
+        future { return! fib n }
 
     let runPrimeTest () =
         let sw = Stopwatch()
@@ -167,66 +158,66 @@ module Fib =
         let ms = sw.ElapsedMilliseconds
         printfn "Total %i ms\n" ms
 
-        printfn "Test tasks..."
+        printfn "Test Tasks..."
         sw.Start()
         for i in 1..20 do (fibTask n).GetAwaiter().GetResult() |> ignore
         let ms = sw.ElapsedMilliseconds
         printfn "Total %i ms\n" ms
 
-        printfn "Test async..."
+        printfn "Test Async..."
         sw.Start()
         for i in 1..20 do (fibAsync n |> Async.RunSynchronously) |> ignore
         let ms = sw.ElapsedMilliseconds
         printfn "Total %i ms\n" ms
 
-        printfn "Test future no builder..."
+        printfn "Test Future no builder..."
         sw.Restart()
         for i in 1..20 do (fibFutureNoBuilder n |> Future.run) |> ignore
         let ms = sw.ElapsedMilliseconds
         printfn "Total %i ms\n" ms
 
-        printfn "Test State Machine Future..."
+        printfn "Test Future builder optimized..."
         sw.Restart()
-        for i in 1..20 do (fibSMFuture n |> Future.run) |> ignore
+        for i in 1..20 do (fibFutureOptimized n |> Future.run) |> ignore
         let ms = sw.ElapsedMilliseconds
         printfn "Total %i ms\n" ms
 
-        printfn "Test State Machine Future if-else state machine..."
+        printfn "Test Future builder legacy (on classes)..."
         sw.Restart()
-        for i in 1..20 do (fibFuture2 n |> Future.run) |> ignore
+        for i in 1..20 do (fibFutureLegacy n |> Future.run) |> ignore
         let ms = sw.ElapsedMilliseconds
         printfn "Total %i ms\n" ms
 
 [<EntryPoint>]
 let main argv =
 
-    let sw = Stopwatch()
-    let n = 20
+//    let sw = Stopwatch()
+//    let n = 20
+//
+//    printfn "Test function..."
+//    sw.Start()
+//    for i in 1..20 do (Snowball.snowballFunction n) |> ignore
+//    let ms = sw.ElapsedMilliseconds
+//    printfn "Total %i ms\n" ms
+//
+//    printfn "Test async..."
+//    sw.Start()
+//    for i in 1..20 do (Snowball.snowballAsync n |> Async.RunSynchronously) |> ignore
+//    let ms = sw.ElapsedMilliseconds
+//    printfn "Total %i ms\n" ms
+//
+//    printfn "Test future..."
+//    sw.Start()
+//    for i in 1..20 do (Snowball.snowballFuture n |> Future.run) |> ignore
+//    let ms = sw.ElapsedMilliseconds
+//    printfn "Total %i ms\n" ms
+//
+//    printfn "Test future !RAW SM!..."
+//    sw.Start()
+//    for i in 1..20 do (Snowball.snowballFutureRawSM n |> Future.run) |> ignore
+//    let ms = sw.ElapsedMilliseconds
+//    printfn "Total %i ms\n" ms
 
-    printfn "Test function..."
-    sw.Start()
-    for i in 1..20 do (Snowball.snowballFunction n) |> ignore
-    let ms = sw.ElapsedMilliseconds
-    printfn "Total %i ms\n" ms
-
-    printfn "Test async..."
-    sw.Start()
-    for i in 1..20 do (Snowball.snowballAsync n |> Async.RunSynchronously) |> ignore
-    let ms = sw.ElapsedMilliseconds
-    printfn "Total %i ms\n" ms
-
-    printfn "Test future..."
-    sw.Start()
-    for i in 1..20 do (Snowball.snowballFuture n |> Future.run) |> ignore
-    let ms = sw.ElapsedMilliseconds
-    printfn "Total %i ms\n" ms
-
-    printfn "Test future !RAW SM!..."
-    sw.Start()
-    for i in 1..20 do (Snowball.snowballFutureRawSM n |> Future.run) |> ignore
-    let ms = sw.ElapsedMilliseconds
-    printfn "Total %i ms\n" ms
-
-    //Fib.runPrimeTest ()
+    Fib.runPrimeTest ()
 
     0 // return an integer exit code

@@ -1,4 +1,4 @@
-namespace FSharp.Control.Futures
+namespace rec FSharp.Control.Futures
 
 open System.Threading
 
@@ -39,8 +39,7 @@ module Future =
 
     let inline poll waker (fut: IFuture<_>) = fut.Poll(waker)
 
-    let ready value : IFuture<'a> =
-        create ^fun _ -> Ready value
+    let ready value = ReadyFuture(value) :> IFuture<_>
 
     let lazy' (f: unit -> 'a) : IFuture<'a> =
         let mem = Lazy.Create f
@@ -49,17 +48,7 @@ module Future =
     let never () : IFuture<'a> =
         create ^fun _ -> Pending
 
-    let bind (binder: 'a -> IFuture<'b>) (fut: IFuture<'a>) : IFuture<'b> =
-        let mutable (fut2: IFuture<'b> voption) = ValueNone
-        create ^fun waker ->
-            match fut2 with
-            | ValueSome fut2 -> poll waker fut2
-            | ValueNone ->
-                poll waker fut
-                |> bindPoll' ^fun x ->
-                    let fut2' = binder x
-                    fut2 <- ValueSome fut2'
-                    poll waker fut2'
+    let bind binder fut = BindFuture(binder, fut) :> IFuture<_>
 
     let map (mapping: 'a -> 'b) (fut: IFuture<'a>) : IFuture<'b> =
         let mutable value = None
@@ -108,4 +97,25 @@ module Future =
         match poll waker future with
         | Ready _ -> Ready ()
         | Pending -> Pending
+
+[<AutoOpen>]
+module BaseFutures =
+    [<Class>]
+    type BindFuture<'a, 'b>(binder: 'a -> IFuture<'b>, futureA: IFuture<'a>) =
+        let mutable futureB = ValueNone
+        interface IFuture<'b> with
+             member this.Poll(waker) =
+                 match futureB with
+                 | ValueSome futB -> Future.poll waker futB
+                 | ValueNone ->
+                     match Future.poll waker futureA with
+                     | Ready x ->
+                         let futB = binder x
+                         futureB <- ValueSome futB
+                         Future.poll waker futB
+                     | Pending -> Pending
+
+    [<Class>]
+    type ReadyFuture<'a>(value: 'a) =
+        interface IFuture<'a> with member _.Poll(_) = Ready value
 
