@@ -1,6 +1,6 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "FSharp.Control.Futures.Test", "tests\FSharp.Control.Futures.Test\FSharp.Control.Futures.Test.fsproj", "{B0400CAB-0469-44D5-B0A5-93265136ABDB}"
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "FSharp.Control.Futures.Sandbox", "tests\FSharp.Control.Futures.Sandbox\FSharp.Control.Futures.Sandbox.fsproj", "{B0400CAB-0469-44D5-B0A5-93265136ABDB}"
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "FSharp.Control.Futures", "src\FSharp.Control.Futures\FSharp.Control.Futures.fsproj", "{92149330-5B9E-4E4A-B477-D006D8C9DFA4}"
 EndProject

@@ -1,4 +1,6 @@
-﻿open System
+﻿module FSharp.Control.Futures.Sandbox.Program
+
+open System
 open System.Diagnostics
 open System.Threading.Tasks
 open System.Threading
