@@ -16,8 +16,8 @@
       <Compile Include="Future.fsi" />
       <Compile Include="Future.fs" />
       <Compile Include="Builders.fs" />
-      <Compile Include="Cancellable.fs" />
       <Compile Include="Base.fs" />
+      <Compile Include="Cancellable.fs" />
       <Compile Include="Channels.fs" />
       <Compile Include="ResultCell.fs" />
       <Compile Include="Runtime.fs" />
