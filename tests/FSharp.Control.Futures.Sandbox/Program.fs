@@ -127,6 +127,66 @@ module Fib =
             return a + b
     }
 
+    // int -> DelayStateMachine<int,CombineStateMachine<int,ZeroStateMachine,DelayStateMachine<int,ReadyStateMachine<int>>>>
+    let rec fibFutureRawStateMachine n =
+        DelayStateMachine(fun () ->
+            if n < 0
+            then invalidOp "n < 0"
+            else
+                CombineStateMachine(
+                    ZeroStateMachine(()),
+                    DelayStateMachine(fun () ->
+                        if n <= 1 then
+                            EitherStateMachine.OnTrue (ReadyStateMachine(n))
+                        else
+                            EitherStateMachine.OnFalse (
+                                BindStateMachine(
+                                    (fun a ->
+                                        BindStateMachine(
+                                            (fun b -> ReadyStateMachine(a + b)),
+                                            (fibFutureRawStateMachine (n-2))
+                                        )
+                                    ),
+                                    (fibFutureRawStateMachine (n-1))
+                                )
+                            )
+                    )
+                )
+        )
+        :> IFuture<_>
+
+    type FutureStateMachine<'a>(fut: IFuture<'a>) =
+        interface IFuture<'a> with
+            member this.Poll(waker) = Future.poll waker fut
+
+        // int -> DelayStateMachine<int,CombineStateMachine<int,ZeroStateMachine,DelayStateMachine<int,ReadyStateMachine<int>>>>
+    let rec fibFutureRawStateMachineUnwrapInnerDelay n =
+        DelayStateMachine(fun () ->
+            if n < 0
+            then invalidOp "n < 0"
+            else
+                let undelayed =
+                    if n <= 1 then
+                        EitherStateMachine.OnTrue(
+                            ReadyStateMachine(n)
+                        )
+                    else
+                        EitherStateMachine.OnFalse(
+                            BindStateMachine(
+                                (fun a ->
+                                    BindStateMachine(
+                                        (fun b -> ReadyStateMachine(a + b)),
+                                        FutureStateMachine(fibFutureRawStateMachine (n-2))
+                                    )
+                                ),
+                                FutureStateMachine(fibFutureRawStateMachine (n-1))
+                            )
+                        )
+                undelayed
+        )
+        //:> IFuture<_>
+
+
     open FSharp.Control.Tasks
     let rec fibTask n = task {
         if n < 0 then invalidOp "n < 0"
@@ -172,9 +232,21 @@ module Fib =
         let ms = sw.ElapsedMilliseconds
         printfn "Total %i ms\n" ms
 
-        printfn "Test Future no builder..."
+        printfn "Test Future low level..."
         sw.Restart()
         for i in 1..20 do (fibFutureNoBuilder n |> Future.run) |> ignore
+        let ms = sw.ElapsedMilliseconds
+        printfn "Total %i ms\n" ms
+
+        printfn "Test Future raw state machine..."
+        sw.Restart()
+        for i in 1..20 do (fibFutureRawStateMachine n |> Future.run) |> ignore
+        let ms = sw.ElapsedMilliseconds
+        printfn "Total %i ms\n" ms
+
+        printfn "Test Future raw state machine unwrap inner delay and combine(zero, 'a)..."
+        sw.Restart()
+        for i in 1..20 do (fibFutureRawStateMachineUnwrapInnerDelay n |> Future.run) |> ignore
         let ms = sw.ElapsedMilliseconds
         printfn "Total %i ms\n" ms
 
