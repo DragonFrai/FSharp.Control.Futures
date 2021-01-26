@@ -59,16 +59,16 @@ type LegacyFutureBuilder() =
                 Future.poll waker fut
             | Future fut -> Future.poll waker fut
 
-//    member _.Using(d: 'D, f: 'D -> Future<'r>) : Future<'r> when 'D :> IDisposable =
-//        let fr = lazy(f d)
-//        let mutable disposed = false
-//        Future ^fun waker ->
-//            let fr = fr.Value
-//            match Future.poll waker fr with
-//            | Ready x ->
-//                if not disposed then d.Dispose()
-//                Ready x
-//            | p -> p
+    member _.Using(d: 'D, f: 'D -> Future<'r>) : Future<'r> when 'D :> IDisposable =
+        let fr = lazy(f d)
+        let mutable disposed = false
+        Future.create ^fun waker ->
+            let fr = fr.Value
+            match Future.poll waker fr with
+            | Ready x ->
+                if not disposed then d.Dispose()
+                Ready x
+            | p -> p
 
 
 
