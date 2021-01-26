@@ -10,36 +10,32 @@ module Poll =
 
 type Waker = unit -> unit
 
-type IFuture<'a> =
-    abstract member Poll: Waker -> Poll<'a>
-
-type FuncFuture<'a> =
-    new: poll: (Waker -> Poll<'a>) -> FuncFuture<'a>
-    interface IFuture<'a>
+[<Struct; NoEquality; NoComparison>]
+type Future<'a> = Future of (Waker -> Poll<'a>)
 
 module Future =
 
-    val inline create: f: (Waker -> Poll<'a>) -> IFuture<'a>
+    val inline create: f: (Waker -> Poll<'a>) -> Future<'a>
 
-    val inline poll: waker: Waker -> fut: IFuture<'a> -> Poll<'a>
+    val inline poll: waker: Waker -> fut: Future<'a> -> Poll<'a>
 
-    val ready: value: 'a -> IFuture<'a>
+    val ready: value: 'a -> Future<'a>
 
-    val lazy': f: (unit -> 'a) -> IFuture<'a>
+    val lazy': f: (unit -> 'a) -> Future<'a>
 
-    val never: unit -> IFuture<'a>
+    val never: unit -> Future<'a>
 
-    val bind: binder: ('a -> IFuture<'b>) -> fut: IFuture<'a> -> IFuture<'b>
+    val bind: binder: ('a -> Future<'b>) -> fut: Future<'a> -> Future<'b>
 
-    val map: mapping: ('a -> 'b) -> fut: IFuture<'a> -> IFuture<'b>
+    val map: mapping: ('a -> 'b) -> fut: Future<'a> -> Future<'b>
 
-    val apply: f: IFuture<'a -> 'b> -> fut: IFuture<'a> -> IFuture<'b>
+    val apply: f: Future<'a -> 'b> -> fut: Future<'a> -> Future<'b>
 
-    val merge: fut1: IFuture<'a> -> fut2: IFuture<'b> -> IFuture<'a * 'b>
+    val merge: fut1: Future<'a> -> fut2: Future<'b> -> Future<'a * 'b>
 
-    val join: fut: IFuture<IFuture<'a>> -> IFuture<'a>
+    val join: fut: Future<Future<'a>> -> Future<'a>
 
-    val getWaker: IFuture<Waker>
+    val getWaker: Future<Waker>
 
-    val ignore: future: IFuture<'a> -> IFuture<unit>
+    val ignore: future: Future<'a> -> Future<unit>
 

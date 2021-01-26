@@ -41,7 +41,7 @@ module FutureAsyncTransforms =
                 | AsyncResult.Errored e -> raise e
 
         // TODO: Implement without blocking
-        let toAsync (x: IFuture<'a>) : Async<'a> =
+        let toAsync (x: Future<'a>) : Async<'a> =
             async {
                 let r = x |> Future.run
                 return r
@@ -56,7 +56,7 @@ module FutureTaskTransforms =
 
         open System.Threading.Tasks
 
-        let ofTask (x: Task<'a>) : IFuture<'a> =
+        let ofTask (x: Task<'a>) : Future<'a> =
             let mutable result = ValueNone
             let mutable started = false
             Future.create ^fun waker ->
@@ -73,14 +73,14 @@ module FutureTaskTransforms =
                 | ValueSome result -> Ready result
 
         // TODO: Implement without blocking
-        let toTask (x: IFuture<'a>) : Task<'a> =
+        let toTask (x: Future<'a>) : Task<'a> =
             Task<'a>.Factory.StartNew(
                 fun () ->
                     x |> Future.run
             )
 
         // TODO: Implement without blocking
-        let toTaskOn (scheduler: TaskScheduler) (x: IFuture<'a>) : Task<'a> =
+        let toTaskOn (scheduler: TaskScheduler) (x: Future<'a>) : Task<'a> =
             TaskFactory<'a>(scheduler).StartNew(
                 fun () ->
                     x |> Future.run

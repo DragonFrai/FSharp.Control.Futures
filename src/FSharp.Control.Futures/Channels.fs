@@ -5,10 +5,10 @@ open System.Threading.Channels
 
 
 type ISender<'T> =
-    abstract member Send: 'T -> IFuture<unit>
+    abstract member Send: 'T -> Future<unit>
 
 type IReceiver<'T> =
-    abstract member Receive: unit -> IFuture<'T>
+    abstract member Receive: unit -> Future<'T>
     // GetSender ?
 
 type IChannel<'T> =
@@ -28,8 +28,8 @@ type UnboundedChannel<'T>() =
     let mutable waker: Waker option = None
 
     interface IChannel<'T> with
-        member this.Send(msg: 'T): IFuture<unit> =
-            legacyfuture {
+        member this.Send(msg: 'T): Future<unit> =
+            future {
                 queue.Enqueue msg
                 match waker with
                 | Some waker' ->
@@ -38,7 +38,7 @@ type UnboundedChannel<'T>() =
                 | None -> ()
             }
 
-        member this.Receive(): IFuture<'T> =
+        member this.Receive(): Future<'T> =
             let innerF waker' =
                 let x = queue.TryDequeue()
                 match x with

@@ -5,12 +5,12 @@ open System.Collections.Generic
 open System.Threading
 
 
-type Spawner<'a> = IFuture<'a> -> unit
+type Spawner<'a> = Future<'a> -> unit
 
 type IRuntime =
-    abstract member Spawn : IFuture<'a> -> unit
+    abstract member Spawn : Future<'a> -> unit
 
-type RuntimeTask<'a>(future: IFuture<'a>) =
+type RuntimeTask<'a>(future: Future<'a>) =
     let res: ResultCell<'a> = new ResultCell<'a>()
     let sync = obj()
 
@@ -38,7 +38,7 @@ let rec spawnOnPool (task: RuntimeTask<'a>) =
              else ()
      ) |> ignore
 
-let runOnPoolAsync (f: IFuture<'a>) : IFuture<'a> =
+let runOnPoolAsync (f: Future<'a>) : Future<'a> =
     let task = new RuntimeTask<'a>(f)
     spawnOnPool task
     let innerF waker =
@@ -53,7 +53,7 @@ let runOnPoolAsync (f: IFuture<'a>) : IFuture<'a> =
                 Pending
     Future.create innerF
 
-let runSync (f: IFuture<'a>) : 'a =
+let runSync (f: Future<'a>) : 'a =
     use task = new RuntimeTask<'a>(f)
     spawnOnPool task
     task.ResultCell.TryWaitForResultSynchronously() |> Option.get

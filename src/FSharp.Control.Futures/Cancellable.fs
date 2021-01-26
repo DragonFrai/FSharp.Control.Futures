@@ -7,7 +7,7 @@ type MaybeCancel<'a> =
     | Completed of 'a
     | Cancelled of OperationCanceledException
 
-type CancellableFuture<'a> = IFuture<MaybeCancel<'a>>
+type CancellableFuture<'a> = Future<MaybeCancel<'a>>
 
 exception FutureCancelledException of OperationCanceledException
 

@@ -39,7 +39,7 @@ module Future =
 
 
     // TODO: optimize
-    let parallelSeq (futures: IFuture<'a> seq) : IFuture<'a[]> =
+    let parallelSeq (futures: Future<'a> seq) : Future<'a[]> =
         let mutable futures = futures |> Seq.map ValueSome |> Seq.toArray
         let mutable results: 'a[] = Array.zeroCreate (Array.length futures)
 
@@ -64,7 +64,7 @@ module Future =
                 | false -> Pending
                 | true -> Ready results
 
-    let catch (f: IFuture<'a>) : IFuture<Result<'a, exn>> =
+    let catch (f: Future<'a>) : Future<Result<'a, exn>> =
         let mutable result = ValueNone
         Future.create ^fun waker ->
             if ValueNone = result then
@@ -77,7 +77,7 @@ module Future =
             | ValueNone -> Pending
 
     // TODO: fix it
-    let run (f: IFuture<'a>) : 'a =
+    let run (f: Future<'a>) : 'a =
         use wh = new EventWaitHandle(false, EventResetMode.AutoReset)
         let waker () = wh.Set |> ignore
 
