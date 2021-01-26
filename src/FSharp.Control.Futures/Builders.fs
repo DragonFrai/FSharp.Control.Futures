@@ -4,27 +4,23 @@ open System
 open System.Runtime.CompilerServices
 
 
-
 // -------------------
-// LegacyFutureBuilder
+// FutureBuilder
 // -------------------
 
+[<AutoOpen>]
+module States =
+    [<Struct>]
+    type DelayState<'a> =
+        | Function of func: (unit -> Future<'a>)
+        | Future of fut: Future<'a>
 
-[<Struct>]
-type DelayState<'a> =
-    | Function of func: (unit -> Future<'a>)
-    | Future of fut: Future<'a>
+    [<Struct>]
+    type CombineState<'a> =
+        | Step1 of step1: Future<unit> * Future<'a>
+        | Step2 of step2: Future<'a>
 
-
-[<Struct>]
-type CombineState<'a> =
-    | Step1 of step1: Future<unit> * Future<'a>
-    | Step2 of step2: Future<'a>
-
-
-
-
-type LegacyFutureBuilder() =
+type FutureBuilder() =
 
     member _.Return(x): Future<'a> = Future.ready x
 
@@ -73,5 +69,5 @@ type LegacyFutureBuilder() =
 
 
 [<AutoOpen>]
-module LegacyFutureBuilderImpl =
-    let future = LegacyFutureBuilder()
+module BuilderImpl =
+    let future = FutureBuilder()
