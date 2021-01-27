@@ -1,6 +1,7 @@
 module FSharp.Control.Futures.Channels
 
 open System.Collections.Concurrent
+open System.Collections.Generic
 open System.Threading.Channels
 
 
@@ -23,32 +24,56 @@ module Channel =
     let send (msg: 'a) (sender: ISender<'a>) =
         sender.Send(msg)
 
-type UnboundedChannel<'T>() =
-    let queue: ConcurrentQueue<'T> = ConcurrentQueue()
-    let mutable waker: Waker option = None
+// ------------
+// Channels
+// ------------
 
-    interface IChannel<'T> with
-        member this.Send(msg: 'T): Future<unit> =
-            future {
-                queue.Enqueue msg
-                match waker with
-                | Some waker' ->
-                    waker <- None
-                    waker' ()
-                | None -> ()
-            }
+module rec QueueChannel =
 
-        member this.Receive(): Future<'T> =
-            let innerF waker' =
-                let x = queue.TryDequeue()
-                match x with
-                | true, msg -> Ready msg
+    type ReceiveFuture<'a>(channel: QueueChannel<'a>) =
+        inherit FSharpFunc<Waker, Poll<'a>>()
+        member val Waker = ValueNone with get, set
+        member val Value = ValueNone with get, set
+        override this.Invoke(waker') =
+            match this.Value with
+            | ValueSome v -> Ready v
+            | ValueNone ->
+                let deqRes = channel.TryDequeue()
+                match deqRes with
+                | true, msg ->
+                    this.Value <- ValueSome msg
+                    Ready msg
                 | false, _ ->
-                    waker <- Some waker'
+                    this.Waker <- ValueSome waker'
                     Pending
-            Future.create innerF
+
+    type QueueChannel<'a>() =
+        let msgQueue: ConcurrentQueue<'a> = ConcurrentQueue()
+        let waiters = ConcurrentQueue<ReceiveFuture<'a>>()
+
+        member inline internal _.TryDequeue() = msgQueue.TryDequeue()
+
+        interface IChannel<'a> with
+            member this.Send(msg: 'a): Future<unit> =
+                future {
+                    let x = waiters.TryDequeue()
+                    match x with
+                    | true, waiter ->
+                        waiter.Value <- ValueSome msg
+                        match waiter.Waker with
+                        | ValueSome waker -> waker ()
+                        | _ -> ()
+                    | false, _ ->
+                        msgQueue.Enqueue(msg)
+                    ()
+                }
+
+            member this.Receive(): Future<'a> =
+                let waiter = ReceiveFuture(this).Invoke
+                Future.create (waiter)
 
 
 [<RequireQualifiedAccess>]
 module Channels =
-    let mpsc () = UnboundedChannel()
+
+    let create () = QueueChannel.QueueChannel()
