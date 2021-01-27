@@ -51,7 +51,7 @@ module rec QueueChannel =
         let msgQueue: ConcurrentQueue<'a> = ConcurrentQueue()
         let waiters = ConcurrentQueue<ReceiveFuture<'a>>()
 
-        member inline internal _.TryDequeue() = msgQueue.TryDequeue()
+        member internal _.TryDequeue = msgQueue.TryDequeue
 
         interface IChannel<'a> with
             member this.Send(msg: 'a): Future<unit> =
