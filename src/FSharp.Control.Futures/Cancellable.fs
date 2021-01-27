@@ -1,3 +1,4 @@
+[<AutoOpen>]
 module FSharp.Control.Futures.Cancellable
 
 open System
@@ -13,6 +14,11 @@ exception FutureCancelledException of OperationCanceledException
 
 [<RequireQualifiedAccess>]
 module Future =
-
-    ()
+    let getCancellable (fut: CancellableFuture<'a>) = future {
+        let! cRes = fut
+        return
+            match cRes with
+            | Completed x -> x
+            | Cancelled ex -> raise ex
+    }
 

@@ -1,3 +1,4 @@
+[<AutoOpen>]
 module FSharp.Control.Futures.Base
 
 open System
@@ -36,33 +37,6 @@ module Future =
                 Pending
             | None ->
                 Ready ()
-
-
-    // TODO: optimize
-    let parallelSeq (futures: Future<'a> seq) : Future<'a[]> =
-        let mutable futures = futures |> Seq.map ValueSome |> Seq.toArray
-        let mutable results: 'a[] = Array.zeroCreate (Array.length futures)
-
-        Future.create ^fun waker ->
-            futures
-            |> Seq.indexed
-            |> Seq.map (fun (i, f) ->
-                match f with
-                | ValueSome f ->
-                    let p = Future.poll waker f
-                    match p with
-                    | Ready value ->
-                        futures.[i] <- ValueNone
-                        results.[i] <- value
-                        true
-                    | Pending -> false
-                | ValueNone -> true
-            )
-            |> Seq.reduce (&&)
-            |> fun x ->
-                match x with
-                | false -> Pending
-                | true -> Ready results
 
     let catch (f: Future<'a>) : Future<Result<'a, exn>> =
         let mutable result = ValueNone

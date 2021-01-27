@@ -11,7 +11,7 @@ module SerialFun =
             fib (n - 1L) + fib (n - 2L)
 
 module SerialFutureBuilder =
-    let rec fib n = legacyfuture {
+    let rec fib n = future {
         if n < 2L then
             return n
         else
@@ -21,7 +21,7 @@ module SerialFutureBuilder =
     }
 
 module ParallelFutureBuilder =
-    let rec fib n = legacyfuture {
+    let rec fib n = future {
         if n < 2L then
             return n
         else
