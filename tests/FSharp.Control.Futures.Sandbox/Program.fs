@@ -9,6 +9,7 @@ open System.Threading
 
 open FSharp.Control.Futures.Base
 open FSharp.Control.Futures
+open FSharp.Control.Futures.Channels
 
 
 let inline ( ^ ) f x = f x
@@ -174,7 +175,7 @@ let main argv =
 //    for i in 1..20 do (Snowball.snowballFutureRawSM n |> Future.run) |> ignore
 //    let ms = sw.ElapsedMilliseconds
 //    printfn "Total %i ms\n" ms
-
+//    let ch = Channel.create ()
     Fib.runPrimeTest ()
 
     0 // return an integer exit code

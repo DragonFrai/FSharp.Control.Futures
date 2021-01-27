@@ -73,7 +73,9 @@ module rec QueueChannel =
                 Future.create (waiter)
 
 
-[<RequireQualifiedAccess>]
+[<AutoOpen>]
 module Channels =
 
-    let create () = QueueChannel.QueueChannel()
+    [<RequireQualifiedAccess>]
+    module Channel =
+        let create () = QueueChannel.QueueChannel()
