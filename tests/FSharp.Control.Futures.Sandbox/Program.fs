@@ -2,54 +2,14 @@
 
 open System
 open System.Diagnostics
-open System.Threading.Tasks
-open System.Threading
 
 //open FSharp.Control.Tasks.V2
 
 open FSharp.Control.Futures.Base
 open FSharp.Control.Futures
-open FSharp.Control.Futures.Channels
 
 
 let inline ( ^ ) f x = f x
-
-module Snowball =
-
-    type Tree<'a> =
-        | Leaf
-        | Node of Tree<'a> * 'a * Tree<'a>
-
-    let snowballFunction n =
-        let rec loop x i : Tree<int> =
-            if i >= n then
-                Leaf
-            else
-            let left = loop (x + i) (i + 1)
-            let right = loop (x + i + 1) (i + 1)
-            Node (left, x ,right)
-        loop 0 0
-
-    let snowballAsync n =
-        let rec loop x i : Async<Tree<int>> =
-            if i >= n then async { return Leaf }
-            else async {
-                let! left = loop (x + i) (i + 1)
-                let! right = loop (x + i + 1) (i + 1)
-                return Node (left, x ,right)
-            }
-        async { return! loop 0 0 }
-
-    let snowballFuture n =
-        let rec loop x i : Future<Tree<int>> =
-            if i >= n then future { return Leaf }
-            else future {
-                let! left = loop (x + i) (i + 1)
-                let! right = loop (x + i + 1) (i + 1)
-                return Node (left, x ,right)
-            }
-
-        future { return! loop 0 0 }
 
 
 module Fib =
@@ -149,33 +109,6 @@ module Fib =
 [<EntryPoint>]
 let main argv =
 
-//    let sw = Stopwatch()
-//    let n = 20
-//
-//    printfn "Test function..."
-//    sw.Start()
-//    for i in 1..20 do (Snowball.snowballFunction n) |> ignore
-//    let ms = sw.ElapsedMilliseconds
-//    printfn "Total %i ms\n" ms
-//
-//    printfn "Test async..."
-//    sw.Start()
-//    for i in 1..20 do (Snowball.snowballAsync n |> Async.RunSynchronously) |> ignore
-//    let ms = sw.ElapsedMilliseconds
-//    printfn "Total %i ms\n" ms
-//
-//    printfn "Test future..."
-//    sw.Start()
-//    for i in 1..20 do (Snowball.snowballFuture n |> Future.run) |> ignore
-//    let ms = sw.ElapsedMilliseconds
-//    printfn "Total %i ms\n" ms
-//
-//    printfn "Test future !RAW SM!..."
-//    sw.Start()
-//    for i in 1..20 do (Snowball.snowballFutureRawSM n |> Future.run) |> ignore
-//    let ms = sw.ElapsedMilliseconds
-//    printfn "Total %i ms\n" ms
-//    let ch = Channel.create ()
     Fib.runPrimeTest ()
 
     0 // return an integer exit code
