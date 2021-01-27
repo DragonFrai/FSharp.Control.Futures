@@ -1,3 +1,4 @@
+[<AutoOpen>]
 module FSharp.Control.Futures.Base
 
 open System
