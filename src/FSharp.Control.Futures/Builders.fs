@@ -4,27 +4,23 @@ open System
 open System.Runtime.CompilerServices
 
 
-
 // -------------------
-// LegacyFutureBuilder
+// FutureBuilder
 // -------------------
 
+[<AutoOpen>]
+module States =
+    [<Struct>]
+    type DelayState<'a> =
+        | Function of func: (unit -> Future<'a>)
+        | Future of fut: Future<'a>
 
-[<Struct>]
-type DelayState<'a> =
-    | Function of func: (unit -> Future<'a>)
-    | Future of fut: Future<'a>
+    [<Struct>]
+    type CombineState<'a> =
+        | Step1 of step1: Future<unit> * Future<'a>
+        | Step2 of step2: Future<'a>
 
-
-[<Struct>]
-type CombineState<'a> =
-    | Step1 of step1: Future<unit> * Future<'a>
-    | Step2 of step2: Future<'a>
-
-
-
-
-type LegacyFutureBuilder() =
+type FutureBuilder() =
 
     member _.Return(x): Future<'a> = Future.ready x
 
@@ -59,19 +55,19 @@ type LegacyFutureBuilder() =
                 Future.poll waker fut
             | Future fut -> Future.poll waker fut
 
-//    member _.Using(d: 'D, f: 'D -> Future<'r>) : Future<'r> when 'D :> IDisposable =
-//        let fr = lazy(f d)
-//        let mutable disposed = false
-//        Future ^fun waker ->
-//            let fr = fr.Value
-//            match Future.poll waker fr with
-//            | Ready x ->
-//                if not disposed then d.Dispose()
-//                Ready x
-//            | p -> p
+    member _.Using(d: 'D, f: 'D -> Future<'r>) : Future<'r> when 'D :> IDisposable =
+        let fr = lazy(f d)
+        let mutable disposed = false
+        Future.create ^fun waker ->
+            let fr = fr.Value
+            match Future.poll waker fr with
+            | Ready x ->
+                if not disposed then d.Dispose()
+                Ready x
+            | p -> p
 
 
 
 [<AutoOpen>]
-module LegacyFutureBuilderImpl =
-    let future = LegacyFutureBuilder()
+module BuilderImpl =
+    let future = FutureBuilder()
