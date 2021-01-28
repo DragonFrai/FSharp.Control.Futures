@@ -10,7 +10,7 @@ module Poll =
 
 type Waker = unit -> unit
 
-[<Struct; NoEquality; NoComparison>]
+[<Struct>]
 type Future<'a> = Future of (Waker -> Poll<'a>)
 
 module Future =

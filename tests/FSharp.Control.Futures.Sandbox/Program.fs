@@ -7,7 +7,7 @@ open System.Diagnostics
 
 open FSharp.Control.Futures.Base
 open FSharp.Control.Futures
-
+open FSharp.Control.Futures.Runtime
 
 let inline ( ^ ) f x = f x
 
@@ -47,6 +47,16 @@ module Fib =
             else
                 let! a = fibFuture (n - 1)
                 let! b = fibFuture (n - 2)
+                return a + b
+        }
+
+    let rec fibFutureAsyncOnRuntime (n: int) : Future<int> =
+        if n < 0 then invalidOp "n < 0"
+        future {
+            if n <= 1 then return n
+            else
+                let! a = Runtime.runAsync (fibFuture (n - 1))
+                and! b = Runtime.runAsync (fibFuture (n - 2))
                 return a + b
         }
 
@@ -106,9 +116,37 @@ module Fib =
         printfn "Total %i ms\n" ms
 
 
+
 [<EntryPoint>]
 let main argv =
 
-    Fib.runPrimeTest ()
+    //Fib.runPrimeTest ()
+
+    let sw = Stopwatch()
+    let n = 25
+
+    printfn "Test Future.run..."
+    sw.Restart()
+    for i in 1..20 do Fib.fibFuture n |> Future.run |> ignore
+    let ms = sw.ElapsedMilliseconds
+    printfn "Total %i ms\n" ms
+
+    printfn "Test Runtime.run with current thread rt..."
+    sw.Restart()
+    for i in 1..20 do Fib.fibFuture n |> Runtime.runOn Runtime.onCurrentThread |> ignore
+    let ms = sw.ElapsedMilliseconds
+    printfn "Total %i ms\n" ms
+
+    printfn "Test Runtime.run with thread poll rt..."
+    sw.Restart()
+    for i in 1..20 do Fib.fibFuture n |> Runtime.run |> ignore
+    let ms = sw.ElapsedMilliseconds
+    printfn "Total %i ms\n" ms
+
+    printfn "Test Runtime.run with thread poll async rt..."
+    sw.Restart()
+    for i in 1..20 do Fib.fibFutureAsyncOnRuntime n |> Runtime.run |> ignore
+    let ms = sw.ElapsedMilliseconds
+    printfn "Total %i ms\n" ms
 
     0 // return an integer exit code

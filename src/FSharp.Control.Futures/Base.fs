@@ -64,6 +64,10 @@ module Future =
 
         wait (Future.poll waker f)
 
+    let yieldWorkflow () =
+        Future.create ^fun waker ->
+            waker ()
+            Pending
 
 
 
