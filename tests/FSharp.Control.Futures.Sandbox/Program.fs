@@ -68,10 +68,10 @@ module Fib =
                 let mutable value = -1
                 let f1 = fibInner (n-1)
                 let f2 = fibInner (n-2)
-                Future.create ^fun waker ->
+                FutureCore.create ^fun waker ->
                     match value with
                     | -1 ->
-                        match Future.poll waker f1, Future.poll waker f2 with
+                        match FutureCore.poll waker f1, FutureCore.poll waker f2 with
                         | Ready a, Ready b ->
                             value <- a + b
                             Ready (a + b)
@@ -79,7 +79,7 @@ module Fib =
                     | value -> Ready value
 
         let fut = lazy(fibInner n)
-        Future.create ^fun w -> Future.poll w fut.Value
+        FutureCore.create ^fun w -> FutureCore.poll w fut.Value
 
     let runPrimeTest () =
         let sw = Stopwatch()
