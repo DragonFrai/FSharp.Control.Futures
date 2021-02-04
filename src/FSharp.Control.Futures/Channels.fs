@@ -71,7 +71,7 @@ module rec QueueChannel =
             member this.Receive(): Future<'a> =
                 let waiter = ReceiveFuture(this)
                 waiters.Enqueue(waiter)
-                Future.create (waiter.Invoke)
+                FutureCore.create (waiter.Invoke)
 
 
 [<AutoOpen>]

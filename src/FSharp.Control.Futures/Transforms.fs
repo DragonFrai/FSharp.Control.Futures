@@ -24,7 +24,7 @@ module FutureAsyncTransforms =
         let ofAsync (x: Async<'a>) : CancellableFuture<'a> =
             let mutable result = AsyncResult.Pending
             let mutable started = false
-            Future.create ^fun waker ->
+            FutureCore.create ^fun waker ->
                 if not started then
                     started <- true
                     Async.StartWithContinuations(
@@ -59,7 +59,7 @@ module FutureTaskTransforms =
         let ofTask (x: Task<'a>) : Future<'a> =
             let mutable result = ValueNone
             let mutable started = false
-            Future.create ^fun waker ->
+            FutureCore.create ^fun waker ->
                 if not started then
                     started <- true
                     // TODO: Ensure to correct task binding
