@@ -1,4 +1,4 @@
-module FSharp.Control.Futures.Runtime
+module rec FSharp.Control.Futures.Runtime
 
 open System
 open System.Threading
@@ -6,7 +6,7 @@ open System.Threading
 
 // TODO: Add IDisposable Runtime interface
 // Run future execution
-type IRuntime =
+type IFutureRt =
     abstract Run: fut: Future<'a> -> 'a
     abstract RunCatch: fut: Future<'a> -> Result<'a, exn> when 'a: equality
 
@@ -204,51 +204,93 @@ module private Result =
         | Ok x -> x
         | Error ex -> raise ex
 
-type private Runtime(scheduler: Scheduler.IScheduler) =
-    interface IRuntime with
-        member this.Run(fut) = scheduler.Spawn(fut).Wait() |> Result.getOrRaise
-        member this.RunCatch(fut) = scheduler.Spawn(fut).Wait()
+module Future =
+    let onRuntime rt fut = future {
+        do FutureRt.enter rt
+        return! fut
+    }
 
-        member this.RunAsync(fut) = scheduler.Spawn(fut).Await() |> Future.map Result.getOrRaise
-        member this.RunCatchAsync(fut) = scheduler.Spawn(fut).Await()
+type private SchedulingFutureRt(scheduler: Scheduler.IScheduler) =
 
+    static let instance = SchedulingFutureRt(Scheduler.ThreadPollScheduler())
+    static member GetThreadPoolInstance() = instance
+
+    interface IFutureRt with
+        member this.Run(fut) =
+            scheduler.Spawn(Future.onRuntime this fut).Wait() |> Result.getOrRaise
+
+        member this.RunCatch(fut) =
+            scheduler.Spawn(Future.onRuntime this fut).Wait()
+
+        member this.RunAsync(fut) =
+            scheduler.Spawn(Future.onRuntime this fut).Await() |> Future.map Result.getOrRaise
+
+        member this.RunCatchAsync(fut) =
+            scheduler.Spawn(Future.onRuntime this fut).Await()
+
+
+type LocalFutureRt() =
+
+    static let instance = LocalFutureRt()
+    static member GetInstance() = instance
+
+    interface IFutureRt with
+        member _.Run(fut) = fut |> Future.run
+        member _.RunAsync(fut) = fut |> Future.run |> Future.ready
+
+        member x.RunCatch(fut) = fut |> Future.catch |> Future.run
+        member x.RunCatchAsync(fut) = fut |> Future.catch |> Future.run |> Future.ready
+
+
+exception CurrentFutureRtIsNotSet of string
 
 [<RequireQualifiedAccess>]
-module Runtime =
+module FutureRt =
 
-    let private lazyOnCurrentThread =
-        lazy
-            { new IRuntime with
-                member _.Run(fut) = fut |> Future.run
-                member _.RunAsync(fut) = fut |> Future.run |> Future.ready
+    /// Future runtime on current thread.
+    let localRt = LocalFutureRt.GetInstance () :> IFutureRt
 
-                member x.RunCatch(fut) = fut |> Future.catch |> Future.run
-                member x.RunCatchAsync(fut) = fut |> Future.catch |> Future.run |> Future.ready }
-
-    let onCurrentThread = lazyOnCurrentThread.Force ()
-
-    let private lazyOnThreadPoll = lazy Scheduler.ThreadPollScheduler()
-
-    let onThreadPoll () = lazyOnCurrentThread.Force ()
+    /// Future runtime on thread pool
+    let threadPoolRt = SchedulingFutureRt.GetThreadPoolInstance () :> IFutureRt
 
     // todo: dispose it
-    let private currentRuntime = new ThreadLocal<IRuntime>()
+    // todo: Add optional lock of current runtime for using inside runtime thread for block rt switch by user
+    let private currentRt = new ThreadLocal<IFutureRt voption>()
+
+    let private getCurrentRt () =
+        if currentRt.IsValueCreated then
+            currentRt.Value
+        else
+            ValueNone
+
+    let private getCurrentRtOrRaise () =
+        match getCurrentRt () with
+        | ValueSome rt -> rt
+        | ValueNone -> raise (CurrentFutureRtIsNotSet "")
+
+    /// Current thread "enter" into IFutureRt context
+    let enter (rt: IFutureRt) : unit =
+        currentRt.Value <- ValueSome rt
+
+    /// Current thread "exit" from IFutureRt context
+    let exit =
+        currentRt.Value <- ValueNone
 
 
-    let run fut = (onThreadPoll ()).Run(fut)
+    let run fut = (getCurrentRtOrRaise ()).Run(fut)
 
-    let runCatch fut = (onThreadPoll ()).RunCatch(fut)
+    let runCatch fut = (getCurrentRtOrRaise ()).RunCatch(fut)
 
-    let runAsync fut = (onThreadPoll ()).RunAsync(fut)
+    let runAsync fut = (getCurrentRtOrRaise ()).RunAsync(fut)
 
-    let runCatchAsync fut = (onThreadPoll ()).RunCatchAsync(fut)
+    let runCatchAsync fut = (getCurrentRtOrRaise ()).RunCatchAsync(fut)
 
 
-    let runOn (rt: IRuntime) fut = rt.Run(fut)
+    let runOn (rt: IFutureRt) fut = rt.Run(fut)
 
-    let runCatchOn (rt: IRuntime) fut = rt.RunCatch(fut)
+    let runCatchOn (rt: IFutureRt) fut = rt.RunCatch(fut)
 
-    let runAsyncOn (rt: IRuntime) fut = rt.RunAsync(fut)
+    let runAsyncOn (rt: IFutureRt) fut = rt.RunAsync(fut)
 
-    let runCatchAsyncOn (rt: IRuntime) fut = rt.RunCatchAsync(fut)
+    let runCatchAsyncOn (rt: IFutureRt) fut = rt.RunCatchAsync(fut)
 

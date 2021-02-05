@@ -55,8 +55,8 @@ module Fib =
         future {
             if n <= 1 then return n
             else
-                let! a = Runtime.runAsync (fibFuture (n - 1))
-                and! b = Runtime.runAsync (fibFuture (n - 2))
+                let! a = FutureRt.runAsync (fibFuture (n - 1))
+                and! b = FutureRt.runAsync (fibFuture (n - 2))
                 return a + b
         }
 
@@ -132,20 +132,23 @@ let main argv =
     printfn "Total %i ms\n" ms
 
     printfn "Test Runtime.run with current thread rt..."
+    FutureRt.enter FutureRt.localRt
     sw.Restart()
-    for i in 1..20 do Fib.fibFuture n |> Runtime.runOn Runtime.onCurrentThread |> ignore
+    for i in 1..20 do Fib.fibFuture n |> FutureRt.run |> ignore
     let ms = sw.ElapsedMilliseconds
     printfn "Total %i ms\n" ms
 
     printfn "Test Runtime.run with thread poll rt..."
+    FutureRt.enter FutureRt.threadPoolRt
     sw.Restart()
-    for i in 1..20 do Fib.fibFuture n |> Runtime.run |> ignore
+    for i in 1..20 do Fib.fibFuture n |> FutureRt.run |> ignore
     let ms = sw.ElapsedMilliseconds
     printfn "Total %i ms\n" ms
 
     printfn "Test Runtime.run with thread poll async rt..."
+    FutureRt.enter FutureRt.threadPoolRt
     sw.Restart()
-    for i in 1..20 do Fib.fibFutureAsyncOnRuntime n |> Runtime.run |> ignore
+    for i in 1..20 do Fib.fibFutureAsyncOnRuntime n |> FutureRt.run |> ignore
     let ms = sw.ElapsedMilliseconds
     printfn "Total %i ms\n" ms
 
