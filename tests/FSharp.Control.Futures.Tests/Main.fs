@@ -1,4 +1,4 @@
-﻿module FSharp.Control.Futures.Tests
+﻿module FSharp.Control.Futures.Tests.Main
 open Expecto
 
 [<EntryPoint>]
