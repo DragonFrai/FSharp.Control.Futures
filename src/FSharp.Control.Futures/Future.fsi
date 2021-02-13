@@ -10,14 +10,16 @@ module Poll =
 
 type Waker = unit -> unit
 
-[<Struct; NoEquality; NoComparison>]
+[<Struct>]
 type Future<'a> = Future of (Waker -> Poll<'a>)
 
-module Future =
+module FutureCore =
 
     val inline create: f: (Waker -> Poll<'a>) -> Future<'a>
 
     val inline poll: waker: Waker -> fut: Future<'a> -> Poll<'a>
+
+module Future =
 
     val ready: value: 'a -> Future<'a>
 

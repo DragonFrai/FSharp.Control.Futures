@@ -32,8 +32,10 @@ module rec QueueChannel =
 
     type ReceiveFuture<'a>(channel: QueueChannel<'a>) =
         inherit FSharpFunc<Waker, Poll<'a>>()
+
         member val Waker = ValueNone with get, set
         member val Value = ValueNone with get, set
+
         override this.Invoke(waker') =
             match this.Value with
             | ValueSome v -> Ready v
@@ -71,7 +73,7 @@ module rec QueueChannel =
             member this.Receive(): Future<'a> =
                 let waiter = ReceiveFuture(this)
                 waiters.Enqueue(waiter)
-                Future.create (waiter.Invoke)
+                FutureCore.create (waiter.Invoke)
 
 
 [<AutoOpen>]

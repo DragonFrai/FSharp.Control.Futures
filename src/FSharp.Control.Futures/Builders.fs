@@ -32,35 +32,35 @@ type FutureBuilder() =
 
     member _.Combine(u: Future<unit>, f: Future<'a>): Future<'a> =
         let mutable state = Step1(u, f)
-        Future.create ^fun waker ->
+        FutureCore.create ^fun waker ->
             match state with
                 | Step1 (fu, fa) ->
-                    match Future.poll waker fu with
+                    match FutureCore.poll waker fu with
                     | Ready () ->
                         state <- Step2 fa
-                        Future.poll waker fa
+                        FutureCore.poll waker fa
                     | Pending -> Pending
                 | Step2 fa ->
-                    Future.poll waker fa
+                    FutureCore.poll waker fa
 
     member _.MergeSources(x1, x2): Future<'a * 'b> = Future.merge x1 x2
 
     member _.Delay(f: unit -> Future<'a>): Future<'a> =
         let mutable state = DelayState.Function f
-        Future.create ^fun waker ->
+        FutureCore.create ^fun waker ->
             match state with
             | Function f ->
                 let fut = f ()
                 state <- Future fut
-                Future.poll waker fut
-            | Future fut -> Future.poll waker fut
+                FutureCore.poll waker fut
+            | Future fut -> FutureCore.poll waker fut
 
     member _.Using(d: 'D, f: 'D -> Future<'r>) : Future<'r> when 'D :> IDisposable =
         let fr = lazy(f d)
         let mutable disposed = false
-        Future.create ^fun waker ->
+        FutureCore.create ^fun waker ->
             let fr = fr.Value
-            match Future.poll waker fr with
+            match FutureCore.poll waker fr with
             | Ready x ->
                 if not disposed then d.Dispose()
                 Ready x

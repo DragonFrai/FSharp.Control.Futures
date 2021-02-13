@@ -19,8 +19,7 @@
       <Compile Include="Base.fs" />
       <Compile Include="Cancellable.fs" />
       <Compile Include="Channels.fs" />
-      <Compile Include="ResultCell.fs" />
-      <Compile Include="Runtime.fs" />
+      <Compile Include="FutureRt.fs" />
       <Compile Include="Transforms.fs" />
     </ItemGroup>
 
