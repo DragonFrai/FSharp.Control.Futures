@@ -7,7 +7,7 @@ open System.Diagnostics
 
 open FSharp.Control.Futures.Base
 open FSharp.Control.Futures
-open FSharp.Control.Futures.Runtime
+open FSharp.Control.Futures.FutureRt
 
 let inline ( ^ ) f x = f x
 

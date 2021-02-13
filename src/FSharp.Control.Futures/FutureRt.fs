@@ -1,4 +1,4 @@
-module rec FSharp.Control.Futures.Runtime
+module rec FSharp.Control.Futures.FutureRt
 
 open System
 open System.Threading
