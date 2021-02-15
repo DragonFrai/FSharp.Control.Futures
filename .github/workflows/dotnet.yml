@@ -1,4 +1,4 @@
-name: Build
+name: Build and Test
 
 on:
   - push
@@ -6,9 +6,7 @@ on:
 
 jobs:
   build:
-
     runs-on: ubuntu-latest
-
     steps:
     - uses: actions/checkout@v2
     - name: Setup .NET
@@ -19,5 +17,5 @@ jobs:
       run: dotnet restore
     - name: Build
       run: dotnet build --no-restore
-#    - name: Test
-#      run: dotnet test --no-build --verbosity normal
+    - name: Test
+      run: dotnet test --no-build --verbosity normal
