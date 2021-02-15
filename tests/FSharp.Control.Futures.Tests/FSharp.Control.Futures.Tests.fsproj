@@ -8,7 +8,9 @@
 
     <ItemGroup>
         <Compile Include="Utils.fs" />
-        <Compile Include="PointOrder.fs" />
+        <Compile Include="ReadyTests.fs" />
+        <Compile Include="NeverTests.fs" />
+        <Compile Include="LazyTests.fs" />
         <Compile Include="Main.fs" />
     </ItemGroup>
 

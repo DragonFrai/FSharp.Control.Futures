@@ -1,3 +1,4 @@
+[<AutoOpen>]
 module FSharp.Control.Futures.Tests.Utils
 
 open System.Collections.Concurrent
