@@ -20,10 +20,6 @@ type Waker = unit -> unit
 [<Struct>]
 type Future<'a> = Future of (Waker -> Poll<'a>)
 
-type CancellableFuture<'a> = CancellationToken -> Future<'a>
-
-exception FutureCancelledException of string
-
 [<RequireQualifiedAccess>]
 module FutureCore =
 
