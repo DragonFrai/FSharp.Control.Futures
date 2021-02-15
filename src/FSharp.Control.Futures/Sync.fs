@@ -19,12 +19,12 @@ module OneShot =
 
         let mutable value: Result<'a, OneShotError> voption = ValueNone
         // TODO: Make nullable ?
-        let mutable receiver_waker: Waker voption = ValueNone
+        let mutable receiverWaker: Waker voption = ValueNone
 
         member inline it.PutAndWake(v) =
             lock it ^fun () ->
                 value <- ValueSome v
-                match receiver_waker with
+                match receiverWaker with
                 | ValueSome waker -> waker()
                 | ValueNone -> ()
 
@@ -47,7 +47,7 @@ module OneShot =
                 match it.TryGetValueNoLock() with
                 | ValueSome x -> ValueSome x
                 | ValueNone ->
-                    receiver_waker <- ValueSome rWaker
+                    receiverWaker <- ValueSome rWaker
                     ValueNone
 
     /// Sender of oneshot message.
