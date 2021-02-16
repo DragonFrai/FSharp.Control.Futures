@@ -21,7 +21,7 @@ exception DoubleReceiveException of string
 //                                                                         |
 
 [<Struct>]
-type OneShotState<'a> =
+type private OneShotState<'a> =
     | Init // -> Value / FutureExists / Interrupted
     // Value is ready. Any receive is possible
     | Value of value: 'a // ->  Received
@@ -38,14 +38,15 @@ type OneShotState<'a> =
 
 // ReceiveOnce : unit -> Future<'a>
 
+// TODO: optimize
 type OneShotChannel<'a> =
 
-    val mutable state: OneShotState<'a>
-    val syncLock: obj
+    val mutable private state: OneShotState<'a>
+    val private syncLock: obj
 
     new() = { state = OneShotState.Init; syncLock = obj() }
 
-    member inline internal this.SendImmediateNoLock(x) =
+    member inline private this.SendImmediateNoLock(x) =
         match this.state with
         | Init -> this.state <- Value x
         | FutureExists -> this.state <- WaitedValue x

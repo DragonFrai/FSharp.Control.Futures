@@ -1,7 +1,6 @@
 namespace FSharp.Control.Futures.Channels
 
 open System
-open System.Collections.Concurrent
 open FSharp.Control.Futures
 
 
@@ -22,7 +21,7 @@ type IChannel<'a> =
 
 type IBroadcastReceiver<'a> =
     inherit IReceiver<'a>
-    inherit ICloneable
+    abstract member Broadcast: unit -> IBroadcastReceiver<'a>
 
 type IBroadcastChannel<'a> =
     inherit ISender<'a>
