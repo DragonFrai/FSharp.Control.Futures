@@ -47,7 +47,6 @@ type OneShotChannel<'a> =
 
     member inline internal this.SendImmediateNoLock(x) =
         match this.state with
-        // Send group
         | Init -> this.state <- Value x
         | FutureExists -> this.state <- WaitedValue x
         | FutureWaiting waker -> this.state <- WaitedValue x; waker ()

@@ -20,6 +20,8 @@
         <Compile Include="Cancellable.fs" />
         <Compile Include="Sync.fs" />
         <Compile Include="Channels\Types.fs" />
+        <Compile Include="Channels\Sender.fs" />
+        <Compile Include="Channels\Receiver.fs" />
         <Compile Include="Channels\Channel.fs" />
         <Compile Include="Channels\OneShot.fs" />
         <Compile Include="Channels\Mpsc.fs" />
