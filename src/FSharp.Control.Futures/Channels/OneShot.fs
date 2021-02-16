@@ -57,12 +57,14 @@ type OneShotChannel<'a> =
         lock this.syncLock ^fun () ->
             this.SendImmediateNoLock(x)
 
+    // Пытается получить значение, если оно существует или возвращает Pending, когда оно может быть получено позже и не имеет других ожидающих получателей.
+    // В противном случае бросает исключение
     /// Throws if the value has already been received (or exists waited future) and cannot be received in the future
-    member this.TryReceive() : 'a option =
+    member this.PollReceive() : Poll<'a> =
         lock this.syncLock ^fun () ->
             match this.state with
-            | Init -> None
-            | Value x -> this.state <- Received; Some x
+            | Init -> Pending
+            | Value x -> this.state <- Received; Ready x
             | Interrupted -> raise (SendingInterruptedException "Receive from interrupted one shot channel")
             | Received -> raise (DoubleReceiveException "Double receive from one shot channel")
             | FutureExists | FutureWaiting _ | WaitedValue _ ->
