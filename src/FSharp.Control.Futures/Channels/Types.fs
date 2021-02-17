@@ -6,12 +6,24 @@ open FSharp.Control.Futures
 
 // Core types
 
+/// One instance can be used in only one thread, or maybe in many. The interface does not yet provide a contract for this behavior.
 type ISender<'a> =
     inherit IDisposable
-    abstract member Send: 'a -> Future<unit>
+    abstract member Send: 'a -> unit
 
+exception DoubleReceiveException of string
+
+/// Return when channel is close
+[<Struct>]
+type ReceiveError =
+    | Closed
+
+type Result<'a> = Result<'a, ReceiveError>
+
+/// Каждый экземпляр должен опрашиваться только в одной точке приема, в одном потоке, если реализацией не оговорено обратное.
+/// Повторная попытка приёма без ожидания предыдущего значения считается ошибкой, если обратное не оговорено реализацией.
 type IReceiver<'a> =
-    abstract member Receive: unit -> Future<'a option>
+    abstract member Receive: unit -> Future<Result<'a, ReceiveError>>
 
 type IChannel<'a> =
     inherit ISender<'a>
@@ -21,7 +33,7 @@ type IChannel<'a> =
 
 type IBroadcastReceiver<'a> =
     inherit IReceiver<'a>
-    abstract member Broadcast: unit -> IBroadcastReceiver<'a>
+    abstract member Subscribe: unit -> IBroadcastReceiver<'a>
 
 type IBroadcastChannel<'a> =
     inherit ISender<'a>

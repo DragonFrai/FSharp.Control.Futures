@@ -54,9 +54,7 @@ type OneShotChannel<'a> =
         | Interrupted -> raise (SendingInterruptedException "Send to interrupted one shot channel")
         | Received | WaitedValue _ | Value _ -> raise (DoubleSendException "Double send to one shot channel")
 
-    member this.SendImmediate(x) =
-        lock this.syncLock ^fun () ->
-            this.SendImmediateNoLock(x)
+
 
     // Пытается получить значение, если оно существует или возвращает Pending, когда оно может быть получено позже и не имеет других ожидающих получателей.
     // В противном случае бросает исключение
@@ -73,19 +71,20 @@ type OneShotChannel<'a> =
 
     interface IChannel<'a> with
 
-        member this.Send(value: 'a) : Future<unit> =
-            Future.lazy' ^fun () -> this.SendImmediate(value)
+        member this.Send(x) =
+            lock this.syncLock ^fun () ->
+                this.SendImmediateNoLock(x)
 
         member this.Receive() =
             lock this.syncLock ^fun () ->
                 match this.state with
-                | Value x -> this.state <- Received; Future.ready (Some x)
+                | Value x -> this.state <- Received; Future.ready (Ok x)
                 | Init ->
                     this.state <- FutureExists
                     let mutable value = None
                     FutureCore.create ^fun waker ->
                         match value with
-                        | Some _ -> Ready value
+                        | Some value -> Ready (Ok value)
                         | None ->
                             lock this.syncLock ^fun () ->
                                 match this.state with
@@ -95,12 +94,12 @@ type OneShotChannel<'a> =
                                 | WaitedValue value' ->
                                     this.state <- Received
                                     value <- Some value'
-                                    Ready value
-                                | Interrupted -> Ready None
+                                    Ready (Ok value')
+                                | Interrupted -> Ready (Error Closed)
                                 | FutureWaiting _ -> invalidOp "Future waked before put value"
                                 | _ -> invalidOp "Invalid state"
                 | FutureExists | FutureWaiting _ | WaitedValue _ | Received | Interrupted ->
-                    Future.ready None
+                    Future.ready (Error Closed)
 
         // Dispose now used only for signalize about invalid use and keep out the ever-waiting receivers
         member this.Dispose() =
@@ -111,9 +110,9 @@ type OneShotChannel<'a> =
                 | Received | Value _ | WaitedValue _ -> ()
                 | Interrupted -> raise (ObjectDisposedException "Double dispose")
 
-let create<'a> () = new OneShotChannel<'a>()
+let createOneShot<'a> () = new OneShotChannel<'a>()
 
-let createPair<'a> () =
-    let channel = new OneShotChannel<'a>()
-    (channel :> ISender<'a>, channel :> IReceiver<'a>)
+let create<'a> () = createOneShot<'a> () :> IChannel<'a>
+
+let createPair<'a> () = createOneShot<'a> () |> Channel.toPair
 

@@ -24,7 +24,7 @@
         <Compile Include="Channels\Receiver.fs" />
         <Compile Include="Channels\Channel.fs" />
         <Compile Include="Channels\OneShot.fs" />
-        <Compile Include="Channels\Mpsc.fs" />
+        <Compile Include="Channels\Bridge.fs" />
         <Compile Include="FutureRt.fs" />
         <Compile Include="Transforms.fs" />
     </ItemGroup>
