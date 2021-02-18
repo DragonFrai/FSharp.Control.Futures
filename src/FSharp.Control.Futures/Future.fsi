@@ -1,5 +1,7 @@
 namespace FSharp.Control.Futures
 
+open System
+
 [<Struct>]
 type Poll<'a> =
     | Ready of 'a
@@ -10,16 +12,20 @@ module Poll =
 
 type Waker = unit -> unit
 
-[<Struct>]
-type Future<'a> = Future of (Waker -> Poll<'a>)
+[<AbstractClass>]
+type Future<'a> =
+    new: unit -> Future<'a>
+    abstract member Poll : Waker -> Poll<'a>
 
-module FutureCore =
-
-    val inline create: f: (Waker -> Poll<'a>) -> Future<'a>
-
-    val inline poll: waker: Waker -> fut: Future<'a> -> Poll<'a>
 
 module Future =
+
+    module Core =
+
+        [<Obsolete("Inherit class from FSharp.Control.Futures.Future")>]
+        val inline create: f: (Waker -> Poll<'a>) -> Future<'a>
+
+        val inline poll: waker: Waker -> fut: Future<'a> -> Poll<'a>
 
     val ready: value: 'a -> Future<'a>
 

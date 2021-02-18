@@ -7,10 +7,10 @@ open FSharp.Control.Futures
 
 
 type ReceiveFuture<'a>(channel: BridgeChannel<'a>, sync: obj) =
-    inherit FSharpFunc<Waker, Poll<Result<'a>>>()
+    inherit Future<Result<'a, ReceiveError>>()
 
     member val Waker = ValueNone with get, set
-    member val Value: Result<'a> voption = ValueNone with get, set
+    member val Value: Result<'a, ReceiveError> voption = ValueNone with get, set
 
     member inline internal this.PutAndWakeNoLock(res: Result<'a>) =
         this.Value <- ValueSome res
@@ -18,7 +18,7 @@ type ReceiveFuture<'a>(channel: BridgeChannel<'a>, sync: obj) =
         | ValueSome w -> w ()
         | ValueNone -> do ()
 
-    override this.Invoke(waker') =
+    override this.Poll(waker') =
         match this.Value with
         | ValueSome msg -> Ready msg
         | ValueNone ->
@@ -61,7 +61,7 @@ and BridgeChannel<'a>() =
                     else
                         let waiter' = ReceiveFuture(this, syncLock)
                         waiter <- ValueSome waiter'
-                        FutureCore.create (waiter'.Invoke)
+                        waiter' :> Future<_>
 
         member this.Dispose() =
             lock syncLock ^fun () ->

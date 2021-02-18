@@ -9,8 +9,8 @@ let readyValueTest = test "Future.ready future returns passed arg" {
     let fut = Future.ready x
 
     let expected = Poll.Ready x
-    let actual1 = FutureCore.poll (fun () -> do ()) fut
-    let actual2 = FutureCore.poll (fun () -> do ()) fut
+    let actual1 = Future.Core.poll (fun () -> do ()) fut
+    let actual2 = Future.Core.poll (fun () -> do ()) fut
 
     Expect.equal actual1 expected "Future.ready return not passed arg or Pending on first poll"
     Expect.equal actual2 expected "Future.ready return not passed arg or Pending on second poll"
@@ -19,8 +19,8 @@ let readyValueTest = test "Future.ready future returns passed arg" {
 let readyWakerTest = test "Future.ready future doesn't call waker" {
     let fut = Future.ready ()
 
-    let _ = FutureCore.poll (fun () -> Expect.isTrue false "Future.ready shouldn't call waker on first poll") fut
-    let _ = FutureCore.poll (fun () -> Expect.isTrue false "Future.ready shouldn't call waker on second poll") fut
+    let _ = Future.Core.poll (fun () -> Expect.isTrue false "Future.ready shouldn't call waker on first poll") fut
+    let _ = Future.Core.poll (fun () -> Expect.isTrue false "Future.ready shouldn't call waker on second poll") fut
     ()
 }
 

@@ -26,7 +26,7 @@ module FutureAsyncTransforms =
         let ofAsync (x: Async<'a>) : CancellableFuture<'a> =
             let mutable result = AsyncResult.Pending
             let mutable started = false
-            FutureCore.create ^fun waker ->
+            Future.Core.create ^fun waker ->
                 if not started then
                     started <- true
                     Async.StartWithContinuations(

@@ -28,7 +28,7 @@ module Future =
                     | None -> ()
             )
             Some t
-        FutureCore.create ^fun waker ->
+        Future.Core.create ^fun waker ->
             match timer with
             | Some timer ->
                 lock sync ^fun () ->
@@ -40,10 +40,10 @@ module Future =
 
     let catch (f: Future<'a>) : Future<Result<'a, exn>> =
         let mutable result = ValueNone
-        FutureCore.create ^fun waker ->
+        Future.Core.create ^fun waker ->
             if ValueNone = result then
                 try
-                    FutureCore.poll waker f |> Poll.onReady ^fun x -> result <- ValueSome (Ok x)
+                    Future.Core.poll waker f |> Poll.onReady ^fun x -> result <- ValueSome (Ok x)
                 with
                 | e -> result <- ValueSome (Error e)
             match result with
@@ -60,12 +60,12 @@ module Future =
             | Ready x -> x
             | Pending ->
                 wh.WaitOne() |> ignore
-                wait (FutureCore.poll waker f)
+                wait (Future.Core.poll waker f)
 
-        wait (FutureCore.poll waker f)
+        wait (Future.Core.poll waker f)
 
     let yieldWorkflow () =
-        FutureCore.create ^fun waker ->
+        Future.Core.create ^fun waker ->
             waker ()
             Pending
 

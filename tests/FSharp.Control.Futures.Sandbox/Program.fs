@@ -78,6 +78,17 @@ module Fib =
                 return a + b
         }
 
+    let rec fibFutureCombinators (n: int) : Future<int> =
+        if n < 0 then invalidOp "n < 0"
+
+        Future.lazy' ^fun () ->
+            if n <= 1
+            then Future.ready n
+            else
+                Future.merge (fibFutureCombinators (n-1)) (fibFutureCombinators (n-2))
+                |> Future.map ^fun (x, y) -> x + y
+        |> Future.join
+
     let fibFutureOptimized n =
         if n < 0 then invalidOp "n < 0"
         let rec fibInner n =
@@ -86,10 +97,10 @@ module Fib =
                 let mutable value = -1
                 let f1 = fibInner (n-1)
                 let f2 = fibInner (n-2)
-                FutureCore.create ^fun waker ->
+                Future.Core.create ^fun waker ->
                     match value with
                     | -1 ->
-                        match FutureCore.poll waker f1, FutureCore.poll waker f2 with
+                        match Future.Core.poll waker f1, Future.Core.poll waker f2 with
                         | Ready a, Ready b ->
                             value <- a + b
                             Ready (a + b)
@@ -97,11 +108,11 @@ module Fib =
                     | value -> Ready value
 
         let fut = lazy(fibInner n)
-        FutureCore.create ^fun w -> FutureCore.poll w fut.Value
+        Future.Core.create ^fun w -> Future.Core.poll w fut.Value
 
     let runPrimeTest () =
         let sw = Stopwatch()
-        let n = 30
+        let n = 25
 
         printfn "Test function..."
         sw.Start()
@@ -133,11 +144,11 @@ module Fib =
         let ms = sw.ElapsedMilliseconds
         printfn "Total %i ms\n" ms
 //
-//        printfn "Test Future..."
-//        sw.Restart()
-//        for i in 1..20 do (fibFuture n |> Future.run) |> ignore
-//        let ms = sw.ElapsedMilliseconds
-//        printfn "Total %i ms\n" ms
+        printfn "Test Future Combinators..."
+        sw.Restart()
+        for i in 1..20 do (fibFutureCombinators n |> Future.run) |> ignore
+        let ms = sw.ElapsedMilliseconds
+        printfn "Total %i ms\n" ms
 
 
 
