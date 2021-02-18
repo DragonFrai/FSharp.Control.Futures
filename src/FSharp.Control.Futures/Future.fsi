@@ -2,15 +2,6 @@ namespace FSharp.Control.Futures
 
 open System
 
-[<Struct>]
-type Poll<'a> =
-    | Ready of 'a
-    | Pending
-
-module Poll =
-    val inline onReady: f: ('a -> unit) -> x: Poll<'a> -> unit
-
-type Waker = unit -> unit
 
 [<AbstractClass>]
 type Future<'a> =
