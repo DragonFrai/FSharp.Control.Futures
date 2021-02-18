@@ -18,8 +18,7 @@ type FutureBuilder() =
 
     member inline _.ReturnFrom(f: Future<'a>): Future<'a> = f
 
-    member inline _.Combine(uf: Future<unit>, u2f: unit -> Future<'a>): Future<'a> =
-        Future.bind u2f uf
+    member inline this.Combine(uf: Future<unit>, u2f: unit -> Future<'a>): Future<'a> = this.Bind(uf, u2f)
 
     member inline _.MergeSources(x1, x2): Future<'a * 'b> = Future.merge x1 x2
 
