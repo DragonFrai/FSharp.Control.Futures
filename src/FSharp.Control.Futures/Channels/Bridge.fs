@@ -61,7 +61,7 @@ and BridgeChannel<'a>() =
                     else
                         let waiter' = ReceiveFuture(this, syncLock)
                         waiter <- ValueSome waiter'
-                        FutureCore.create (waiter'.Invoke)
+                        Future.Core.create (waiter'.Invoke)
 
         member this.Dispose() =
             lock syncLock ^fun () ->

@@ -82,7 +82,7 @@ type OneShotChannel<'a> =
                 | Init ->
                     this.state <- FutureExists
                     let mutable value = None
-                    FutureCore.create ^fun waker ->
+                    Future.Core.create ^fun waker ->
                         match value with
                         | Some value -> Ready (Ok value)
                         | None ->

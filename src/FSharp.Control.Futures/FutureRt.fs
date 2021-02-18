@@ -142,7 +142,7 @@ module private Scheduler =
                 if this.IsAwaited then invalidOp "JoinHandle already waited"
                 let future = JoinHandleAwaitFuture<_>()
                 this.SetOnPutResult(future.Wake)
-                FutureCore.create future.Invoke
+                Future.Core.create future.Invoke
 
         interface IDisposable with
             // After Dispose JoinHandle can only store putted value
@@ -178,7 +178,7 @@ module private Scheduler =
                     let waker = this.CreateTaskWaker(task)
                     let poolAction (obj) =
                         try
-                            let result = FutureCore.poll waker task.Future
+                            let result = Future.Core.poll waker task.Future
                             match result with
                             | Ready x ->
                                 task.Handle.PutValue(x)
