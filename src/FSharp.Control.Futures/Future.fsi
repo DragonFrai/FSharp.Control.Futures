@@ -44,7 +44,9 @@ module Future =
 
     val join: fut: Future<Future<'a>> -> Future<'a>
 
-    val getWaker: Future<Waker>
+    val delay: creator: (unit -> Future<'a>) -> Future<'a>
+
+    val getLastWaker: Future<Waker>
 
     val ignore: future: Future<'a> -> Future<unit>
 

@@ -47,16 +47,7 @@ type FutureBuilder() =
 
     member _.MergeSources(x1, x2): Future<'a * 'b> = Future.merge x1 x2
 
-    member _.Delay(f: unit -> Future<'a>): Future<'a> =
-        let mutable state = DelayState.Function f
-        { new Future<'a>() with
-            member _.Poll(waker) =
-                match state with
-                | Function f ->
-                    let fut = f ()
-                    state <- Future fut
-                    Future.Core.poll waker fut
-                | Future fut -> Future.Core.poll waker fut }
+    member _.Delay(f: unit -> Future<'a>): Future<'a> = Future.delay f
 
     member _.Using(d: 'D, f: 'D -> Future<'r>) : Future<'r> when 'D :> IDisposable =
         let fr = lazy(f d)

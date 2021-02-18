@@ -111,7 +111,18 @@ module Future =
                 | ValueSome x -> Future.Core.poll waker x
                 | ValueNone -> Pending }
 
-    let getWaker = { new Future<Waker>() with member _.Poll(waker) = Ready waker }
+    let delay (creator: unit -> Future<'a>) : Future<'a> =
+        let mutable inner: Future<'a> voption = ValueNone
+        { new Future<'a>() with
+            member _.Poll(waker) =
+                match inner with
+                | ValueSome fut -> fut.Poll(waker)
+                | ValueNone ->
+                    let fut = creator ()
+                    inner <- ValueSome fut
+                    fut.Poll(waker) }
+
+    let getLastWaker = { new Future<Waker>() with member _.Poll(waker) = Ready waker }
 
     let ignore future =
         { new Future<unit>() with
