@@ -13,8 +13,6 @@
 
     <ItemGroup>
         <Compile Include="Utils.fs" />
-        <Compile Include="Core.fsi" />
-        <Compile Include="Core.fs" />
         <Compile Include="Future.fsi" />
         <Compile Include="Future.fs" />
         <Compile Include="SeqStream.fsi" />
