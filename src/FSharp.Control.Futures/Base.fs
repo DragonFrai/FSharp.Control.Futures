@@ -65,9 +65,9 @@ module Future =
         wait (Future.Core.poll waker f)
 
     let yieldWorkflow () =
-        Future.Core.create ^fun waker ->
-            waker ()
-            Pending
-
+        { new Future<unit>() with
+            member _.Poll(waker) =
+                waker ()
+                Pending }
 
 

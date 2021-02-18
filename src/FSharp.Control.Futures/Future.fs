@@ -41,13 +41,16 @@ module Future =
 
     let ready value = { new Future<'a>() with member _.Poll(_waker) = Ready value }
 
+    let unitSingleton = { new Future<unit>() with member _.Poll(_waker) = Ready () }
+    let unit () = unitSingleton
+
     let lazy' (f: unit -> 'a) : Future<'a> =
         let mutable x = Unchecked.defaultof<'a>
         let mutable isInit = false
         { new Future<'a>() with member _.Poll(_waker) = if isInit then Ready x else x <- f(); isInit <- true; Ready x }
 
-    let never () : Future<'a> =
-        { new Future<'a>() with member _.Poll(_waker) = Pending }
+    let neverSingleton<'a> = { new Future<'a>() with member _.Poll(_waker) = Pending }
+    let never () : Future<'a> = neverSingleton
 
     let bind (binder: 'a -> Future<'b>) (fut: Future<'a>) : Future<'b> =
         let mutable futA = fut

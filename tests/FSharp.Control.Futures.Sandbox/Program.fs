@@ -187,9 +187,9 @@ module Fib =
 //        let ms = sw.ElapsedMilliseconds
 //        printfn "Total %i ms\n" ms
 
-        printfn "Test Future Raw..."
+        printfn "Test Future Builder..."
         sw.Restart()
-        for i in 1..20 do (fibFutureOptimized n |> Future.run) |> ignore
+        for i in 1..20 do (fibFuture n |> Future.run) |> ignore
         let ms = sw.ElapsedMilliseconds
         printfn "Total %i ms\n" ms
 

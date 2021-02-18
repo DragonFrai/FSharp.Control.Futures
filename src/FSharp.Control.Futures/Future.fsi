@@ -30,6 +30,8 @@ module Future =
 
     val ready: value: 'a -> Future<'a>
 
+    val unit: unit -> Future<unit>
+
     val lazy': f: (unit -> 'a) -> Future<'a>
 
     val never: unit -> Future<'a>

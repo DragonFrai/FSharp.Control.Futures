@@ -8,48 +8,28 @@ open System.Runtime.CompilerServices
 // FutureBuilder
 // -------------------
 
-[<AutoOpen>]
-module States =
-    [<Struct>]
-    type DelayState<'a> =
-        | Function of func: (unit -> Future<'a>)
-        | Future of fut: Future<'a>
-
-    [<Struct>]
-    type CombineState<'a> =
-        | Step1 of step1: Future<unit> * Future<'a>
-        | Step2 of step2: Future<'a>
-
 type FutureBuilder() =
 
-    member _.Return(x): Future<'a> = Future.ready x
+    member inline _.Return(x): Future<'a> = Future.ready x
 
-    member _.Bind(x: Future<'a>, f: 'a -> Future<'b>): Future<'b> = Future.bind f x
+    member inline _.Bind(x: Future<'a>, f: 'a -> Future<'b>): Future<'b> = Future.bind f x
 
-    member _.Zero(): Future<unit> = Future.ready ()
+    member inline _.Zero(): Future<unit> = Future.unit ()
 
-    member _.ReturnFrom(f: Future<'a>): Future<'a> = f
+    member inline _.ReturnFrom(f: Future<'a>): Future<'a> = f
 
-    member _.Combine(u: Future<unit>, f: Future<'a>): Future<'a> =
-        let mutable state = Step1(u, f)
-        { new Future<'a>() with
-            member _.Poll(waker) =
-                match state with
-                    | Step1 (fu, fa) ->
-                        match Future.Core.poll waker fu with
-                        | Ready () ->
-                            state <- Step2 fa
-                            Future.Core.poll waker fa
-                        | Pending -> Pending
-                    | Step2 fa ->
-                        Future.Core.poll waker fa
-        }
+    member inline _.Combine(uf: Future<unit>, u2f: unit -> Future<'a>): Future<'a> =
+        Future.bind u2f uf
 
-    member _.MergeSources(x1, x2): Future<'a * 'b> = Future.merge x1 x2
+    member inline _.MergeSources(x1, x2): Future<'a * 'b> = Future.merge x1 x2
 
-    member _.Delay(f: unit -> Future<'a>): Future<'a> = Future.delay f
+    member inline _.Delay(f: unit -> Future<'a>): unit -> Future<'a> = f
 
-    member _.Using(d: 'D, f: 'D -> Future<'r>) : Future<'r> when 'D :> IDisposable =
+    member inline _.Run(u2f: unit -> Future<'a>): Future<'a> = Future.delay u2f
+
+    // member _.Run(f: Future<'a>): Future<'a> = f
+
+    member inline _.Using(d: 'D, f: 'D -> Future<'r>) : Future<'r> when 'D :> IDisposable =
         let fr = lazy(f d)
         let mutable disposed = false
         { new Future<'r>() with
@@ -60,7 +40,6 @@ type FutureBuilder() =
                     if not disposed then d.Dispose()
                     Ready x
                 | p -> p }
-
 
 
 [<AutoOpen>]
