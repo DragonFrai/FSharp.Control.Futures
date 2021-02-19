@@ -11,7 +11,7 @@
         <Compile Include="ReadyTests.fs" />
         <Compile Include="NeverTests.fs" />
         <Compile Include="LazyTests.fs" />
-        <Compile Include="OneShot.fs" />
+        <Compile Include="Watch.fs" />
         <Compile Include="Bridge.fs" />
         <Compile Include="Main.fs" />
     </ItemGroup>
@@ -23,6 +23,7 @@
     </ItemGroup>
 
     <ItemGroup>
+      <ProjectReference Include="..\..\src\FSharp.Control.Futures.SeqStream\FSharp.Control.Futures.SeqStream.fsproj" />
       <ProjectReference Include="..\..\src\FSharp.Control.Futures\FSharp.Control.Futures.fsproj" />
     </ItemGroup>
 </Project>

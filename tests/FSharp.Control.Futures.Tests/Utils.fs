@@ -2,6 +2,7 @@
 module FSharp.Control.Futures.Tests.Utils
 
 open System.Collections.Concurrent
+open FSharp.Control.Futures
 
 type OrderChecker() =
     let points = ConcurrentBag<int>()
@@ -17,4 +18,4 @@ type OrderChecker() =
         (points, points') ||> Seq.forall2 (=)
 
 
-
+let noCallableWaker: Waker = fun () -> invalidOp "Waker was called"

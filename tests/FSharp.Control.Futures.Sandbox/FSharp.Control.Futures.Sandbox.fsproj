@@ -6,6 +6,7 @@
         <Description>
             A project for quick tests and checks.
         </Description>
+        <ServerGarbageCollection>true</ServerGarbageCollection>
     </PropertyGroup>
 
     <ItemGroup>
@@ -14,10 +15,12 @@
     </ItemGroup>
 
     <ItemGroup>
+      <PackageReference Include="Hopac" Version="0.5.0" />
       <PackageReference Include="Ply" Version="0.3.1" />
     </ItemGroup>
 
     <ItemGroup>
+      <ProjectReference Include="..\..\src\FSharp.Control.Futures.SeqStream\FSharp.Control.Futures.SeqStream.fsproj" />
       <ProjectReference Include="..\..\src\FSharp.Control.Futures\FSharp.Control.Futures.fsproj" />
     </ItemGroup>
 

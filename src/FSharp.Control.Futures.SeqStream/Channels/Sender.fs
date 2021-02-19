@@ -1,5 +1,5 @@
 [<RequireQualifiedAccess>]
-module FSharp.Control.Futures.Channels.Sender
+module FSharp.Control.Futures.SeqStream.Channels.Sender
 
 open System
 open FSharp.Control.Futures
@@ -12,7 +12,7 @@ let send (msg: 'a) (sender: ISender<'a>) =
 
 let inline private closeCheck isClosed = if isClosed then raise (ObjectDisposedException "Sender already closed")
 
-let onSent (action: 'a -> unit) =
+let onSend (action: 'a -> unit) =
     let mutable isClosed = false
     { new ISender<'a> with
         member _.Send(x) =
@@ -25,7 +25,6 @@ let onSent (action: 'a -> unit) =
             else ()
     }
 
-// Create
 let ignore<'a> =
     let mutable isClosed = false
     { new ISender<'a> with

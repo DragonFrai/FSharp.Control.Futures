@@ -1,8 +1,8 @@
 [<AutoOpen>]
 module FSharp.Control.Futures.Transforms
 
+open System
 open FSharp.Control.Futures
-open FSharp.Control.Futures.Base
 
 
 [<AutoOpen>]
@@ -24,7 +24,7 @@ module FutureAsyncTransforms =
         let ofAsync (x: Async<'a>) : CancellableFuture<'a> =
             let mutable result = AsyncResult.Pending
             let mutable started = false
-            FutureCore.create ^fun waker ->
+            Future.Core.create ^fun waker ->
                 if not started then
                     started <- true
                     Async.StartWithContinuations(
@@ -56,21 +56,11 @@ module FutureTaskTransforms =
 
         open System.Threading.Tasks
 
-        let ofTask (x: Task<'a>) : Future<'a> =
-            let mutable result = ValueNone
-            let mutable started = false
-            FutureCore.create ^fun waker ->
-                if not started then
-                    started <- true
-                    // TODO: Ensure to correct task binding
-                    x.ContinueWith(fun (x: Task<'a>) ->
-                        result <- ValueSome x.Result
-                        waker ()
-                        Task.CompletedTask
-                    ) |> ignore
-                match result with
-                | ValueNone -> Pending
-                | ValueSome result -> Ready result
+        // TODO: Return
+//        let ofTask (x: Task<'a>) : Future<'a> =
+//            let ch = Watch.create ()
+//            x.ContinueWith(fun (task: Task<'a>) -> task.Result |> Sender.send ch; ch.Dispose()) |> ignore
+//            Receiver.receive ch |> Future.map (function Ok x -> x | _ -> invalidOp "")
 
         // TODO: Implement without blocking
         let toTask (x: Future<'a>) : Task<'a> =

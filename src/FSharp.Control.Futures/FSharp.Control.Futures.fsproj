@@ -5,10 +5,11 @@
         <Version>0.1.3-alpha</Version>
         <PackageTags>F# async future</PackageTags>
         <Title>FSharp.Control.Futures</Title>
+        <Description>Async code library inspired by the Future trait from rust-std</Description>
         <Authors />
-        <PackageProjectUrl>https://github.com/VAVUS7/FSharp.Control.Futures</PackageProjectUrl>
+        <PackageProjectUrl>https://github.com/DragonFrai/FSharp.Control.Futures</PackageProjectUrl>
         <PackageLicenseExpression>MIT</PackageLicenseExpression>
-        <RepositoryUrl>https://github.com/VAVUS7/FSharp.Control.Futures</RepositoryUrl>
+        <RepositoryUrl>https://github.com/DragonFrai/FSharp.Control.Futures</RepositoryUrl>
     </PropertyGroup>
 
     <ItemGroup>
@@ -18,13 +19,7 @@
         <Compile Include="Builders.fs" />
         <Compile Include="Base.fs" />
         <Compile Include="Cancellable.fs" />
-        <Compile Include="Sync.fs" />
-        <Compile Include="Channels\Types.fs" />
-        <Compile Include="Channels\Sender.fs" />
-        <Compile Include="Channels\Receiver.fs" />
-        <Compile Include="Channels\Channel.fs" />
-        <Compile Include="Channels\OneShot.fs" />
-        <Compile Include="Channels\Bridge.fs" />
+        <Compile Include="Sync\IVar.fs" />
         <Compile Include="FutureRt.fs" />
         <Compile Include="Transforms.fs" />
     </ItemGroup>
