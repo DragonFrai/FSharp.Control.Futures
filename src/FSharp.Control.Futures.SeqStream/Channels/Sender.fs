@@ -37,4 +37,3 @@ let ignore<'a> =
             then raise (ObjectDisposedException "Double dispose")
             else ()
     }
-

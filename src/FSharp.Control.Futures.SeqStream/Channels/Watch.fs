@@ -5,24 +5,22 @@ open FSharp.Control.Futures
 open FSharp.Control.Futures.SeqStream
 
 
-
-// * -- goes into itself
-//
-//         ---<------->---
-//       /                \
+//   ---------<->------------
+//   ↕                      ↕
 // Empty --> Waiting ---> Value* --> ClosedWithValue
-//      \           \                      \
-//       ------>------------>------------------------->- Closed
+//   ↓         ↓                        ↓
+//   ---->-------------->---------->-----------------> Closed
 //
+// * -- goes into itself
 
 [<Struct>]
 type private WatchState<'a> =
     | Empty // -> Value / Waiting / Closed
-    // Value is ready
+    /// Value is ready
     | Value of value: 'a // -> Empty / ClosedWithValue
-    // Exists waiter of value
+    /// Exists waiter of value
     | Waiting of waker: Waker // -> Value / Closed
-    // Only when Disposed
+    /// Only when Disposed
     | ClosedWithValue of cValue: 'a // -> Closed
     | Closed
 
@@ -69,5 +67,5 @@ module Watch =
 
     let create<'a> () = new WatchChannel<'a>() :> IChannel<'a>
 
-    let createPair<'a> () = create<'a> () |> Channel.toPair
+    let createPair<'a> () = create<'a> () |> Channel.asPair
 

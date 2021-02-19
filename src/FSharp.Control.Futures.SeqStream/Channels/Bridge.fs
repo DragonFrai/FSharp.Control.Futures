@@ -53,4 +53,4 @@ module Bridge =
 
     let create<'a> () = new BridgeChannel<'a>() :> IChannel<'a>
 
-    let createPair<'a> () = create<'a> () |> Channel.toPair
+    let createPair<'a> () = create<'a> () |> Channel.asPair

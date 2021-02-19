@@ -45,5 +45,5 @@ module SeqStream =
     // Compositors
     // -----------
 
-    val map: mapper: ('a -> 'b) -> src: ISeqStream<'a> -> ISeqStream<'b>
+    val map: mapper: ('a -> 'b) -> source: ISeqStream<'a> -> ISeqStream<'b>
 
