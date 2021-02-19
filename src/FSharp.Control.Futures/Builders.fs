@@ -31,7 +31,7 @@ type FutureBuilder() =
     member inline _.Using(d: 'D, f: 'D -> Future<'r>) : Future<'r> when 'D :> IDisposable =
         let fr = lazy(f d)
         let mutable disposed = false
-        { new Future<'r>() with
+        { new Future<'r> with
             member _.Poll(waker) =
                 let fr = fr.Value
                 match Future.Core.poll waker fr with

@@ -13,11 +13,11 @@ module Poll =
 
 type Waker = unit -> unit
 
-[<AbstractClass>]
-type Future<'a> =
-    new: unit -> Future<'a>
+[<Interface>]
+type IFuture<'a> =
     abstract member Poll : Waker -> Poll<'a>
 
+type Future<'a> = IFuture<'a>
 
 module Future =
 

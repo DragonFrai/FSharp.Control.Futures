@@ -28,27 +28,29 @@ module Future =
                     | None -> ()
             )
             Some t
-        Future.Core.create ^fun waker ->
-            match timer with
-            | Some timer ->
-                lock sync ^fun () ->
-                    currentWaker <- Some waker
-                    if not timer.Enabled then timer.Start()
-                Pending
-            | None ->
-                Ready ()
+        { new Future<unit> with
+            member _.Poll(waker) =
+                match timer with
+                | Some timer ->
+                    lock sync ^fun () ->
+                        currentWaker <- Some waker
+                        if not timer.Enabled then timer.Start()
+                    Pending
+                | None ->
+                    Ready () }
 
     let catch (f: Future<'a>) : Future<Result<'a, exn>> =
         let mutable result = ValueNone
-        Future.Core.create ^fun waker ->
-            if ValueNone = result then
-                try
-                    Future.Core.poll waker f |> Poll.onReady ^fun x -> result <- ValueSome (Ok x)
-                with
-                | e -> result <- ValueSome (Error e)
-            match result with
-            | ValueSome r -> Ready r
-            | ValueNone -> Pending
+        { new Future<_> with
+            member _.Poll(waker) =
+                if ValueNone = result then
+                    try
+                        Future.Core.poll waker f |> Poll.onReady ^fun x -> result <- ValueSome (Ok x)
+                    with
+                    | e -> result <- ValueSome (Error e)
+                match result with
+                | ValueSome r -> Ready r
+                | ValueNone -> Pending }
 
     // TODO: fix it
     let run (f: Future<'a>) : 'a =
@@ -65,7 +67,7 @@ module Future =
         wait (Future.Core.poll waker f)
 
     let yieldWorkflow () =
-        { new Future<unit>() with
+        { new Future<unit> with
             member _.Poll(waker) =
                 waker ()
                 Pending }

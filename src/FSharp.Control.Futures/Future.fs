@@ -24,9 +24,12 @@ type Waker = unit -> unit
 /// # Future poll schema
 /// [ Pending -> ...(may be infinite)... -> Pending ] -> Ready x1 -> ... -> Ready xn
 ///  x1 == x2 == ... == xn
-[<AbstractClass>]
-type Future<'a>() =
+[<Interface>]
+type IFuture<'a> =
     abstract member Poll: Waker -> Poll<'a>
+
+// I know, I know
+type Future<'a> = IFuture<'a>
 
 [<RequireQualifiedAccess>]
 module Future =
@@ -35,7 +38,7 @@ module Future =
 
         [<Obsolete("Inherit class from FSharp.Control.Futures.Future")>]
         let inline create (f: Waker -> Poll<'a>): Future<'a> =
-            { new Future<'a>() with member this.Poll(waker) = f waker }
+            { new Future<'a> with member this.Poll(waker) = f waker }
 
         let inline poll waker (fut: Future<'a>) = fut.Poll(waker)
 
@@ -45,23 +48,23 @@ module Future =
         | Ready x -> f x
         | Pending -> Pending
 
-    let ready value = { new Future<'a>() with member _.Poll(_waker) = Ready value }
+    let ready value = { new Future<'a> with member _.Poll(_waker) = Ready value }
 
-    let unitSingleton = { new Future<unit>() with member _.Poll(_waker) = Ready () }
+    let unitSingleton = { new Future<unit> with member _.Poll(_waker) = Ready () }
     let unit () = unitSingleton
 
     let lazy' (f: unit -> 'a) : Future<'a> =
         let mutable x = Unchecked.defaultof<'a>
         let mutable isInit = false
-        { new Future<'a>() with member _.Poll(_waker) = if isInit then Ready x else x <- f(); isInit <- true; Ready x }
+        { new Future<'a> with member _.Poll(_waker) = if isInit then Ready x else x <- f(); isInit <- true; Ready x }
 
-    let neverSingleton<'a> = { new Future<'a>() with member _.Poll(_waker) = Pending }
+    let neverSingleton<'a> = { new Future<'a> with member _.Poll(_waker) = Pending }
     let never () : Future<'a> = neverSingleton
 
     let bind (binder: 'a -> Future<'b>) (fut: Future<'a>) : Future<'b> =
         let mutable futA = fut
         let mutable futB = ValueNone
-        { new Future<'b>() with
+        { new Future<'b> with
             member _.Poll(waker) =
                 match futB with
                 | ValueNone ->
@@ -76,7 +79,7 @@ module Future =
 
     let map (mapping: 'a -> 'b) (fut: Future<'a>) : Future<'b> =
         let mutable value = ValueNone
-        { new Future<'b>() with
+        { new Future<'b> with
             member _.Poll(waker) =
                 match value with
                 | ValueNone ->
@@ -90,7 +93,7 @@ module Future =
     let apply (f: Future<'a -> 'b>) (fut: Future<'a>) : Future<'b> =
         let mutable rf = ValueNone
         let mutable r1 = ValueNone
-        { new Future<'b>() with
+        { new Future<'b> with
             member _.Poll(waker) =
                 Future.Core.poll waker f |> Poll.onReady ^fun f -> rf <- ValueSome f
                 Future.Core.poll waker fut |> Poll.onReady ^fun x1 -> r1 <- ValueSome x1
@@ -103,7 +106,7 @@ module Future =
     let merge (fut1: Future<'a>) (fut2: Future<'b>) : Future<'a * 'b> =
         let mutable r1 = ValueNone
         let mutable r2 = ValueNone
-        { new Future<'a * 'b>() with
+        { new Future<'a * 'b> with
             member _.Poll(waker) =
                 Future.Core.poll waker fut1 |> Poll.onReady ^fun x1 -> r1 <- ValueSome x1
                 Future.Core.poll waker fut2 |> Poll.onReady ^fun x2 -> r2 <- ValueSome x2
@@ -113,7 +116,7 @@ module Future =
 
     let join (fut: Future<Future<'a>>) : Future<'a> =
         let mutable inner = ValueNone
-        { new Future<'a>() with
+        { new Future<'a> with
             member _.Poll(waker) =
                 if inner.IsNone then Future.Core.poll waker fut |> Poll.onReady ^fun inner' -> inner <- ValueSome inner'
                 match inner with
@@ -122,7 +125,7 @@ module Future =
 
     let delay (creator: unit -> Future<'a>) : Future<'a> =
         let mutable inner: Future<'a> voption = ValueNone
-        { new Future<'a>() with
+        { new Future<'a> with
             member _.Poll(waker) =
                 match inner with
                 | ValueSome fut -> fut.Poll(waker)
@@ -131,10 +134,10 @@ module Future =
                     inner <- ValueSome fut
                     fut.Poll(waker) }
 
-    let getLastWaker = { new Future<Waker>() with member _.Poll(waker) = Ready waker }
+    let getLastWaker = { new Future<Waker> with member _.Poll(waker) = Ready waker }
 
     let ignore future =
-        { new Future<unit>() with
+        { new Future<unit> with
             member _.Poll(waker) =
                 match Future.Core.poll waker future with
                 | Ready _ -> Ready ()
