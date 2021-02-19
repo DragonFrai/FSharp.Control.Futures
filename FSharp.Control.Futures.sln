@@ -12,6 +12,8 @@ Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "FSharp.Control.Futures.Benc
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "FSharp.Control.Futures.Tests", "tests\FSharp.Control.Futures.Tests\FSharp.Control.Futures.Tests.fsproj", "{10A6C033-D1B7-48F8-882D-FB2094BC7BD7}"
 EndProject
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "FSharp.Control.Futures.SeqStream", "..\src\FSharp.Control.Futures.SeqStream\FSharp.Control.Futures.SeqStream\FSharp.Control.Futures.SeqStream.fsproj", "{44E8B4E8-0EFE-49BD-8FF6-E34D9021C1E8}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -34,6 +36,10 @@ Global
 		{10A6C033-D1B7-48F8-882D-FB2094BC7BD7}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{10A6C033-D1B7-48F8-882D-FB2094BC7BD7}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{10A6C033-D1B7-48F8-882D-FB2094BC7BD7}.Release|Any CPU.Build.0 = Release|Any CPU
+		{44E8B4E8-0EFE-49BD-8FF6-E34D9021C1E8}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{44E8B4E8-0EFE-49BD-8FF6-E34D9021C1E8}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{44E8B4E8-0EFE-49BD-8FF6-E34D9021C1E8}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{44E8B4E8-0EFE-49BD-8FF6-E34D9021C1E8}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{B0400CAB-0469-44D5-B0A5-93265136ABDB} = {44835DE2-D38A-4533-BE69-3A06B779FF5A}
