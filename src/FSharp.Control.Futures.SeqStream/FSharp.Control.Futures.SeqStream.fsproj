@@ -1,0 +1,33 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net5.0</TargetFramework>
+        <Version>0.1.0-alpha</Version>
+        <PackageTags>F# async future asyncseq</PackageTags>
+        <Title>FSharp.Control.Futures.SeqStream</Title>
+        <Description>
+            A base extension to the FSharp.Control.Futures library that adds a stream of asynchronous values,
+            similar to IAsyncEnumerator, but closely related to how Future works.
+        </Description>
+        <Authors />
+        <PackageProjectUrl>https://github.com/DragonFrai/FSharp.Control.Futures</PackageProjectUrl>
+        <PackageLicenseExpression>MIT</PackageLicenseExpression>
+        <RepositoryUrl>https://github.com/DragonFrai/FSharp.Control.Futures</RepositoryUrl>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <Compile Include="Utils.fs" />
+        <Compile Include="SeqStream.fsi" />
+        <Compile Include="SeqStream.fs" />
+        <Compile Include="Channels\Types.fs" />
+        <Compile Include="Channels\Sender.fs" />
+        <Compile Include="Channels\Channel.fs" />
+        <Compile Include="Channels\Watch.fs" />
+        <Compile Include="Channels\Bridge.fs" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <ProjectReference Include="..\FSharp.Control.Futures\FSharp.Control.Futures.fsproj" />
+    </ItemGroup>
+
+</Project>
