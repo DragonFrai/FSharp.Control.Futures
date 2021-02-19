@@ -58,10 +58,11 @@ module FutureTaskTransforms =
 
         open System.Threading.Tasks
 
-        let ofTask (x: Task<'a>) : Future<'a> =
-            let ch = OneShot.create ()
-            x.ContinueWith(fun (task: Task<'a>) -> task.Result |> Sender.send ch; ch.Dispose()) |> ignore
-            Receiver.receive ch |> Future.map (function Ok x -> x | _ -> invalidOp "")
+        // TODO: Return
+//        let ofTask (x: Task<'a>) : Future<'a> =
+//            let ch = Watch.create ()
+//            x.ContinueWith(fun (task: Task<'a>) -> task.Result |> Sender.send ch; ch.Dispose()) |> ignore
+//            Receiver.receive ch |> Future.map (function Ok x -> x | _ -> invalidOp "")
 
         // TODO: Implement without blocking
         let toTask (x: Future<'a>) : Task<'a> =

@@ -20,12 +20,11 @@
         <Compile Include="Builders.fs" />
         <Compile Include="Base.fs" />
         <Compile Include="Cancellable.fs" />
-        <Compile Include="Sync.fs" />
+        <Compile Include="Sync\IVar.fs" />
         <Compile Include="Channels\Types.fs" />
         <Compile Include="Channels\Sender.fs" />
-        <Compile Include="Channels\Receiver.fs" />
         <Compile Include="Channels\Channel.fs" />
-        <Compile Include="Channels\OneShot.fs" />
+        <Compile Include="Channels\Watch.fs" />
         <Compile Include="Channels\Bridge.fs" />
         <Compile Include="FutureRt.fs" />
         <Compile Include="Transforms.fs" />

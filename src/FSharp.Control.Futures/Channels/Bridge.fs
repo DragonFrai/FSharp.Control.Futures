@@ -1,4 +1,4 @@
-module FSharp.Control.Futures.Channels.Bridge
+namespace FSharp.Control.Futures.Channels
 
 open System
 open System.Collections.Concurrent
@@ -6,33 +6,10 @@ open System.Collections.Generic
 open FSharp.Control.Futures
 
 
-type ReceiveFuture<'a>(channel: BridgeChannel<'a>, sync: obj) =
-    inherit Future<Result<'a, ReceiveError>>()
-
-    member val Waker = ValueNone with get, set
-    member val Value: Result<'a, ReceiveError> voption = ValueNone with get, set
-
-    member inline internal this.PutAndWakeNoLock(res: Result<'a>) =
-        this.Value <- ValueSome res
-        match this.Waker with
-        | ValueSome w -> w ()
-        | ValueNone -> do ()
-
-    override this.Poll(waker') =
-        match this.Value with
-        | ValueSome msg -> Ready msg
-        | ValueNone ->
-            lock channel.SyncObj ^fun () ->
-                match this.Value with
-                | ValueSome msg -> Ready msg
-                | ValueNone ->
-                    this.Waker <- ValueSome waker'
-                    Pending
-
-and BridgeChannel<'a>() =
+type BridgeChannel<'a>() =
     let mutable isClosed = false
     let msgQueue: Queue<'a> = Queue()
-    let mutable waiter: ReceiveFuture<'a> voption = ValueNone
+    let mutable waker: Waker voption = ValueNone
     let syncLock = obj()
 
     member inline internal _.TryDequeue() = msgQueue.TryDequeue()
@@ -43,38 +20,37 @@ and BridgeChannel<'a>() =
         member this.Send(msg) =
             lock syncLock ^fun () ->
                 if isClosed then raise (ObjectDisposedException "Use after dispose")
-                match waiter with
+                match waker with
                 | ValueNone -> msgQueue.Enqueue(msg)
-                | ValueSome waiter' ->
-                    waiter'.PutAndWakeNoLock(Ok msg)
-                    waiter <- ValueNone
+                | ValueSome waker' ->
+                    msgQueue.Enqueue(msg)
+                    waker' ()
+                    waker <- ValueNone
 
-        member this.Receive(): Future<Result<'a, ReceiveError>> =
+        member this.PollNext(waker') =
             lock syncLock ^fun () ->
-                if waiter.IsSome then raise (DoubleReceiveException "Double receive of one item")
-                let (hasMsg, msg) = msgQueue.TryDequeue()
+                let (hasMsg, x) = msgQueue.TryDequeue()
                 if hasMsg
-                then Future.ready (Ok msg)
+                then SeqNext x
                 else
                     if isClosed
-                    then Future.ready (Error Closed)
+                    then SeqCompleted
                     else
-                        let waiter' = ReceiveFuture(this, syncLock)
-                        waiter <- ValueSome waiter'
-                        waiter' :> Future<_>
+                        if waker.IsSome then invalidOp "Call wake-up on waiting"
+                        waker <- ValueSome waker'
+                        SeqPending
 
         member this.Dispose() =
             lock syncLock ^fun () ->
-                if isClosed then raise (ObjectDisposedException "Double dispose")
+                if isClosed then invalidOp "Double dispose"
                 isClosed <- true
-                match waiter with
+                match waker with
                 | ValueNone -> ()
-                | ValueSome waiter ->
-                    waiter.PutAndWakeNoLock(Error Closed)
+                | ValueSome waker -> waker ()
 
+[<RequireQualifiedAccess>]
+module Bridge =
 
-let createBridge<'a> () = new BridgeChannel<'a>()
+    let create<'a> () = new BridgeChannel<'a>() :> IChannel<'a>
 
-let create<'a> () = createBridge () :> IChannel<'a>
-
-let createPair<'a> () = createBridge<'a> () |> Channel.toPair
+    let createPair<'a> () = create<'a> () |> Channel.toPair

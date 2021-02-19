@@ -12,7 +12,7 @@ let send (msg: 'a) (sender: ISender<'a>) =
 
 let inline private closeCheck isClosed = if isClosed then raise (ObjectDisposedException "Sender already closed")
 
-let onSent (action: 'a -> unit) =
+let onSend (action: 'a -> unit) =
     let mutable isClosed = false
     { new ISender<'a> with
         member _.Send(x) =

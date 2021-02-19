@@ -11,7 +11,7 @@
         <Compile Include="ReadyTests.fs" />
         <Compile Include="NeverTests.fs" />
         <Compile Include="LazyTests.fs" />
-        <Compile Include="OneShot.fs" />
+        <Compile Include="Watch.fs" />
         <Compile Include="Bridge.fs" />
         <Compile Include="Main.fs" />
     </ItemGroup>

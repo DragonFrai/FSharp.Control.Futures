@@ -18,6 +18,12 @@ module Poll =
 
 type Waker = unit -> unit
 
+///
+///
+///
+/// # Future poll schema
+/// [ Pending -> ...(may be infinite)... -> Pending ] -> Ready x1 -> ... -> Ready xn
+///  x1 == x2 == ... == xn
 [<AbstractClass>]
 type Future<'a>() =
     abstract member Poll: Waker -> Poll<'a>

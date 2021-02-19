@@ -10,39 +10,38 @@ type SeqPoll<'a> =
 module SeqPoll =
     val inline map: mapper: ('a -> 'b) -> poll: SeqPoll<'a> -> SeqPoll<'b>
 
-[<AbstractClass>]
-type SeqStream<'a> =
-    new: unit -> SeqStream<'a>
+[<Interface>]
+type ISeqStream<'a> =
     abstract member PollNext: Waker -> SeqPoll<'a>
 
 module SeqStream =
 
     module Core =
-        val inline pollNext: waker: Waker -> stream: SeqStream<'a> -> SeqPoll<'a>
+        val inline pollNext: waker: Waker -> stream: ISeqStream<'a> -> SeqPoll<'a>
 
     // --------
     // Creation
     // --------
 
-    val empty: unit -> SeqStream<'a>
+    val empty: unit -> ISeqStream<'a>
 
-    val single: value: 'a -> SeqStream<'a>
+    val single: value: 'a -> ISeqStream<'a>
 
-    val always: value: 'a -> SeqStream<'a>
+    val always: value: 'a -> ISeqStream<'a>
 
-    val never: unit -> SeqStream<'a>
+    val never: unit -> ISeqStream<'a>
 
-    val replicate: count: int -> value: 'a -> SeqStream<'a>
+    val replicate: count: int -> value: 'a -> ISeqStream<'a>
 
-    val init: count: int -> initializer: (int -> 'a) -> SeqStream<'a>
+    val init: count: int -> initializer: (int -> 'a) -> ISeqStream<'a>
 
-    val initInfinite: initializer: (int -> 'a) -> SeqStream<'a>
+    val initInfinite: initializer: (int -> 'a) -> ISeqStream<'a>
 
-    val ofSeq: src: 'a seq -> SeqStream<'a>
+    val ofSeq: src: 'a seq -> ISeqStream<'a>
 
     // -----------
     // Compositors
     // -----------
 
-    val map: mapper: ('a -> 'b) -> src: SeqStream<'a> -> SeqStream<'b>
+    val map: mapper: ('a -> 'b) -> src: ISeqStream<'a> -> ISeqStream<'b>
 
