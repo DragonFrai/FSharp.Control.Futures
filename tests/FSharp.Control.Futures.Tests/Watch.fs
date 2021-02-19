@@ -3,7 +3,9 @@ module FSharp.Control.Futures.Tests.Watch
 open System
 open FSharp.Control.Futures
 open Expecto
-open FSharp.Control.Futures.Channels
+open FSharp.Control.Futures.SeqStream.Channels
+open FSharp.Control.Futures.SeqStream
+
 
 // TODO: Add tests specific for OneShotChannel
 

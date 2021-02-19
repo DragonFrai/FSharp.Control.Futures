@@ -3,8 +3,6 @@ module FSharp.Control.Futures.Transforms
 
 open System
 open FSharp.Control.Futures
-open FSharp.Control.Futures.Base
-open FSharp.Control.Futures.Channels
 
 
 [<AutoOpen>]

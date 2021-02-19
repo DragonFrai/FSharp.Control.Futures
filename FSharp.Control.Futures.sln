@@ -12,7 +12,7 @@ Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "FSharp.Control.Futures.Benc
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "FSharp.Control.Futures.Tests", "tests\FSharp.Control.Futures.Tests\FSharp.Control.Futures.Tests.fsproj", "{10A6C033-D1B7-48F8-882D-FB2094BC7BD7}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "FSharp.Control.Futures.SeqStream", "..\src\FSharp.Control.Futures.SeqStream\FSharp.Control.Futures.SeqStream\FSharp.Control.Futures.SeqStream.fsproj", "{44E8B4E8-0EFE-49BD-8FF6-E34D9021C1E8}"
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "FSharp.Control.Futures.SeqStream", "src\FSharp.Control.Futures.SeqStream\FSharp.Control.Futures.SeqStream.fsproj", "{44E8B4E8-0EFE-49BD-8FF6-E34D9021C1E8}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
