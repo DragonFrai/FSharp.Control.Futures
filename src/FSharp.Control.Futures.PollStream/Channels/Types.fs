@@ -4,7 +4,7 @@ open System
 open FSharp.Control.Futures.SeqStream
 
 
-// Этот неймспейс предоставляет связку SeqStream и ISender,
+// Этот неймспейс предоставляет связку PollStream и ISender,
 // где последний представляет собой метод пересылки данных в SeqStream
 
 // Core types
@@ -16,15 +16,15 @@ type ISender<'a> =
 
 type IChannel<'a> =
     inherit ISender<'a>
-    inherit ISeqStream<'a>
+    inherit IPollStream<'a>
 
 // Broadcast types
 
-type IBroadcastSeqStream<'a> =
-    inherit ISeqStream<'a>
-    abstract member Subscribe: unit -> IBroadcastSeqStream<'a>
+type IPublishPollStream<'a> =
+    inherit IPollStream<'a>
+    abstract member Subscribe: unit -> IPublishPollStream<'a>
 
-type IBroadcastChannel<'a> =
+type IPublishChannel<'a> =
     inherit ISender<'a>
-    inherit IBroadcastSeqStream<'a>
+    inherit IPublishPollStream<'a>
 

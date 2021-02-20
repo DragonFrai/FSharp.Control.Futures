@@ -34,8 +34,8 @@ module Future =
     [<RequireQualifiedAccess>]
     module Core =
 
-        let inline create (f: Waker -> Poll<'a>): Future<'a> =
-            { new Future<'a> with member this.Poll(waker) = f waker }
+        let inline create (__expand_poll: Waker -> Poll<'a>): Future<'a> =
+            { new Future<'a> with member this.Poll(waker) = __expand_poll waker }
 
         let inline poll waker (fut: Future<'a>) = fut.Poll(waker)
 

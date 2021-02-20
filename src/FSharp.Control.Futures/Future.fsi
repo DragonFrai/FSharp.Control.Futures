@@ -25,7 +25,7 @@ module Future =
     [<RequireQualifiedAccess>]
     module Core =
 
-        val inline create: f: (Waker -> Poll<'a>) -> Future<'a>
+        val inline create: __expand_poll: (Waker -> Poll<'a>) -> Future<'a>
 
         val inline poll: waker: Waker -> fut: Future<'a> -> Poll<'a>
 

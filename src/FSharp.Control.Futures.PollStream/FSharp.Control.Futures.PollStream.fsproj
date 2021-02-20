@@ -13,12 +13,13 @@
         <PackageProjectUrl>https://github.com/DragonFrai/FSharp.Control.Futures</PackageProjectUrl>
         <PackageLicenseExpression>MIT</PackageLicenseExpression>
         <RepositoryUrl>https://github.com/DragonFrai/FSharp.Control.Futures</RepositoryUrl>
+        <RootNamespace>FSharp.Control.Futures.SeqStream</RootNamespace>
     </PropertyGroup>
 
     <ItemGroup>
         <Compile Include="Utils.fs" />
-        <Compile Include="SeqStream.fsi" />
-        <Compile Include="SeqStream.fs" />
+        <Compile Include="PollStream.fsi" />
+        <Compile Include="PollStream.fs" />
         <Compile Include="Channels\Types.fs" />
         <Compile Include="Channels\Sender.fs" />
         <Compile Include="Channels\Channel.fs" />
