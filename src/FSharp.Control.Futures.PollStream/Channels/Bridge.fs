@@ -1,9 +1,9 @@
-namespace FSharp.Control.Futures.SeqStream.Channels
+namespace FSharp.Control.Futures.PollStream.Channels
 
 open System
 open System.Collections.Generic
 open FSharp.Control.Futures
-open FSharp.Control.Futures.SeqStream
+open FSharp.Control.Futures.PollStream
 
 
 type BridgeChannel<'a>() =

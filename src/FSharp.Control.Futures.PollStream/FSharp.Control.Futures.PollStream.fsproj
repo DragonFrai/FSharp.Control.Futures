@@ -4,7 +4,7 @@
         <TargetFramework>net5.0</TargetFramework>
         <Version>0.1.0-alpha</Version>
         <PackageTags>F# async future asyncseq</PackageTags>
-        <Title>FSharp.Control.Futures.SeqStream</Title>
+        <Title>FSharp.Control.Futures.PollStream</Title>
         <Description>
             A base extension to the FSharp.Control.Futures library that adds a stream of asynchronous values,
             similar to IAsyncEnumerator, but closely related to how Future works.
@@ -13,7 +13,7 @@
         <PackageProjectUrl>https://github.com/DragonFrai/FSharp.Control.Futures</PackageProjectUrl>
         <PackageLicenseExpression>MIT</PackageLicenseExpression>
         <RepositoryUrl>https://github.com/DragonFrai/FSharp.Control.Futures</RepositoryUrl>
-        <RootNamespace>FSharp.Control.Futures.SeqStream</RootNamespace>
+        <RootNamespace>FSharp.Control.Futures.PollStream</RootNamespace>
     </PropertyGroup>
 
     <ItemGroup>

@@ -1,5 +1,5 @@
 [<RequireQualifiedAccess>]
-module FSharp.Control.Futures.SeqStream.Channels.Sender
+module FSharp.Control.Futures.PollStream.Channels.Sender
 
 open System
 open FSharp.Control.Futures

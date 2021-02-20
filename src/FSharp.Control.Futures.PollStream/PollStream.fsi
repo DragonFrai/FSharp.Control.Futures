@@ -1,4 +1,4 @@
-namespace FSharp.Control.Futures.SeqStream
+namespace FSharp.Control.Futures.PollStream
 
 open FSharp.Control.Futures
 

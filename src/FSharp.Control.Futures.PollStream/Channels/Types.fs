@@ -1,7 +1,7 @@
-namespace FSharp.Control.Futures.SeqStream.Channels
+namespace FSharp.Control.Futures.PollStream.Channels
 
 open System
-open FSharp.Control.Futures.SeqStream
+open FSharp.Control.Futures.PollStream
 
 
 // Этот неймспейс предоставляет связку PollStream и ISender,
