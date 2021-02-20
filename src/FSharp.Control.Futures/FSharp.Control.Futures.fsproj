@@ -7,7 +7,7 @@
         <PackageId>FSharp.Control.Futures</PackageId>
         <Title>FSharp.Control.Futures</Title>
         <Description>Async code library inspired by the Future trait from rust-std</Description>
-        <PackageIcon>logo\logo-nuget_200.png</PackageIcon>
+        <PackageIcon>logo\logo.png</PackageIcon>
         <Authors>DragonFrai, Prunkles</Authors>
         <PackageProjectUrl>https://github.com/DragonFrai/FSharp.Control.Futures</PackageProjectUrl>
         <PackageLicenseExpression>MIT</PackageLicenseExpression>
@@ -27,7 +27,7 @@
     </ItemGroup>
 
     <ItemGroup>
-        <None Include="..\..\logo\logo-nuget_200.png" Pack="true" PackagePath="\logo\logo-nuget_200.png"/>
+        <None Include="..\..\logo\FSharp.Control.Futures-nuget_200.logo.png" Pack="true" Visible="false" PackagePath="\logo\logo.png"/>
     </ItemGroup>
 
 </Project>

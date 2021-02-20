@@ -14,7 +14,7 @@
         <PackageProjectUrl>https://github.com/DragonFrai/FSharp.Control.Futures</PackageProjectUrl>
         <PackageLicenseExpression>MIT</PackageLicenseExpression>
         <RepositoryUrl>https://github.com/DragonFrai/FSharp.Control.Futures</RepositoryUrl>
-        <RootNamespace>FSharp.Control.Futures.PollStream</RootNamespace>
+        <PackageIcon>logo\logo.png</PackageIcon>
     </PropertyGroup>
 
     <ItemGroup>
@@ -32,5 +32,9 @@
         <!--<ProjectReference Include="..\FSharp.Control.Futures\FSharp.Control.Futures.fsproj" />-->
         <PackageReference Include="FSharp.Control.Futures" Version="0.2.0-alpha" />
     </ItemGroup>
-
+    
+    <ItemGroup>
+        <None Include="..\..\logo\FSharp.Control.Futures.Streams-nuget_200.logo.png" PackagePath="\logo\logo.png" Pack="true" Visible="false"/>
+    </ItemGroup>
+    
 </Project>

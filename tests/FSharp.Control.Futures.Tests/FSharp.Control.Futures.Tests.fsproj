@@ -23,7 +23,7 @@
     </ItemGroup>
 
     <ItemGroup>
-      <ProjectReference Include="..\..\src\FSharp.Control.Futures.PollStream\FSharp.Control.Futures.PollStream.fsproj" />
+      <ProjectReference Include="..\..\src\FSharp.Control.Futures.Streams\FSharp.Control.Futures.Streams.fsproj" />
       <ProjectReference Include="..\..\src\FSharp.Control.Futures\FSharp.Control.Futures.fsproj" />
     </ItemGroup>
 </Project>
