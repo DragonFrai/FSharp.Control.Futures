@@ -19,14 +19,22 @@ type IFuture<'a> =
 
 type Future<'a> = IFuture<'a>
 
+[<RequireQualifiedAccess>]
 module Future =
 
+    [<RequireQualifiedAccess>]
     module Core =
 
-        [<Obsolete("Inherit class from FSharp.Control.Futures.Future")>]
         val inline create: f: (Waker -> Poll<'a>) -> Future<'a>
 
         val inline poll: waker: Waker -> fut: Future<'a> -> Poll<'a>
+
+        val getWaker: Future<Waker>
+
+        val unitSingleton: Future<unit>
+
+        val neverSingleton: Future<'a>
+
 
     val ready: value: 'a -> Future<'a>
 
@@ -47,8 +55,6 @@ module Future =
     val join: fut: Future<Future<'a>> -> Future<'a>
 
     val delay: creator: (unit -> Future<'a>) -> Future<'a>
-
-    val getLastWaker: Future<Waker>
 
     val ignore: future: Future<'a> -> Future<unit>
 

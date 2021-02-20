@@ -12,21 +12,19 @@ type FutureBuilder() =
 
     member inline _.Return(x): Future<'a> = Future.ready x
 
-    member inline _.Bind(x: Future<'a>, f: 'a -> Future<'b>): Future<'b> = Future.bind f x
+    member inline _.Bind(x, f) = Future.bind f x
 
     member inline _.Zero(): Future<unit> = Future.unit ()
 
     member inline _.ReturnFrom(f: Future<'a>): Future<'a> = f
 
-    member inline this.Combine(uf: Future<unit>, u2f: unit -> Future<'a>): Future<'a> = this.Bind(uf, u2f)
+    member inline this.Combine(uf: Future<unit>, u2f: unit -> Future<_>) = this.Bind(uf, u2f)
 
-    member inline _.MergeSources(x1, x2): Future<'a * 'b> = Future.merge x1 x2
+    member inline _.MergeSources(x1, x2) = Future.merge x1 x2
 
-    member inline _.Delay(f: unit -> Future<'a>): unit -> Future<'a> = f
+    member inline _.Delay(f: unit -> Future<'a>) = f
 
-    member inline _.Run(u2f: unit -> Future<'a>): Future<'a> = Future.delay u2f
-
-    // member _.Run(f: Future<'a>): Future<'a> = f
+    member inline _.Run(u2f): Future<'a> = Future.delay u2f
 
     member inline _.Using(d: 'D, f: 'D -> Future<'r>) : Future<'r> when 'D :> IDisposable =
         let fr = lazy(f d)
