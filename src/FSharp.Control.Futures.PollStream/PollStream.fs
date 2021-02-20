@@ -9,7 +9,7 @@ type StreamPoll<'a> =
     | Completed
     | Next of 'a
 
-module SeqPoll =
+module StreamPoll =
 
     let inline map mapper poll =
         match poll with
@@ -48,57 +48,57 @@ module PollStream =
 
     let single value =
         let mutable isCompleted = false
-        { new IPollStream<_> with
-            member _.PollNext(_) = if isCompleted then Completed else isCompleted <- true; Next value }
+        Core.create ^fun _ ->
+            if isCompleted
+            then Completed
+            else
+                isCompleted <- true
+                Next value
 
     /// Always returns SeqNext of the value
-    let always value = { new IPollStream<'a> with member _.PollNext(_) = Next value }
+    let always value = Core.create ^fun _ -> Next value
 
-    let never () = { new IPollStream<'a> with member _.PollNext(_) = Pending }
+    let never () = Core.create ^fun _ -> Pending
 
     let replicate count value =
         if count < 0 then invalidArg (nameof count) "count < 0"
         let mutable current = 0
-        { new IPollStream<'a> with
-            member _.PollNext(_) =
-                if current < count
-                then
-                    current <- current + 1
-                    Next value
-                else Completed }
+        Core.create ^fun _ ->
+            if current < count
+            then
+                current <- current + 1
+                Next value
+            else Completed
 
     let init count initializer =
         if count < 0 then invalidArg (nameof count) "count < 0"
         let mutable current = 0
-        { new IPollStream<'a> with
-            member _.PollNext(_) =
-                if current < count
-                then
-                    let x = initializer current
-                    current <- current + 1
-                    Next x
-                else Completed }
+        Core.create ^fun _ ->
+            if current < count
+            then
+                let x = initializer current
+                current <- current + 1
+                Next x
+            else Completed
 
     let initInfinite initializer =
         let mutable current = 0
-        { new IPollStream<'a> with
-            member _.PollNext(_) =
-                let x = initializer current
-                current <- current + 1
-                Next x }
+        Core.create ^fun _ ->
+            let x = initializer current
+            current <- current + 1
+            Next x
 
 
     let ofSeq (src: 'a seq) : IPollStream<'a> =
         let enumerator = src.GetEnumerator()
-        { new IPollStream<'a> with
-            member this.PollNext(_) =
-                if enumerator.MoveNext()
-                then Next enumerator.Current
-                else Completed }
+        Core.create ^fun _ ->
+            if enumerator.MoveNext()
+            then Next enumerator.Current
+            else Completed
 
     // -----------
     // Combinators
     // -----------
 
     let map (mapper: 'a -> 'b) (source: IPollStream<'a>) : IPollStream<'b> =
-        { new IPollStream<'b> with member this.PollNext(waker) = source.PollNext(waker) |> SeqPoll.map mapper }
+        Core.create ^fun waker -> source.PollNext(waker) |> StreamPoll.map mapper

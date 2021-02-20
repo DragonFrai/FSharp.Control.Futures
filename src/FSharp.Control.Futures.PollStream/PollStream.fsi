@@ -9,7 +9,7 @@ type StreamPoll<'a> =
     | Completed
     | Next of 'a
 
-module SeqPoll =
+module StreamPoll =
     val inline map: mapper: ('a -> 'b) -> poll: StreamPoll<'a> -> StreamPoll<'b>
 
 [<Interface>]
