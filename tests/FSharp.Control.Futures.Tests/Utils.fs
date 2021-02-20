@@ -1,5 +1,5 @@
 [<AutoOpen>]
-module FSharp.Control.Futures.Tests.Utils
+module Utils
 
 open System.Collections.Concurrent
 open FSharp.Control.Futures

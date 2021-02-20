@@ -1,10 +1,10 @@
-module FSharp.Control.Futures.Tests.Bridge
+module FSharp.Control.Futures.Streams.Tests.Bridge
 
 open System
 open FSharp.Control.Futures
 open Expecto
-open FSharp.Control.Futures.PollStream.Channels
-open FSharp.Control.Futures.PollStream
+open FSharp.Control.Futures.Streams.Channels
+open FSharp.Control.Futures.Streams
 
 // TODO: Add tests specific for OneShotChannel
 
