@@ -4,9 +4,11 @@
         <TargetFramework>net5.0</TargetFramework>
         <Version>0.1.3-alpha</Version>
         <PackageTags>F# async future</PackageTags>
+        <PackageId>FSharp.Control.Futures</PackageId>
         <Title>FSharp.Control.Futures</Title>
         <Description>Async code library inspired by the Future trait from rust-std</Description>
-        <Authors />
+        <PackageIcon>logo\logo-nuget_200.png</PackageIcon>
+        <Authors>DragonFrai, Prunkles</Authors>
         <PackageProjectUrl>https://github.com/DragonFrai/FSharp.Control.Futures</PackageProjectUrl>
         <PackageLicenseExpression>MIT</PackageLicenseExpression>
         <RepositoryUrl>https://github.com/DragonFrai/FSharp.Control.Futures</RepositoryUrl>
@@ -22,6 +24,10 @@
         <Compile Include="Sync\IVar.fs" />
         <Compile Include="FutureRt.fs" />
         <Compile Include="Transforms.fs" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <None Include="..\..\logo\logo-nuget_200.png" Pack="true" PackagePath="\logo\logo-nuget_200.png"/>
     </ItemGroup>
 
 </Project>
