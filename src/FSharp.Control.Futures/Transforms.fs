@@ -11,9 +11,6 @@ module FutureAsyncTransforms =
     [<RequireQualifiedAccess>]
     module Future =
 
-        open System
-        open FSharp.Control.Futures.Cancellable
-
         [<RequireQualifiedAccess>]
         type AsyncResult<'a> =
             | Pending
@@ -33,7 +30,6 @@ module FutureAsyncTransforms =
                         (fun e -> result <- AsyncResult.Errored e; waker ()),
                         (fun ec -> result <- AsyncResult.Cancelled ec; waker ())
                     )
-                ()
                 match result with
                 | AsyncResult.Pending -> Pending
                 | AsyncResult.Completed result -> Ready ^ MaybeCancel.Completed result

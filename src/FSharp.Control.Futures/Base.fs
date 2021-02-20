@@ -41,7 +41,7 @@ module Future =
     let catch (f: Future<'a>) : Future<Result<'a, exn>> =
         let mutable result = ValueNone
         Future.Core.create ^fun waker ->
-            if ValueNone = result then
+            if result.IsNone then
                 try
                     Future.Core.poll waker f |> Poll.onReady ^fun x -> result <- ValueSome (Ok x)
                 with

@@ -8,10 +8,10 @@ open System.Threading
 // Run future execution
 type IFutureRt =
     abstract Run: fut: Future<'a> -> 'a
-    abstract RunCatch: fut: Future<'a> -> Result<'a, exn> when 'a: equality
+    abstract RunCatch: fut: Future<'a> -> Result<'a, exn>
 
     abstract RunAsync: fut: Future<'a> -> Future<'a>
-    abstract RunCatchAsync: fut: Future<'a> -> Future<Result<'a, exn>> when 'a: equality
+    abstract RunCatchAsync: fut: Future<'a> -> Future<Result<'a, exn>>
 
 // -------------------
 // ThreadPollScheduler
@@ -43,25 +43,22 @@ module private Scheduler =
     type JoinHandleAwaitFuture<'a>() =
         inherit FSharpFunc<Waker, Poll<'a>>()
 
-        let mutable value = ValueNone
-        let mutable waker = ValueNone
-
-        member val Value = value with get, set
-        member val Waker = waker with get, set
+        let mutable _value = ValueNone
+        let mutable _waker = ValueNone
 
         member this.Wake(value) =
-            this.Value <- ValueSome value
-            match waker with
+            _value <- ValueSome value
+            match _waker with
             | ValueNone -> ()
             | ValueSome waker -> waker ()
 
         override this.Invoke(waker) =
-            match value with
+            match _value with
             | ValueSome v ->
-                this.Waker <- ValueNone
+                _waker <- ValueNone
                 Ready v
             | ValueNone ->
-                this.Waker <- ValueSome waker
+                _waker <- ValueSome waker
                 Pending
 
     type JoinHandle<'a>() =
@@ -103,7 +100,7 @@ module private Scheduler =
 
         member x.PutError(ex) = x.PutJoinResult(JoinHandleResult.Exn ex)
 
-        member this.Wait(timeout) : Result<'a, exn> option =
+        member this.Wait(timeout: int) : Result<'a, exn> option =
             // Check if a result is available.
             match result with
             | Value r -> Some (Ok r)
@@ -121,13 +118,13 @@ module private Scheduler =
                 | Exn ex -> Some (Result.Error ex)
                 | NoResult ->
                     // OK, let's really wait for the Set signal. This may block.
-                    let ok = resHandle.WaitOne(millisecondsTimeout= timeout, exitContext=true)
-                    if ok then
+                    let isOk = resHandle.WaitOne(timeout, true)
+                    if isOk then
                         // Now the result really must be available
                         match result with
                         | Value r -> Some (Ok r)
                         | Exn ex -> Some (Result.Error ex)
-                        | NoResult -> raise (invalidOp "Ooops")
+                        | NoResult -> invalidOp "Ooops"
                     else
                         // timed out
                         None
@@ -276,21 +273,12 @@ module FutureRt =
     let exit =
         currentRt.Value <- ValueNone
 
-
-    let run fut = (getCurrentRtOrRaise ()).Run(fut)
-
-    let runCatch fut = (getCurrentRtOrRaise ()).RunCatch(fut)
-
-    let runAsync fut = (getCurrentRtOrRaise ()).RunAsync(fut)
-
-    let runCatchAsync fut = (getCurrentRtOrRaise ()).RunCatchAsync(fut)
-
-
     let runOn (rt: IFutureRt) fut = rt.Run(fut)
-
     let runCatchOn (rt: IFutureRt) fut = rt.RunCatch(fut)
-
     let runAsyncOn (rt: IFutureRt) fut = rt.RunAsync(fut)
-
     let runCatchAsyncOn (rt: IFutureRt) fut = rt.RunCatchAsync(fut)
 
+    let run fut = runOn (getCurrentRtOrRaise ()) fut
+    let runCatch fut = runCatchOn (getCurrentRtOrRaise ()) fut
+    let runAsync fut = runAsyncOn (getCurrentRtOrRaise ()) fut
+    let runCatchAsync fut = runCatchAsyncOn (getCurrentRtOrRaise ()) fut
