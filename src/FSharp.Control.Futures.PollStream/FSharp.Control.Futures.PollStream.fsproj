@@ -28,7 +28,8 @@
     </ItemGroup>
 
     <ItemGroup>
-      <ProjectReference Include="..\FSharp.Control.Futures\FSharp.Control.Futures.fsproj" />
+<!--      <ProjectReference Include="..\FSharp.Control.Futures\FSharp.Control.Futures.fsproj" />-->
+        <PackageReference Include="FSharp.Control.Futures" Version="0.2.0-alpha"/>
     </ItemGroup>
 
 </Project>
