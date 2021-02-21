@@ -27,24 +27,24 @@ module StreamPoll =
 ///
 /// x1 != x2 != ... != xn
 [<Interface>]
-type IPollStream<'a> =
+type IPullStream<'a> =
     abstract member PollNext: Waker -> StreamPoll<'a>
 
 [<RequireQualifiedAccess>]
-module PollStream =
+module PullStream =
 
     [<RequireQualifiedAccess>]
     module Core =
 
-        let inline create __expand_pollNext = { new IPollStream<_> with member _.PollNext(w) = __expand_pollNext w }
+        let inline create __expand_pollNext = { new IPullStream<_> with member _.PollNext(w) = __expand_pollNext w }
 
-        let inline pollNext (waker: Waker) (stream: IPollStream<'a>) = stream.PollNext(waker)
+        let inline pollNext (waker: Waker) (stream: IPullStream<'a>) = stream.PollNext(waker)
 
     // -----------
     // Creation
     // -----------
 
-    let empty () = { new IPollStream<'a> with member _.PollNext(_) = Completed }
+    let empty () = { new IPullStream<'a> with member _.PollNext(_) = Completed }
 
     let single value =
         let mutable isCompleted = false
@@ -89,7 +89,7 @@ module PollStream =
             Next x
 
 
-    let ofSeq (src: 'a seq) : IPollStream<'a> =
+    let ofSeq (src: 'a seq) : IPullStream<'a> =
         let enumerator = src.GetEnumerator()
         Core.create ^fun _ ->
             if enumerator.MoveNext()
@@ -100,5 +100,5 @@ module PollStream =
     // Combinators
     // -----------
 
-    let map (mapper: 'a -> 'b) (source: IPollStream<'a>) : IPollStream<'b> =
+    let map (mapper: 'a -> 'b) (source: IPullStream<'a>) : IPullStream<'b> =
         Core.create ^fun waker -> source.PollNext(waker) |> StreamPoll.map mapper
