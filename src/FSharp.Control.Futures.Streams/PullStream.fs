@@ -129,7 +129,18 @@ module PullStream =
     /// Alias to `PullStream.collect`
     let bind source binder = collect source binder
 
-    let iter (source: IPullStream<'a>) (body: 'a -> Future<unit>) : Future<unit> =
+    let iter (source: IPullStream<'a>) (body: 'a -> unit) : Future<unit> =
+        Future.Core.create ^fun waker ->
+            let rec loop () =
+                match source.PollNext(waker) with
+                | Completed -> Poll.Ready ()
+                | Pending -> Poll.Pending
+                | Next x ->
+                    body x
+                    loop ()
+            loop ()
+
+    let iterAsync (source: IPullStream<'a>) (body: 'a -> Future<unit>) : Future<unit> =
         let mutable currFut: Future<unit> voption = ValueNone
         Future.Core.create ^fun waker ->
             let rec loop () =
