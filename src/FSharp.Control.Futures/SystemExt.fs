@@ -1,5 +1,5 @@
 [<AutoOpen>]
-module FSharp.Control.Futures.Base
+module FSharp.Control.Futures.SystemExt
 
 open System
 open System.Collections.Generic

@@ -5,7 +5,7 @@ open System.Diagnostics
 
 //open FSharp.Control.Tasks.V2
 
-open FSharp.Control.Futures.Base
+open FSharp.Control.Futures.SystemExt
 open FSharp.Control.Futures
 open FSharp.Control.Futures.Execution
 open Hopac
