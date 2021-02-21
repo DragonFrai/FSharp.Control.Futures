@@ -47,3 +47,29 @@ module PullStream =
 
     val map: mapper: ('a -> 'b) -> source: IPullStream<'a> -> IPullStream<'b>
 
+    val collect: source: IPullStream<'a> -> collector: ('a -> IPullStream<'b>) -> IPullStream<'b>
+
+    /// Alias to `PullStream.collect`
+    val bind: source: IPullStream<'a> -> binder: ('a -> IPullStream<'b>) -> IPullStream<'b>
+
+    val iter: action: ('a -> unit) -> source: IPullStream<'a> -> Future<unit>
+
+    val iterAsync: action: ('a -> Future<unit>) -> source: IPullStream<'a> -> Future<unit>
+
+    val fold: folder: ('s -> 'a -> 's) -> initState: 's -> source: IPullStream<'a> -> Future<'s>
+
+    val scan: folder: ('s -> 'a -> 's) -> initState: 's -> source: IPullStream<'a> -> IPullStream<'s>
+
+    val chooseV: chooser: ('a -> 'b voption) -> source: IPullStream<'a> -> IPullStream<'b>
+
+    val tryPickV: chooser: ('a -> 'b voption) -> source: IPullStream<'a> -> Future<'b voption>
+
+    val pickV: chooser: ('a -> 'b voption) -> source: IPullStream<'a> -> Future<'b>
+
+    val join: source: IPullStream<IPullStream<'a>> -> IPullStream<'a>
+
+    val append: source1: IPullStream<'a> -> source2: IPullStream<'a> -> IPullStream<'a>
+
+    val filter: predicate: ('a -> bool) -> source: IPullStream<'a> -> IPullStream<'a>
+
+    val any: predicate: ('a -> bool) -> source: IPullStream<'a> -> Future<bool>

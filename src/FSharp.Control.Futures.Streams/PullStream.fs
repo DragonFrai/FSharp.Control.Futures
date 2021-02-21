@@ -129,18 +129,18 @@ module PullStream =
     /// Alias to `PullStream.collect`
     let bind source binder = collect source binder
 
-    let iter (source: IPullStream<'a>) (body: 'a -> unit) : Future<unit> =
+    let iter (action: 'a -> unit) (source: IPullStream<'a>) : Future<unit> =
         Future.Core.create ^fun waker ->
             let rec loop () =
                 match source.PollNext(waker) with
                 | Completed -> Poll.Ready ()
                 | Pending -> Poll.Pending
                 | Next x ->
-                    body x
+                    action x
                     loop ()
             loop ()
 
-    let iterAsync (source: IPullStream<'a>) (body: 'a -> Future<unit>) : Future<unit> =
+    let iterAsync (action: 'a -> Future<unit>) (source: IPullStream<'a>) : Future<unit> =
         let mutable currFut: Future<unit> voption = ValueNone
         Future.Core.create ^fun waker ->
             let rec loop () =
@@ -149,7 +149,7 @@ module PullStream =
                     let x = source.PollNext(waker)
                     match x with
                     | Next x ->
-                        let fut = body x
+                        let fut = action x
                         currFut <- ValueSome fut
                         loop ()
                     | Pending -> Poll.Pending

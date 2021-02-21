@@ -5,7 +5,8 @@ open System.Diagnostics
 
 //open FSharp.Control.Tasks.V2
 
-open FSharp.Control.Futures.SystemExt
+open FSharp.Control.Futures.Streams
+open FSharp.Control.Futures.Base
 open FSharp.Control.Futures
 open FSharp.Control.Futures.Execution
 open Hopac
@@ -169,7 +170,7 @@ module Fib =
 
         printfn "Test Future Combinators bind..."
         sw.Restart()
-        for i in 1..20 do (fibFutureCombinators n |> Future.runSync) |> ignore
+        for i in 1..20 do (fibFutureCombinators n |> Future.run) |> ignore
         let ms = sw.ElapsedMilliseconds
         printfn "Total %i ms\n" ms
 
@@ -189,7 +190,7 @@ module Fib =
 
         printfn "Test Future Builder..."
         sw.Restart()
-        for i in 1..20 do (fibFuture n |> Future.runSync) |> ignore
+        for i in 1..20 do (fibFuture n |> Future.run) |> ignore
         let ms = sw.ElapsedMilliseconds
         printfn "Total %i ms\n" ms
 
@@ -208,5 +209,20 @@ let main argv =
     Fib.runPrimeTest ()
 
 
+    let source = PullStream.ofSeq [1; 2; 3]
+
+//    let fut1 = future {
+//        // some code 1
+//        do! source |> PullStream.iterAsync ^fun x -> future {
+//            do () // Some code 2
+//        }
+//        // some code 3
+//        ()
+//    }
+//
+//    let fut2 = future {
+//        for x in source do
+//            do () // Some code 2
+//    }
 
     0 // return an integer exit code

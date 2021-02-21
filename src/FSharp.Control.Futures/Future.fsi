@@ -33,9 +33,9 @@ module Future =
 
         val getWaker: Future<Waker>
 
-        val unitSingleton: Future<unit>
+        val unit: Future<unit>
 
-        val neverSingleton: Future<'a>
+        val never: Future<'a>
 
 
     val ready: value: 'a -> Future<'a>

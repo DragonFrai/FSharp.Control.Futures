@@ -23,7 +23,7 @@ type FutureBuilder() =
 
     member inline _.Delay(f: unit -> Future<'a>) = f
 
-    member inline _.For(source, body) = Future.iterFuture source body
+    member inline _.For(source, body) = Future.Seq.iterAsync source body
 
     member inline _.Using(d: 'D, f: 'D -> Future<'r>) : Future<'r> when 'D :> IDisposable =
         let fr = lazy(f d)

@@ -39,11 +39,11 @@ module Future =
 
         let inline poll waker (fut: Future<'a>) = fut.Poll(waker)
 
-        let getWaker = Core.create Ready
+        let getWaker = create Ready
 
-        let unitSingleton = Core.create ^fun _ -> Ready ()
+        let unit = create ^fun _ -> Ready ()
 
-        let neverSingleton<'a> = Core.create ^fun _ -> Poll<'a>.Pending
+        let never<'a> = create ^fun _ -> Poll<'a>.Pending
 
 
     let inline bindPoll' (f: 'a -> Poll<'b>) (x: Poll<'a>) : Poll<'b> =
@@ -53,7 +53,7 @@ module Future =
 
     let ready value = Core.create ^fun _ -> Ready value
 
-    let unit () = Core.unitSingleton
+    let unit () = Core.unit
 
     let lazy' (f: unit -> 'a) : Future<'a> =
         let mutable x = Unchecked.defaultof<'a>
@@ -66,7 +66,7 @@ module Future =
                 func <- Unchecked.defaultof<_>
                 Ready x
 
-    let never () : Future<'a> = Core.neverSingleton
+    let never () : Future<'a> = Core.never
 
     let bind (binder: 'a -> Future<'b>) (fut: Future<'a>) : Future<'b> =
         let mutable futA = fut
@@ -120,7 +120,11 @@ module Future =
     let join (fut: Future<Future<'a>>) : Future<'a> =
         let mutable inner = ValueNone
         Core.create ^fun waker ->
-            if inner.IsNone then Future.Core.poll waker fut |> Poll.onReady ^fun inner' -> inner <- ValueSome inner'
+            if inner.IsNone then
+                Future.Core.poll waker fut
+                |> Poll.onReady ^fun inner' ->
+                    inner <- ValueSome inner'
+
             match inner with
             | ValueSome x -> Future.Core.poll waker x
             | ValueNone -> Pending
