@@ -233,11 +233,11 @@ type LocalFutureRt() =
     static member GetInstance() = instance
 
     interface IExecutor with
-        member _.Run(fut) = fut |> Future.run
-        member _.RunAsync(fut) = fut |> Future.run |> Future.ready
+        member _.Run(fut) = fut |> Future.runSync
+        member _.RunAsync(fut) = fut |> Future.runSync |> Future.ready
 
-        member x.RunCatch(fut) = fut |> Future.catch |> Future.run
-        member x.RunCatchAsync(fut) = fut |> Future.catch |> Future.run |> Future.ready
+        member x.RunCatch(fut) = fut |> Future.catch |> Future.runSync
+        member x.RunCatchAsync(fut) = fut |> Future.catch |> Future.runSync |> Future.ready
 
 
 exception CurrentFutureRtIsNotSet of string

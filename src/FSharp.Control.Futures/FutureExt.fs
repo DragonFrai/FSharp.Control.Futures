@@ -23,11 +23,13 @@ module Future =
             | ValueSome r -> Ready r
             | ValueNone -> Pending
 
+    // TODO: Make monadic Future OR Move to Seq
     let iter (seq: 'a seq) (action: 'a -> unit) =
         Future.lazy' ^fun () -> for x in seq do action x
 
-    let iterFuture (seq: 'a seq) (actionBind: 'a -> Future<unit>) =
-        let enumerator = seq.GetEnumerator()
+    // TODO: Make monadic Future OR Move to Seq
+    let iterFuture (source: 'a seq) (actionBind: 'a -> Future<unit>) =
+        let enumerator = source.GetEnumerator()
         let mutable currentAwaited: Future<unit> voption = ValueNone
 
         // Iterate enumerator until binded future return Ready () on poll

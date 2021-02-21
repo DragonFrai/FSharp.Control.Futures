@@ -35,6 +35,7 @@
 
     <ItemGroup>
         <None Include="..\..\logo\FSharp.Control.Futures.Streams-nuget_200.logo.png" PackagePath="\logo\logo.png" Pack="true" Visible="false" />
+        <Compile Include="foo.fs" />
     </ItemGroup>
 
 </Project>

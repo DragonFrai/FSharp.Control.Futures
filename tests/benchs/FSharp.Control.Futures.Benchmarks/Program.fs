@@ -24,12 +24,12 @@ type FibonacciBenchmark() =
     [<Benchmark>]
     [<ArgumentsSource("Arguments")>]
     member _.SerialFutureBuilder(n) =
-        SerialFutureBuilder.fib n |> Future.run
+        SerialFutureBuilder.fib n |> Future.runSync
 
     [<Benchmark>]
     [<ArgumentsSource("Arguments")>]
     member _.ParallelFutureBuilder(n) =
-        ParallelFutureBuilder.fib n |> Future.run
+        ParallelFutureBuilder.fib n |> Future.runSync
 
 
     [<Benchmark>]

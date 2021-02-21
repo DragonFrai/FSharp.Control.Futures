@@ -140,4 +140,3 @@ module Future =
             match Future.Core.poll waker future with
             | Ready _ -> Ready ()
             | Pending -> Pending
-

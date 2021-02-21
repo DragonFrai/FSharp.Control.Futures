@@ -43,7 +43,7 @@ module Future =
             | None ->
                 Ready ()
 
-    let run (f: Future<'a>) : 'a =
+    let runSync (f: Future<'a>) : 'a =
         use wh = new EventWaitHandle(false, EventResetMode.AutoReset)
         let waker () = wh.Set |> ignore
 

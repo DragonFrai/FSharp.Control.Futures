@@ -169,7 +169,7 @@ module Fib =
 
         printfn "Test Future Combinators bind..."
         sw.Restart()
-        for i in 1..20 do (fibFutureCombinators n |> Future.run) |> ignore
+        for i in 1..20 do (fibFutureCombinators n |> Future.runSync) |> ignore
         let ms = sw.ElapsedMilliseconds
         printfn "Total %i ms\n" ms
 
@@ -189,7 +189,7 @@ module Fib =
 
         printfn "Test Future Builder..."
         sw.Restart()
-        for i in 1..20 do (fibFuture n |> Future.run) |> ignore
+        for i in 1..20 do (fibFuture n |> Future.runSync) |> ignore
         let ms = sw.ElapsedMilliseconds
         printfn "Total %i ms\n" ms
 

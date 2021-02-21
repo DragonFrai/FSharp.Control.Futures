@@ -23,9 +23,7 @@ type FutureBuilder() =
 
     member inline _.Delay(f: unit -> Future<'a>) = f
 
-    member inline _.Run(u2f): Future<'a> = Future.delay u2f
-
-    member inline _.For(seq, f) = Future.iterFuture seq f
+    member inline _.For(source, body) = Future.iterFuture source body
 
     member inline _.Using(d: 'D, f: 'D -> Future<'r>) : Future<'r> when 'D :> IDisposable =
         let fr = lazy(f d)
@@ -38,6 +36,8 @@ type FutureBuilder() =
                     if not disposed then d.Dispose()
                     Ready x
                 | p -> p }
+
+    member inline _.Run(u2f): Future<'a> = Future.delay u2f
 
 
 [<AutoOpen>]

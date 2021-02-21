@@ -18,6 +18,8 @@ module State =
     let Value: int = 2
 
 
+exception IVarDoublePutException
+
 // TODO: Rewrite to interlocked
 [<Class; Sealed>]
 type IVar<'a>() =
@@ -36,9 +38,8 @@ type IVar<'a>() =
                 value <- x
                 state <- Value
                 waker ()
-            | Value ->
-                invalidOp "Double put in IVar"
-            | _x ->
+            | Value -> raise IVarDoublePutException
+            | _ ->
                 invalidOp "Unreachable"
 
     interface Future<'a> with
@@ -55,11 +56,11 @@ type IVar<'a>() =
                     Pending
                 | Value ->
                     Ready value
-                | _x ->
+                | _ ->
                     invalidOp "Unreachable"
 
 module IVar =
     let create () = IVar()
+    // TODO: No-unit return
     let put x (ivar: IVar<_>) = ivar.Put(x)
-    let get (ivar: IVar<_>) = ivar :> Future<_>
-
+    let read (ivar: IVar<_>) = ivar :> Future<_>

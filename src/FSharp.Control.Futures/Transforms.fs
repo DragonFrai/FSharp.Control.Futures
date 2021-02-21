@@ -39,7 +39,7 @@ module FutureAsyncTransforms =
         // TODO: Implement without blocking
         let toAsync (x: Future<'a>) : Async<'a> =
             async {
-                let r = x |> Future.run
+                let r = x |> Future.runSync
                 return r
             }
 
@@ -62,12 +62,12 @@ module FutureTaskTransforms =
         let toTask (x: Future<'a>) : Task<'a> =
             Task<'a>.Factory.StartNew(
                 fun () ->
-                    x |> Future.run
+                    x |> Future.runSync
             )
 
         // TODO: Implement without blocking
         let toTaskOn (scheduler: TaskScheduler) (x: Future<'a>) : Task<'a> =
             TaskFactory<'a>(scheduler).StartNew(
                 fun () ->
-                    x |> Future.run
+                    x |> Future.runSync
             )
