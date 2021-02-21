@@ -2,6 +2,8 @@ namespace FSharp.Control.Futures
 
 open System
 
+// Contains the basic functions for creating and transforming `Future`.
+// If the function accepts types other than `Future` or `Waker`, then they should be placed somewhere else
 
 [<Struct>]
 type Poll<'a> =

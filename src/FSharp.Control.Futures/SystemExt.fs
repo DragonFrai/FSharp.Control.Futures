@@ -2,9 +2,14 @@
 module FSharp.Control.Futures.Base
 
 open System
+open System.Collections.Generic
 open System.Threading
 open System.Timers
 
+
+// Includes an extension to the base methods of Future,
+// which provides interoperability functionality that potentially
+// requires interaction with the OS, such as timers, threads, etc.
 
 [<RequireQualifiedAccess>]
 module Future =
@@ -38,19 +43,6 @@ module Future =
             | None ->
                 Ready ()
 
-    let catch (f: Future<'a>) : Future<Result<'a, exn>> =
-        let mutable result = ValueNone
-        Future.Core.create ^fun waker ->
-            if result.IsNone then
-                try
-                    Future.Core.poll waker f |> Poll.onReady ^fun x -> result <- ValueSome (Ok x)
-                with
-                | e -> result <- ValueSome (Error e)
-            match result with
-            | ValueSome r -> Ready r
-            | ValueNone -> Pending
-
-    // TODO: fix it
     let run (f: Future<'a>) : 'a =
         use wh = new EventWaitHandle(false, EventResetMode.AutoReset)
         let waker () = wh.Set |> ignore
@@ -63,10 +55,4 @@ module Future =
                 wait (Future.Core.poll waker f)
 
         wait (Future.Core.poll waker f)
-
-    let yieldWorkflow () =
-        Future.Core.create ^fun waker ->
-            waker ()
-            Pending
-
 

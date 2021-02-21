@@ -3,7 +3,6 @@ namespace FSharp.Control.Futures
 open System
 open System.Runtime.CompilerServices
 
-
 // -------------------
 // FutureBuilder
 // -------------------
@@ -25,6 +24,8 @@ type FutureBuilder() =
     member inline _.Delay(f: unit -> Future<'a>) = f
 
     member inline _.Run(u2f): Future<'a> = Future.delay u2f
+
+    member inline _.For(seq, f) = Future.iterFuture seq f
 
     member inline _.Using(d: 'D, f: 'D -> Future<'r>) : Future<'r> when 'D :> IDisposable =
         let fr = lazy(f d)

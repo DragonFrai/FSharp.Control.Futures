@@ -53,20 +53,18 @@ module Future =
 
     let ready value = Core.create ^fun _ -> Ready value
 
-
     let unit () = Core.unitSingleton
 
     let lazy' (f: unit -> 'a) : Future<'a> =
         let mutable x = Unchecked.defaultof<'a>
-        let mutable isInit = false
+        let mutable func = f
         Core.create ^fun _ ->
-            if isInit
+            if obj.ReferenceEquals(Unchecked.defaultof<_>, func)
             then Ready x
             else
-                x <- f()
-                isInit <- true
+                x <- func()
+                func <- Unchecked.defaultof<_>
                 Ready x
-
 
     let never () : Future<'a> = Core.neverSingleton
 
