@@ -23,45 +23,46 @@ module Future =
             | ValueSome r -> Ready r
             | ValueNone -> Pending
 
-    // TODO: Make monadic Future OR Move to Seq
-    let iter (seq: 'a seq) (action: 'a -> unit) =
-        Future.lazy' ^fun () -> for x in seq do action x
-
-    // TODO: Make monadic Future OR Move to Seq
-    let iterFuture (source: 'a seq) (actionBind: 'a -> Future<unit>) =
-        let enumerator = source.GetEnumerator()
-        let mutable currentAwaited: Future<unit> voption = ValueNone
-
-        // Iterate enumerator until binded future return Ready () on poll
-        // return ValueNone if enumeration was completed
-        // else return ValueSome x, when x is Future<unit>
-        let rec moveUntilReady (enumerator: IEnumerator<'a>) (binder: 'a -> Future<unit>) (waker: Waker) : Future<unit> voption =
-            if enumerator.MoveNext()
-            then
-                let waiter = actionBind enumerator.Current
-                match Future.Core.poll waker waiter with
-                | Ready () -> moveUntilReady enumerator binder waker
-                | Pending -> ValueSome waiter
-            else
-                ValueNone
-
-        let rec pollInner (waker: Waker) : Poll<unit> =
-            match currentAwaited with
-            | ValueNone ->
-                currentAwaited <- moveUntilReady enumerator actionBind waker
-                if currentAwaited.IsNone
-                then Ready ()
-                else Pending
-            | ValueSome waiter ->
-                match waiter.Poll(waker) with
-                | Ready () ->
-                    currentAwaited <- ValueNone
-                    pollInner waker
-                | Pending -> Pending
-
-        Future.Core.create pollInner
-
     let yieldWorkflow () =
         Future.Core.create ^fun waker ->
             waker ()
-            Pending
+            Ready ()
+
+    [<RequireQualifiedAccess>]
+    module Seq =
+
+        let iter (seq: 'a seq) (body: 'a -> unit) =
+            Future.lazy' ^fun () -> for x in seq do body x
+
+        let iterAsync (source: 'a seq) (body: 'a -> Future<unit>) =
+            let enumerator = source.GetEnumerator()
+            let mutable currentAwaited: Future<unit> voption = ValueNone
+
+            // Iterate enumerator until binded future return Ready () on poll
+            // return ValueNone if enumeration was completed
+            // else return ValueSome x, when x is Future<unit>
+            let rec moveUntilReady (enumerator: IEnumerator<'a>) (binder: 'a -> Future<unit>) (waker: Waker) : Future<unit> voption =
+                if enumerator.MoveNext()
+                then
+                    let waiter = body enumerator.Current
+                    match Future.Core.poll waker waiter with
+                    | Ready () -> moveUntilReady enumerator binder waker
+                    | Pending -> ValueSome waiter
+                else
+                    ValueNone
+
+            let rec pollInner (waker: Waker) : Poll<unit> =
+                match currentAwaited with
+                | ValueNone ->
+                    currentAwaited <- moveUntilReady enumerator body waker
+                    if currentAwaited.IsNone
+                    then Ready ()
+                    else Pending
+                | ValueSome waiter ->
+                    match waiter.Poll(waker) with
+                    | Ready () ->
+                        currentAwaited <- ValueNone
+                        pollInner waker
+                    | Pending -> Pending
+
+            Future.Core.create pollInner
