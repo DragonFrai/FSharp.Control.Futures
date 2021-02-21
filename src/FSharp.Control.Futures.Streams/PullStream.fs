@@ -102,3 +102,169 @@ module PullStream =
 
     let map (mapper: 'a -> 'b) (source: IPullStream<'a>) : IPullStream<'b> =
         Core.create ^fun waker -> source.PollNext(waker) |> StreamPoll.map mapper
+
+    let collect (source: IPullStream<'a>) (collector: 'a -> IPullStream<'b>) : IPullStream<'b> =
+        let mutable inners: IPullStream<'b> voption = ValueNone
+        Core.create ^fun waker ->
+            let rec loop () =
+                match inners with
+                | ValueNone ->
+                    match source.PollNext(waker) with
+                    | Pending -> Pending
+                    | Completed -> Completed
+                    | Next x ->
+                        let inners' = collector x
+                        inners <- ValueSome inners'
+                        loop ()
+                | ValueSome inners' ->
+                    let x = inners'.PollNext(waker)
+                    match x with
+                    | Pending -> Pending
+                    | Completed ->
+                        inners <- ValueNone
+                        loop ()
+                    | Next x -> Next x
+            loop ()
+
+    /// Alias to `PullStream.collect`
+    let bind source binder = collect source binder
+
+    let iter (source: IPullStream<'a>) (body: 'a -> Future<unit>) : Future<unit> =
+        let mutable currFut: Future<unit> voption = ValueNone
+        Future.Core.create ^fun waker ->
+            let rec loop () =
+                match currFut with
+                | ValueNone ->
+                    let x = source.PollNext(waker)
+                    match x with
+                    | Next x ->
+                        let fut = body x
+                        currFut <- ValueSome fut
+                        loop ()
+                    | Pending -> Poll.Pending
+                    | Completed -> Poll.Ready ()
+                | ValueSome fut ->
+                    let futPoll = fut.Poll(waker)
+                    match futPoll with
+                    | Poll.Ready () ->
+                        currFut <- ValueNone
+                        loop ()
+                    | Poll.Pending -> Poll.Pending
+            loop ()
+
+    let fold (folder: 's -> 'a -> 's) (initState: 's) (source: IPullStream<'a>): Future<'s> =
+        let mutable currState = initState
+        Future.Core.create ^fun waker ->
+            let rec loop () =
+                let sPoll = source.PollNext(waker)
+                match sPoll with
+                | Pending -> Poll.Pending
+                | Completed -> Poll.Ready currState
+                | Next x ->
+                    let state = folder currState x
+                    currState <- state
+                    loop ()
+            loop ()
+
+    let scan (folder: 's -> 'a -> 's) (initState: 's) (source: IPullStream<'a>) : IPullStream<'s> =
+        let mutable currState = initState
+        let mutable initReturned = false
+        Core.create ^fun waker ->
+            if not initReturned then
+                initReturned <- true
+                Next currState
+            else
+                let sPoll = source.PollNext(waker)
+                match sPoll with
+                | Pending -> Pending
+                | Completed -> Completed
+                | Next x ->
+                    let state = folder currState x
+                    currState <- state
+                    Next currState
+
+    let chooseV (chooser: 'a -> 'b voption) (source: IPullStream<'a>) : IPullStream<'b> =
+        Core.create ^fun waker ->
+            let rec loop () =
+                let sPoll = source.PollNext(waker)
+                match sPoll with
+                | Pending -> Pending
+                | Completed -> Completed
+                | Next x ->
+                    let r = chooser x
+                    match r with
+                    | ValueSome r -> Next r
+                    | ValueNone -> loop ()
+            loop ()
+
+    let tryPickV (chooser: 'a -> 'b voption) (source: IPullStream<'a>) : Future<'b voption> =
+        let mutable result: 'b voption = ValueNone
+        Future.Core.create ^fun waker ->
+            if result.IsSome then
+                Poll.Ready result
+            else
+                let sPoll = source.PollNext(waker)
+                match sPoll with
+                | Pending -> Poll.Pending
+                | Completed -> Poll.Ready ValueNone
+                | Next x ->
+                    let r = chooser x
+                    match r with
+                    | ValueNone -> Poll.Pending
+                    | ValueSome r ->
+                        result <- ValueSome r
+                        Poll.Ready result
+
+    let pickV (chooser: 'a -> 'b voption) (source: IPullStream<'a>) : Future<'b> =
+        tryPickV chooser source
+        |> Future.map ^function
+            | ValueSome r -> r
+            | ValueNone -> raise (System.Collections.Generic.KeyNotFoundException())
+
+    let join (ss: IPullStream<IPullStream<'a>>) : IPullStream<'a> =
+        bind ss id
+
+    let append (source1: IPullStream<'a>) (source2: IPullStream<'a>) : IPullStream<'a> =
+        join (ofSeq [ source1; source2 ])
+
+//    let bufferByCount (bufferSize: int) (source: IPullStream<'a>) : IPullStream<'a[]> =
+//        let buffer = Array.zeroCreate bufferSize
+//        let mutable currIdx = 0
+//
+//        ()
+
+    let filter (predicate: 'a -> bool) (source: IPullStream<'a>) : IPullStream<'a> =
+        Core.create ^fun waker ->
+            let rec loop () =
+                let sPoll = source.PollNext(waker)
+                match sPoll with
+                | Pending -> Pending
+                | Completed -> Completed
+                | Next x ->
+                    if predicate x then
+                        Next x
+                    else
+                        loop ()
+            loop ()
+
+    let any (predicate: 'a -> bool) (source: IPullStream<'a>) : Future<bool> =
+        let mutable result = ValueNone
+        Future.Core.create ^fun waker ->
+            let rec loop () =
+                match result with
+                | ValueSome r ->
+                    Poll.Ready r
+                | ValueNone ->
+                    let sPoll = source.PollNext(waker)
+                    match sPoll with
+                    | Pending -> Poll.Pending
+                    | Completed ->
+                        result <- ValueSome false
+                        Poll.Ready false
+                    | Next x ->
+                        if predicate x then
+                            result <- ValueSome true
+                            Poll.Ready true
+                        else
+                            loop ()
+            loop ()
