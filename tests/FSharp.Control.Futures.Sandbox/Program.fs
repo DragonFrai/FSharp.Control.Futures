@@ -87,8 +87,8 @@ module Fib =
         future {
             if n <= 1 then return n
             else
-                let! a = Execution.runAsync (fibFuture (n - 1))
-                and! b = Execution.runAsync (fibFuture (n - 2))
+                let! a = Executor.runAsync (fibFuture (n - 1))
+                and! b = Executor.runAsync (fibFuture (n - 2))
                 return a + b
         }
 
@@ -111,7 +111,7 @@ module Fib =
             if n <= 1
             then Future.ready n
             else
-                Future.merge (Execution.runAsync ^fibFutureCombinators (n-1)) (Execution.runAsync ^fibFutureCombinators (n-2))
+                Future.merge (Executor.runAsync ^fibFutureCombinators (n-1)) (Executor.runAsync ^fibFutureCombinators (n-2))
                 |> Future.map ^fun (x, y) -> x + y
         |> Future.join
 
