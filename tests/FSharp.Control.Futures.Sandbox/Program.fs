@@ -7,7 +7,7 @@ open System.Diagnostics
 
 open FSharp.Control.Futures.Base
 open FSharp.Control.Futures
-open FSharp.Control.Futures.FutureRt
+open FSharp.Control.Futures.Execution
 open Hopac
 open Hopac.Infixes
 
@@ -87,8 +87,8 @@ module Fib =
         future {
             if n <= 1 then return n
             else
-                let! a = FutureRt.runAsync (fibFuture (n - 1))
-                and! b = FutureRt.runAsync (fibFuture (n - 2))
+                let! a = Execution.runAsync (fibFuture (n - 1))
+                and! b = Execution.runAsync (fibFuture (n - 2))
                 return a + b
         }
 
@@ -111,7 +111,7 @@ module Fib =
             if n <= 1
             then Future.ready n
             else
-                Future.merge (FutureRt.runAsync ^fibFutureCombinators (n-1)) (FutureRt.runAsync ^fibFutureCombinators (n-2))
+                Future.merge (Execution.runAsync ^fibFutureCombinators (n-1)) (Execution.runAsync ^fibFutureCombinators (n-2))
                 |> Future.map ^fun (x, y) -> x + y
         |> Future.join
 

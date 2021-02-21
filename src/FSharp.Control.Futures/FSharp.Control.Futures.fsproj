@@ -22,12 +22,12 @@
         <Compile Include="Base.fs" />
         <Compile Include="Cancellable.fs" />
         <Compile Include="Sync\IVar.fs" />
-        <Compile Include="FutureRt.fs" />
+        <Compile Include="Execution.fs" />
         <Compile Include="Transforms.fs" />
     </ItemGroup>
 
     <ItemGroup>
-        <None Include="..\..\logo\FSharp.Control.Futures-nuget_200.logo.png" Pack="true" Visible="false" PackagePath="\logo\logo.png"/>
+        <None Include="..\..\logo\FSharp.Control.Futures-nuget_200.logo.png" Pack="true" Visible="false" PackagePath="\logo\logo.png" />
     </ItemGroup>
 
 </Project>

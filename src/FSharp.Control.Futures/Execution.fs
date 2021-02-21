@@ -1,12 +1,13 @@
-module rec FSharp.Control.Futures.FutureRt
+namespace rec FSharp.Control.Futures.Execution
 
 open System
 open System.Threading
+open FSharp.Control.Futures
 
 
 // TODO: Add IDisposable Runtime interface
 // Run future execution
-type IFutureRt =
+type IExecutor =
     abstract Run: fut: Future<'a> -> 'a
     abstract RunCatch: fut: Future<'a> -> Result<'a, exn>
 
@@ -203,7 +204,7 @@ module private Result =
 
 module Future =
     let onRuntime rt fut = future {
-        do FutureRt.enter rt
+        do Executor.enter rt
         return! fut
     }
 
@@ -212,7 +213,7 @@ type private SchedulingFutureRt(scheduler: Scheduler.IScheduler) =
     static let instance = SchedulingFutureRt(Scheduler.ThreadPollScheduler())
     static member GetThreadPoolInstance() = instance
 
-    interface IFutureRt with
+    interface IExecutor with
         member this.Run(fut) =
             scheduler.Spawn(Future.onRuntime this fut).Wait() |> Result.getOrRaise
 
@@ -231,7 +232,7 @@ type LocalFutureRt() =
     static let instance = LocalFutureRt()
     static member GetInstance() = instance
 
-    interface IFutureRt with
+    interface IExecutor with
         member _.Run(fut) = fut |> Future.run
         member _.RunAsync(fut) = fut |> Future.run |> Future.ready
 
@@ -242,17 +243,17 @@ type LocalFutureRt() =
 exception CurrentFutureRtIsNotSet of string
 
 [<RequireQualifiedAccess>]
-module FutureRt =
+module Executor =
 
     /// Future runtime on current thread.
-    let localRt = LocalFutureRt.GetInstance () :> IFutureRt
+    let localRt = LocalFutureRt.GetInstance () :> IExecutor
 
     /// Future runtime on thread pool
-    let threadPoolRt = SchedulingFutureRt.GetThreadPoolInstance () :> IFutureRt
+    let threadPoolRt = SchedulingFutureRt.GetThreadPoolInstance () :> IExecutor
 
     // todo: dispose it
     // todo: Add optional lock of current runtime for using inside runtime thread for block rt switch by user
-    let private currentRt = new ThreadLocal<IFutureRt voption>()
+    let private currentRt = new ThreadLocal<IExecutor voption>()
 
     let private getCurrentRt () =
         if currentRt.IsValueCreated then
@@ -266,17 +267,17 @@ module FutureRt =
         | ValueNone -> raise (CurrentFutureRtIsNotSet "")
 
     /// Current thread "enter" into IFutureRt context
-    let enter (rt: IFutureRt) : unit =
+    let enter (rt: IExecutor) : unit =
         currentRt.Value <- ValueSome rt
 
     /// Current thread "exit" from IFutureRt context
     let exit =
         currentRt.Value <- ValueNone
 
-    let runOn (rt: IFutureRt) fut = rt.Run(fut)
-    let runCatchOn (rt: IFutureRt) fut = rt.RunCatch(fut)
-    let runAsyncOn (rt: IFutureRt) fut = rt.RunAsync(fut)
-    let runCatchAsyncOn (rt: IFutureRt) fut = rt.RunCatchAsync(fut)
+    let runOn (rt: IExecutor) fut = rt.Run(fut)
+    let runCatchOn (rt: IExecutor) fut = rt.RunCatch(fut)
+    let runAsyncOn (rt: IExecutor) fut = rt.RunAsync(fut)
+    let runCatchAsyncOn (rt: IExecutor) fut = rt.RunCatchAsync(fut)
 
     let run fut = runOn (getCurrentRtOrRaise ()) fut
     let runCatch fut = runCatchOn (getCurrentRtOrRaise ()) fut

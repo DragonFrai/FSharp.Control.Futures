@@ -8,7 +8,7 @@ open BenchmarkDotNet.Running
 open FSharp.Control.Futures
 
 open FSharp.Control.Futures.Benchmarks.Fibonacci
-open FSharp.Control.Futures.FutureRt
+open FSharp.Control.Futures.Execution
 
 // TODO: Rewrite after stabilize FutureRt
 type FibonacciBenchmark() =
