@@ -103,7 +103,7 @@ module PullStream =
     let map (mapper: 'a -> 'b) (source: IPullStream<'a>) : IPullStream<'b> =
         Core.create ^fun waker -> source.PollNext(waker) |> StreamPoll.map mapper
 
-    let collect (source: IPullStream<'a>) (collector: 'a -> IPullStream<'b>) : IPullStream<'b> =
+    let collect (collector: 'a -> IPullStream<'b>) (source: IPullStream<'a>) : IPullStream<'b> =
         let mutable inners: IPullStream<'b> voption = ValueNone
         Core.create ^fun waker ->
             let rec loop () =
@@ -127,7 +127,7 @@ module PullStream =
             loop ()
 
     /// Alias to `PullStream.collect`
-    let bind source binder = collect source binder
+    let bind binder source = collect binder source
 
     let iter (action: 'a -> unit) (source: IPullStream<'a>) : Future<unit> =
         Future.Core.create ^fun waker ->

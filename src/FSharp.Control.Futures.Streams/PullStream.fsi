@@ -47,10 +47,10 @@ module PullStream =
 
     val map: mapper: ('a -> 'b) -> source: IPullStream<'a> -> IPullStream<'b>
 
-    val collect: source: IPullStream<'a> -> collector: ('a -> IPullStream<'b>) -> IPullStream<'b>
+    val collect: collector: ('a -> IPullStream<'b>) -> source: IPullStream<'a> -> IPullStream<'b>
 
     /// Alias to `PullStream.collect`
-    val bind: source: IPullStream<'a> -> binder: ('a -> IPullStream<'b>) -> IPullStream<'b>
+    val bind: binder: ('a -> IPullStream<'b>) -> source: IPullStream<'a> -> IPullStream<'b>
 
     val iter: action: ('a -> unit) -> source: IPullStream<'a> -> Future<unit>
 
