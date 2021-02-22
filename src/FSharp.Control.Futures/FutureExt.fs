@@ -24,9 +24,14 @@ module Future =
             | ValueNone -> Pending
 
     let yieldWorkflow () =
+        let mutable isYielded = false
         Future.Core.create ^fun waker ->
-            waker ()
-            Ready ()
+            if isYielded then
+                Ready ()
+            else
+                isYielded <- true
+                waker ()
+                Pending
 
     [<RequireQualifiedAccess>]
     module Seq =

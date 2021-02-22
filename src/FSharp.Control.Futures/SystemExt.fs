@@ -24,28 +24,28 @@ module Future =
             let t = new Timer(float duration)
             t.AutoReset <- false
             t.Elapsed.Add(fun _ ->
-                // TODO: think!! Called from other thread
-                timer <- None
-                t.Dispose()
                 lock sync ^fun () ->
+                    timer <- None
+                    t.Dispose()
                     match currentWaker with
                     | Some w -> w ()
                     | None -> ()
             )
             Some t
+
         Future.Core.create ^fun waker ->
-            match timer with
-            | Some timer ->
-                lock sync ^fun () ->
+            lock sync ^fun () ->
+                match timer with
+                | Some timer ->
                     currentWaker <- Some waker
                     if not timer.Enabled then timer.Start()
-                Pending
-            | None ->
-                Ready ()
+                    Pending
+                | None ->
+                    Ready ()
 
     let runSync (f: Future<'a>) : 'a =
         use wh = new EventWaitHandle(false, EventResetMode.AutoReset)
-        let waker () = wh.Set |> ignore
+        let waker () = wh.Set() |> ignore
 
         let rec wait (current: Poll<'a>) =
             match current with
