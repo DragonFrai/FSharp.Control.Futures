@@ -232,8 +232,8 @@ module PullStream =
             | ValueSome r -> r
             | ValueNone -> raise (System.Collections.Generic.KeyNotFoundException())
 
-    let join (ss: IPullStream<IPullStream<'a>>) : IPullStream<'a> =
-        bind ss id
+    let join (source: IPullStream<IPullStream<'a>>) : IPullStream<'a> =
+        bind id source
 
     let append (source1: IPullStream<'a>) (source2: IPullStream<'a>) : IPullStream<'a> =
         join (ofSeq [ source1; source2 ])
