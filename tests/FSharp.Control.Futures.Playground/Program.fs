@@ -202,9 +202,8 @@ module Fib =
 //
 
 
-[<EntryPoint>]
-let main argv =
-//    Fib.runPrimeTest ()
+let main1 () =
+    //    Fib.runPrimeTest ()
 
     let source = PullStream.ofSeq [1; 2; 3]
 
@@ -227,5 +226,30 @@ let main argv =
     fut2 |> Future.runSync
 
     System.Threading.Thread.Sleep(500)
+    ()
 
+
+
+let main2 () =
+
+    let xs =
+        pullStream {
+            yield 0
+            yield! [ 1; 2 ]
+            do! Future.sleep 5000
+            yield 3
+            let! x = Future.ready 4
+            yield x
+        }
+
+    xs
+    |> PullStream.iter (printfn "%A")
+    |> Future.runSync
+
+    ()
+
+
+[<EntryPoint>]
+let main argv =
+    main2 ()
     0 // return an integer exit code
