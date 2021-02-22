@@ -89,3 +89,7 @@ module PullStream =
     val inline singleAsync: x: Future<'a> -> IPullStream<'a>
 
     val delay: u2S: (unit -> IPullStream<'a>) -> IPullStream<'a>
+
+    val take: count: int -> source: IPullStream<'a> -> IPullStream<'a>
+
+    val bufferByCount: bufferSize: int -> source: IPullStream<'a> -> IPullStream<'a[]>

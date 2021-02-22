@@ -238,11 +238,30 @@ module PullStream =
     let append (source1: IPullStream<'a>) (source2: IPullStream<'a>) : IPullStream<'a> =
         join (ofSeq [ source1; source2 ])
 
-//    let bufferByCount (bufferSize: int) (source: IPullStream<'a>) : IPullStream<'a[]> =
-//        let buffer = Array.zeroCreate bufferSize
-//        let mutable currIdx = 0
-//
-//        ()
+    let bufferByCount (bufferSize: int) (source: IPullStream<'a>) : IPullStream<'a[]> =
+        let mutable buffer = Array.zeroCreate bufferSize
+        let mutable currIdx = 0
+        Core.create ^fun waker ->
+            if obj.ReferenceEquals(buffer, null) then
+                StreamPoll.Completed
+            else
+            let rec loop () =
+                let p = source.PollNext(waker)
+                match p with
+                | StreamPoll.Pending -> StreamPoll.Pending
+                | StreamPoll.Completed ->
+                    let result = buffer.[0..currIdx]
+                    buffer <- null
+                    StreamPoll.Next result
+                | StreamPoll.Next x ->
+                    if currIdx >= bufferSize then
+                        currIdx <- 0
+                        StreamPoll.Next buffer
+                    else
+                        buffer.[currIdx] <- x
+                        currIdx <- currIdx + 1
+                        loop ()
+            loop ()
 
     let filter (predicate: 'a -> bool) (source: IPullStream<'a>) : IPullStream<'a> =
         Core.create ^fun waker ->
@@ -343,3 +362,16 @@ module PullStream =
                 inner.PollNext(waker)
             | ValueSome inner -> inner.PollNext(waker)
 
+    let take (count: int) (source: IPullStream<'a>) : IPullStream<'a> =
+        let mutable _taken = 0
+        Core.create ^fun waker ->
+            if _taken >= count then
+                StreamPoll.Completed
+            else
+            let p = source.PollNext(waker)
+            match p with
+            | StreamPoll.Pending -> StreamPoll.Pending
+            | StreamPoll.Completed -> StreamPoll.Completed
+            | StreamPoll.Next x ->
+                _taken <- _taken + 1
+                StreamPoll.Next x
