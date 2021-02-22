@@ -54,10 +54,6 @@ module Future =
 
         let getWaker = create Ready
 
-        let unit = create ^fun _ -> Ready ()
-
-        let never<'a> = create ^fun _ -> Poll<'a>.Pending
-
 
     let inline bindPoll' (f: 'a -> Poll<'b>) (x: Poll<'a>) : Poll<'b> =
         match x with
@@ -66,7 +62,7 @@ module Future =
 
     let ready value = Core.create ^fun _ -> Ready value
 
-    let unit () = Core.unit
+    let unit () = Core.create ^fun _ -> Ready ()
 
     let lazy' (f: unit -> 'a) : Future<'a> =
         let mutable x = Unchecked.defaultof<'a>
@@ -79,7 +75,7 @@ module Future =
                 func <- Unchecked.defaultof<_>
                 Ready x
 
-    let never () : Future<'a> = Core.never
+    let never () : Future<'a> = Core.create ^fun _ -> Poll<'a>.Pending
 
     let bind (binder: 'a -> Future<'b>) (fut: Future<'a>) : Future<'b> =
         let mutable futA = fut
