@@ -3,6 +3,7 @@ module FSharp.Control.Futures.Transforms
 
 open System
 open FSharp.Control.Futures
+open FSharp.Control.Futures.Sync
 
 
 [<AutoOpen>]
@@ -52,11 +53,27 @@ module FutureTaskTransforms =
 
         open System.Threading.Tasks
 
-        // TODO: Return
-//        let ofTask (x: Task<'a>) : Future<'a> =
-//            let ch = Watch.create ()
-//            x.ContinueWith(fun (task: Task<'a>) -> task.Result |> Sender.send ch; ch.Dispose()) |> ignore
-//            Receiver.receive ch |> Future.map (function Ok x -> x | _ -> invalidOp "")
+
+        let ofTask (task: Task<'a>) : Future<'a> =
+            let ivar = IVar.create ()
+
+            task.ContinueWith(fun (task: Task<'a>) ->
+                let taskResult =
+                    if task.IsFaulted then Error task.Exception
+                    elif task.IsCanceled then Error task.Exception
+                    elif task.IsCompletedSuccessfully then Ok task.Result
+                    else invalidOp "Unreachable"
+                IVar.put taskResult ivar
+            ) |> ignore
+
+            Future.Core.create ^fun waker ->
+                let pollResult = Future.Core.poll waker ivar
+                match pollResult with
+                | Poll.Ready result ->
+                    match result with
+                    | Ok x -> Poll.Ready x
+                    | Error ex -> raise ex
+                | Poll.Pending -> Poll.Pending
 
         // TODO: Implement without blocking
         let toTask (x: Future<'a>) : Task<'a> =

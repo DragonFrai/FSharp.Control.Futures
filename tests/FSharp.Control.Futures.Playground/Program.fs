@@ -6,7 +6,7 @@ open System.Diagnostics
 //open FSharp.Control.Tasks.V2
 
 open FSharp.Control.Futures
-open FSharp.Control.Futures.Execution
+open FSharp.Control.Futures.Scheduling
 open FSharp.Control.Futures.Streams
 open FSharp.Control.Futures.Streams.Channels
 open Hopac
@@ -83,15 +83,15 @@ module Fib =
                 return a + b
         }
 
-    let rec fibFutureAsyncOnRuntime (n: int) : Future<int> =
-        if n < 0 then invalidOp "n < 0"
-        future {
-            if n <= 1 then return n
-            else
-                let! a = Executor.spawnOnCurrent (fibFuture (n - 1))
-                and! b = Executor.spawnOnCurrent (fibFuture (n - 2))
-                return a + b
-        }
+//    let rec fibFutureAsyncOnRuntime (n: int) : Future<int> =
+//        if n < 0 then invalidOp "n < 0"
+//        future {
+//            if n <= 1 then return n
+//            else
+//                let! a = Runtime.spawn (fibFuture (n - 1))
+//                and! b = Runtime.spawn (fibFuture (n - 2))
+//                return a + b
+//        }
 
     let rec fibJobParallel n =
         if n < 0 then invalidOp "n < 0"
@@ -105,16 +105,16 @@ module Fib =
 
 
 
-    let rec fibFutureCombinatorsParallel (n: int) : Future<int> =
-        if n < 0 then invalidOp "n < 0"
-
-        Future.lazy' ^fun () ->
-            if n <= 1
-            then Future.ready n
-            else
-                Future.merge (Executor.spawnOnCurrent ^fibFutureCombinators (n-1)) (Executor.spawnOnCurrent ^fibFutureCombinators (n-2))
-                |> Future.map ^fun (x, y) -> x + y
-        |> Future.join
+//    let rec fibFutureCombinatorsParallel (n: int) : Future<int> =
+//        if n < 0 then invalidOp "n < 0"
+//
+//        Future.lazy' ^fun () ->
+//            if n <= 1
+//            then Future.ready n
+//            else
+//                Future.merge (Runtime.spawn ^fibFutureCombinators (n-1)) (Runtime.spawn ^fibFutureCombinators (n-2))
+//                |> Future.map ^fun (x, y) -> x + y
+//        |> Future.join
 
     let fibFutureOptimized n =
         if n < 0 then invalidOp "n < 0"
@@ -249,7 +249,42 @@ let main2 () =
     ()
 
 
+let main0 () =
+
+    let myScheduler = Schedulers.threadPoolRuntime
+
+    let fut = future {
+        let ch = Bridge.create ()
+
+        let! () =
+            future {
+                for x in ch do
+                    printfn "%i" x
+            } |> Scheduler.spawnOn myScheduler
+
+        and! () = future {
+            let! () =
+                future {
+                    for i in 100..199  do
+                        Sender.send i ch
+                        do! Future.sleep 100
+                } |> Scheduler.spawnOn myScheduler
+            and! () =
+                future {
+                    for i in 200..299 do
+                        Sender.send i ch
+                        do! Future.sleep 100
+                } |> Scheduler.spawnOn myScheduler
+            do ch.Dispose()
+        }
+
+        ()
+    }
+
+    let () = Future.runSync fut
+    ()
+
 [<EntryPoint>]
 let main argv =
-    main2 ()
+    main0 ()
     0 // return an integer exit code
