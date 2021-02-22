@@ -212,17 +212,20 @@ let main argv =
         let ch = Bridge.create ()
         let! _ = future {
             for x in ch do
-            printfn "%i" x
+                printfn "%i" x
         }
         and! _ = future {
-            for i in [0; 1; 2; 3; 4] do
+            for i in (Seq.init 100 id)  do
                 Sender.send i ch
-                do! Future.sleep 1000
+                do! Future.sleep 100
+            do ch.Dispose()
         }
         ()
     }
 
     printfn "run future"
     fut2 |> Future.runSync
+
+    System.Threading.Thread.Sleep(500)
 
     0 // return an integer exit code

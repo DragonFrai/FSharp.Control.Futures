@@ -107,6 +107,7 @@ module Future =
             | _ -> Pending
 
     // TODO: rewrite to interlocked
+    // TODO: FIX
     let merge (fut1: Future<'a>) (fut2: Future<'b>) : Future<'a * 'b> =
         let nullWaker: Waker = Unchecked.defaultof<_>
 
@@ -139,9 +140,9 @@ module Future =
                 secondRequirePoll <- true
 
         Core.create ^fun waker ->
-            currentWaker <- waker
-
             lock syncObj ^fun () ->
+                currentWaker <- waker
+
                 if firstRequirePoll then
                     firstRequirePoll <- false
                     let x = fut1.Poll(proxyWaker1)
