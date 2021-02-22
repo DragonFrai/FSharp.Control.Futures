@@ -120,7 +120,6 @@ module Future =
             | _ -> Poll.Pending
 
     // TODO: rewrite to interlocked
-    // TODO: FIX
     let merge (fut1: Future<'a>) (fut2: Future<'b>) : Future<'a * 'b> =
         let nullWaker: Waker = Unchecked.defaultof<_>
 

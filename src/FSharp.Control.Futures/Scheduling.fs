@@ -88,11 +88,11 @@ module private SchedulerImpl =
 
 [<RequireQualifiedAccess>]
 module Schedulers =
-    let threadPoolRuntime: IScheduler = upcast new SchedulerImpl.ThreadPoolScheduler()
+    let threadPool: IScheduler = upcast new SchedulerImpl.ThreadPoolScheduler()
 
 
 [<RequireQualifiedAccess>]
 module Scheduler =
 
     let spawnOn (runtime: IScheduler) fut = runtime.Spawn(fut)
-    let spawnOnThreadPool fut = spawnOn Schedulers.threadPoolRuntime fut
+    let spawnOnThreadPool fut = spawnOn Schedulers.threadPool fut

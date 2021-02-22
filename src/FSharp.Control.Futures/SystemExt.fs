@@ -4,7 +4,6 @@ module FSharp.Control.Futures.SystemExt
 open System
 open System.Collections.Generic
 open System.Threading
-open System.Timers
 
 
 // Includes an extension to the base methods of Future,
@@ -14,36 +13,45 @@ open System.Timers
 [<RequireQualifiedAccess>]
 module Future =
 
-    let sleep (duration: int) =
-        // if None the time out
-        let mutable currentWaker = None
-        let mutable timer = None
-        let sync = obj()
+    let sleep (dueTime: TimeSpan) =
 
-        timer <-
-            let t = new Timer(float duration)
-            t.AutoReset <- false
-            t.Elapsed.Add(fun _ ->
-                lock sync ^fun () ->
-                    timer <- None
-                    t.Dispose()
-                    match currentWaker with
-                    | Some w -> w ()
-                    | None -> ()
-            )
-            Some t
+        let mutable timer: Timer = Unchecked.defaultof<_>
+        // timer ready
+        let mutable timeOut = false
+
+        let inline onWake waker _ =
+            let timer' = timer
+            timer <- Unchecked.defaultof<_>
+            timeOut <- true
+            waker ()
+            timer'.Dispose()
+
+        let inline createTimer waker =
+            new Timer(onWake waker, null, dueTime, Timeout.InfiniteTimeSpan)
 
         Future.Core.create ^fun waker ->
-            lock sync ^fun () ->
-                match timer with
-                | Some timer ->
-                    currentWaker <- Some waker
-                    if not timer.Enabled then timer.Start()
-                    Poll.Pending
-                | None ->
-                    Poll.Ready ()
+            if not (obj.ReferenceEquals(timer, null)) then invalidOp "polling Future.sleep before waking up "
+            elif timeOut then Poll.Ready ()
+            else
+                timer <- createTimer waker
+                Poll.Pending
 
+
+    let sleepMs (milliseconds: int) =
+        let dueTime = TimeSpan.FromMilliseconds((float) milliseconds)
+        sleep dueTime
+
+
+    /// The simplest implementation of the Future scheduler.
+    /// Spawn a Future on current thread and synchronously waits for its Ready
+    ///
+    /// Equivalent to `(Scheduler.spawnOn anyScheduler).Join()`,
+    /// but without the cost of complex general purpose scheduler synchronization
     let runSync (f: Future<'a>) : 'a =
+        // The simplest implementation of the Future scheduler.
+        // Based on a polling cycle (polling -> waiting for awakening -> awakening -> polling)
+        // until the point with the result is reached
+
         use wh = new EventWaitHandle(false, EventResetMode.AutoReset)
         let waker () = wh.Set() |> ignore
 

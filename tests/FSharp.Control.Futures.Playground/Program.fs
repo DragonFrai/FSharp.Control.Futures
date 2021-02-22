@@ -109,7 +109,7 @@ module Fib =
         let sw = Stopwatch()
         let n = 30
 
-        let scheduler = Schedulers.threadPoolRuntime
+        let scheduler = Schedulers.threadPool
 
         printfn "Test function..."
         sw.Start()
@@ -166,7 +166,7 @@ let main1 () =
         and! _ = future {
             for i in (Seq.init 100 id)  do
                 Sender.send i ch
-                do! Future.sleep 100
+                do! Future.sleepMs 100
             do ch.Dispose()
         }
         ()
@@ -186,7 +186,7 @@ let main2 () =
         pullStream {
             yield 0
             yield! [ 1; 2 ]
-            do! Future.sleep 5000
+            do! Future.sleepMs 5000
             yield 3
             let! x = Future.ready 4
             yield x
@@ -201,7 +201,7 @@ let main2 () =
 
 let main0 () =
 
-    let myScheduler = Schedulers.threadPoolRuntime
+    let myScheduler = Schedulers.threadPool
 
     let fut = future {
         let ch = Bridge.create ()
@@ -217,13 +217,13 @@ let main0 () =
                 future {
                     for i in 100..199  do
                         Sender.send i ch
-                        do! Future.sleep 100
+                        do! Future.sleepMs 100
                 } |> Scheduler.spawnOn myScheduler
             and! () =
                 future {
                     for i in 200..299 do
                         Sender.send i ch
-                        do! Future.sleep 100
+                        do! Future.sleepMs 100
                 } |> Scheduler.spawnOn myScheduler
             do ch.Dispose()
         }
@@ -278,6 +278,6 @@ let getRandomInts () = pullStream {
 [<EntryPoint>]
 let main argv =
 
-    Fib.runPrimeTest ()
+    main0 ()
 
     0 // return an integer exit code
