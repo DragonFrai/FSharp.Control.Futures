@@ -8,9 +8,9 @@ open BenchmarkDotNet.Running
 open FSharp.Control.Futures
 
 open FSharp.Control.Futures.Benchmarks.Fibonacci
-open FSharp.Control.Futures.Execution
+open FSharp.Control.Futures.Scheduling
 
-// TODO: Rewrite after stabilize FutureRt
+
 type FibonacciBenchmark() =
 
     member _.Arguments() = seq { 0 .. 10 .. 20 }
@@ -29,7 +29,7 @@ type FibonacciBenchmark() =
     [<Benchmark>]
     [<ArgumentsSource("Arguments")>]
     member _.ParallelFutureBuilder(n) =
-        ParallelFutureBuilder.fib n |> Future.runSync
+        ParallelFutureBuilder.fibMerge n |> Future.runSync
 
 
     [<Benchmark>]

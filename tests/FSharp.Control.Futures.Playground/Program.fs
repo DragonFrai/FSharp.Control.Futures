@@ -73,15 +73,16 @@ module Fib =
                 return x + y
         }
 
-    let rec fibFutureParallel (n: int) (sh: IScheduler) : Future<int> =
-        if n < 0 then invalidOp "n < 0"
-        future {
-            if n <= 1 then return n
-            else
-                let! a = fibFutureParallel (n - 1) (sh)
-                and! b = fibFutureParallel (n - 2) (sh)
-                return a + b
-        }
+//    let rec fibFutureParallel (n: int) (sh: IScheduler) : Future<int> =
+//        if n < 0 then invalidOp "n < 0"
+//        future {
+//            if n <= 1 then return n
+//            else
+//                let a = fibFutureParallel (n - 1) (sh) |> Scheduler.spawnOn sh
+//                let! b = fibFutureParallel (n - 2) (sh)
+//                let! a = a
+//                return a + b
+//        }
 
     let fibFutureRaw n =
         if n < 0 then invalidOp "n < 0"
@@ -143,11 +144,11 @@ module Fib =
         let ms = sw.ElapsedMilliseconds
         printfn "Total %i ms\n" ms
 
-        printfn "Test Future parallel..."
-        sw.Restart()
-        for i in 1..20 do (fibFutureParallel n scheduler |> Future.runSync) |> ignore
-        let ms = sw.ElapsedMilliseconds
-        printfn "Total %i ms\n" ms
+//        printfn "Test Future parallel..."
+//        sw.Restart()
+//        for i in 1..20 do (fibFutureParallel n scheduler |> Future.runSync) |> ignore
+//        let ms = sw.ElapsedMilliseconds
+//        printfn "Total %i ms\n" ms
 
 
 

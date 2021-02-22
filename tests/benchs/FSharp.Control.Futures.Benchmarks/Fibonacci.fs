@@ -1,6 +1,7 @@
 module FSharp.Control.Futures.Benchmarks.Fibonacci
 
 open FSharp.Control.Futures
+open FSharp.Control.Futures.Scheduling
 
 
 module SerialFun =
@@ -21,14 +22,24 @@ module SerialFutureBuilder =
     }
 
 module ParallelFutureBuilder =
-    let rec fib n = future {
+    let rec fibMerge n = future {
         if n < 2L then
             return n
         else
-            let! x = fib (n - 1L)
-            and! y = fib (n - 2L)
+            let! x = fibMerge (n - 1L)
+            and! y = fibMerge (n - 2L)
             return x + y
     }
+
+//    let rec fibMergeWithScheduler n scheduler = future {
+//        if n < 2L then
+//            return n
+//        else
+//            let! x = fibMergeWithScheduler (n - 1L) scheduler |> Scheduler.spawnOn scheduler
+//            and! y = fibMergeWithScheduler (n - 2L) scheduler |> Scheduler.spawnOn scheduler
+//            return x + y
+//    }
+
 
 module SerialAsync =
     let rec fib n = async {
@@ -41,7 +52,6 @@ module SerialAsync =
     }
 
 module ParallelAsync =
-
     type FSharp.Control.AsyncBuilder with
         member _.MergeSources(x1, x2) =
             async {
