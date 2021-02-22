@@ -53,10 +53,10 @@ module private Scheduler =
             match _value with
             | ValueSome v ->
                 _waker <- ValueNone
-                Ready v
+                Poll.Ready v
             | ValueNone ->
                 _waker <- ValueSome waker
-                Pending
+                Poll.Pending
 
     type JoinHandle<'a>() =
         let mutable result: JoinHandleResult<'a> = NoResult
@@ -174,10 +174,10 @@ module private Scheduler =
                         try
                             let result = Future.Core.poll waker task.Future
                             match result with
-                            | Ready x ->
+                            | Poll.Ready x ->
                                 task.Handle.PutValue(x)
                                 (task.Handle :> IDisposable).Dispose()
-                            | Pending -> ()
+                            | Poll.Pending -> ()
                         with
                         | ex ->
                             task.Handle.PutError(ex)

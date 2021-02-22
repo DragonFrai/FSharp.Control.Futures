@@ -39,9 +39,9 @@ module Future =
                 | Some timer ->
                     currentWaker <- Some waker
                     if not timer.Enabled then timer.Start()
-                    Pending
+                    Poll.Pending
                 | None ->
-                    Ready ()
+                    Poll.Ready ()
 
     let runSync (f: Future<'a>) : 'a =
         use wh = new EventWaitHandle(false, EventResetMode.AutoReset)
@@ -49,8 +49,8 @@ module Future =
 
         let rec wait (current: Poll<'a>) =
             match current with
-            | Ready x -> x
-            | Pending ->
+            | Poll.Ready x -> x
+            | Poll.Pending ->
                 wh.WaitOne() |> ignore
                 wait (Future.Core.poll waker f)
 

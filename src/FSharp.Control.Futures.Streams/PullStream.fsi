@@ -3,12 +3,13 @@ namespace FSharp.Control.Futures.Streams
 open FSharp.Control.Futures
 
 
-[<Struct>]
+[<Struct; RequireQualifiedAccess>]
 type StreamPoll<'a> =
     | Pending
     | Completed
     | Next of 'a
 
+[<RequireQualifiedAccess>]
 module StreamPoll =
     val inline map: mapper: ('a -> 'b) -> poll: StreamPoll<'a> -> StreamPoll<'b>
 

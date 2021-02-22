@@ -5,7 +5,7 @@ open System
 // Contains the basic functions for creating and transforming `Future`.
 // If the function accepts types other than `Future` or `Waker`, then they should be placed somewhere else
 
-[<Struct>]
+[<Struct; RequireQualifiedAccess>]
 type Poll<'a> =
     | Ready of 'a
     | Pending

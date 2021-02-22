@@ -46,11 +46,11 @@ type WatchChannel<'a>() =
         member this.PollNext(waker) =
             lock syncLock ^fun () ->
                 match state with
-                | Value x -> state <- Empty; Next x
-                | Empty -> state <- Waiting waker; Pending
+                | Value x -> state <- Empty; StreamPoll.Next x
+                | Empty -> state <- Waiting waker; StreamPoll.Pending
                 | Waiting _ -> invalidOp "Call wake-up on wake-up "
-                | ClosedWithValue x -> state <- Closed; Next x
-                | Closed -> Completed
+                | ClosedWithValue x -> state <- Closed; StreamPoll.Next x
+                | Closed -> StreamPoll.Completed
 
         // Dispose now used only for signalize about invalid use and keep out the ever-waiting receivers
         member this.Dispose() =

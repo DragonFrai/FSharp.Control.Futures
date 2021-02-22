@@ -49,13 +49,13 @@ type IVar<'a>() =
                 | Empty ->
                     waker <- waker'
                     state <- Waiting
-                    Pending
+                    Poll.Pending
                 | Waiting ->
                     waker <- waker'
                     state <- Waiting
-                    Pending
+                    Poll.Pending
                 | Value ->
-                    Ready value
+                    Poll.Ready value
                 | _ ->
                     invalidOp "Unreachable"
 

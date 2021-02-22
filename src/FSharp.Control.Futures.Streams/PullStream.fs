@@ -3,7 +3,7 @@ namespace FSharp.Control.Futures.Streams
 open FSharp.Control.Futures
 
 
-[<Struct>]
+[<Struct; RequireQualifiedAccess>]
 type StreamPoll<'a> =
     | Pending
     | Completed
@@ -13,17 +13,17 @@ module StreamPoll =
 
     let inline map mapper poll =
         match poll with
-        | Next x -> Next (mapper x)
-        | Pending -> Pending
-        | Completed -> Completed
+        | StreamPoll.Next x -> StreamPoll.Next (mapper x)
+        | StreamPoll.Pending -> StreamPoll.Pending
+        | StreamPoll.Completed -> StreamPoll.Completed
 
 
 /// # SeqStream pollNext schema
-/// [ [ Pending -> ...(may be inf)... -> Pending ] -> Next x1 ] ->
-/// [ [ Pending -> ...(may be inf)... -> Pending ] -> Next x2 ] ->
+/// [ [ StreamPoll.Pending -> ...(may be inf)... -> StreamPoll.Pending ] -> StreamPoll.Next x1 ] ->
+/// [ [ StreamPoll.Pending -> ...(may be inf)... -> StreamPoll.Pending ] -> StreamPoll.Next x2 ] ->
 /// ...
-/// [ [ Pending -> ...(may be inf)... -> Pending ] -> Next xn ] ->
-/// [ Pending -> ...(may be inf))... -> Pending ] -> Completed -> ... -> Completed
+/// [ [ StreamPoll.Pending -> ...(may be inf)... -> StreamPoll.Pending ] -> StreamPoll.Next xn ] ->
+/// [ StreamPoll.Pending -> ...(may be inf))... -> StreamPoll.Pending ] -> StreamPoll.Completed -> ... -> StreamPoll.Completed
 ///
 /// x1 != x2 != ... != xn
 [<Interface>]
@@ -44,21 +44,21 @@ module PullStream =
     // Creation
     // -----------
 
-    let empty () = { new IPullStream<'a> with member _.PollNext(_) = Completed }
+    let empty () = { new IPullStream<'a> with member _.PollNext(_) = StreamPoll.Completed }
 
     let single value =
         let mutable isCompleted = false
         Core.create ^fun _ ->
             if isCompleted
-            then Completed
+            then StreamPoll.Completed
             else
                 isCompleted <- true
-                Next value
+                StreamPoll.Next value
 
     /// Always returns SeqNext of the value
-    let always value = Core.create ^fun _ -> Next value
+    let always value = Core.create ^fun _ -> StreamPoll.Next value
 
-    let never () = Core.create ^fun _ -> Pending
+    let never () = Core.create ^fun _ -> StreamPoll.Pending
 
     let replicate count value =
         if count < 0 then invalidArg (nameof count) "count < 0"
@@ -67,8 +67,8 @@ module PullStream =
             if current < count
             then
                 current <- current + 1
-                Next value
-            else Completed
+                StreamPoll.Next value
+            else StreamPoll.Completed
 
     let init count initializer =
         if count < 0 then invalidArg (nameof count) "count < 0"
@@ -78,23 +78,23 @@ module PullStream =
             then
                 let x = initializer current
                 current <- current + 1
-                Next x
-            else Completed
+                StreamPoll.Next x
+            else StreamPoll.Completed
 
     let initInfinite initializer =
         let mutable current = 0
         Core.create ^fun _ ->
             let x = initializer current
             current <- current + 1
-            Next x
+            StreamPoll.Next x
 
 
     let ofSeq (src: 'a seq) : IPullStream<'a> =
         let enumerator = src.GetEnumerator()
         Core.create ^fun _ ->
             if enumerator.MoveNext()
-            then Next enumerator.Current
-            else Completed
+            then StreamPoll.Next enumerator.Current
+            else StreamPoll.Completed
 
     // -----------
     // Combinators
@@ -110,20 +110,20 @@ module PullStream =
                 match inners with
                 | ValueNone ->
                     match source.PollNext(waker) with
-                    | Pending -> Pending
-                    | Completed -> Completed
-                    | Next x ->
+                    | StreamPoll.Pending -> StreamPoll.Pending
+                    | StreamPoll.Completed -> StreamPoll.Completed
+                    | StreamPoll.Next x ->
                         let inners' = collector x
                         inners <- ValueSome inners'
                         loop ()
                 | ValueSome inners' ->
                     let x = inners'.PollNext(waker)
                     match x with
-                    | Pending -> Pending
-                    | Completed ->
+                    | StreamPoll.Pending -> StreamPoll.Pending
+                    | StreamPoll.Completed ->
                         inners <- ValueNone
                         loop ()
-                    | Next x -> Next x
+                    | StreamPoll.Next x -> StreamPoll.Next x
             loop ()
 
     /// Alias to `PullStream.collect`
@@ -133,9 +133,9 @@ module PullStream =
         Future.Core.create ^fun waker ->
             let rec loop () =
                 match source.PollNext(waker) with
-                | Completed -> Poll.Ready ()
-                | Pending -> Poll.Pending
-                | Next x ->
+                | StreamPoll.Completed -> Poll.Ready ()
+                | StreamPoll.Pending -> Poll.Pending
+                | StreamPoll.Next x ->
                     action x
                     loop ()
             loop ()
@@ -148,12 +148,12 @@ module PullStream =
                 | ValueNone ->
                     let x = source.PollNext(waker)
                     match x with
-                    | Next x ->
+                    | StreamPoll.Next x ->
                         let fut = action x
                         currFut <- ValueSome fut
                         loop ()
-                    | Pending -> Poll.Pending
-                    | Completed -> Poll.Ready ()
+                    | StreamPoll.Pending -> Poll.Pending
+                    | StreamPoll.Completed -> Poll.Ready ()
                 | ValueSome fut ->
                     let futPoll = fut.Poll(waker)
                     match futPoll with
@@ -169,9 +169,9 @@ module PullStream =
             let rec loop () =
                 let sPoll = source.PollNext(waker)
                 match sPoll with
-                | Pending -> Poll.Pending
-                | Completed -> Poll.Ready currState
-                | Next x ->
+                | StreamPoll.Pending -> Poll.Pending
+                | StreamPoll.Completed -> Poll.Ready currState
+                | StreamPoll.Next x ->
                     let state = folder currState x
                     currState <- state
                     loop ()
@@ -183,28 +183,28 @@ module PullStream =
         Core.create ^fun waker ->
             if not initReturned then
                 initReturned <- true
-                Next currState
+                StreamPoll.Next currState
             else
                 let sPoll = source.PollNext(waker)
                 match sPoll with
-                | Pending -> Pending
-                | Completed -> Completed
-                | Next x ->
+                | StreamPoll.Pending -> StreamPoll.Pending
+                | StreamPoll.Completed -> StreamPoll.Completed
+                | StreamPoll.Next x ->
                     let state = folder currState x
                     currState <- state
-                    Next currState
+                    StreamPoll.Next currState
 
     let chooseV (chooser: 'a -> 'b voption) (source: IPullStream<'a>) : IPullStream<'b> =
         Core.create ^fun waker ->
             let rec loop () =
                 let sPoll = source.PollNext(waker)
                 match sPoll with
-                | Pending -> Pending
-                | Completed -> Completed
-                | Next x ->
+                | StreamPoll.Pending -> StreamPoll.Pending
+                | StreamPoll.Completed -> StreamPoll.Completed
+                | StreamPoll.Next x ->
                     let r = chooser x
                     match r with
-                    | ValueSome r -> Next r
+                    | ValueSome r -> StreamPoll.Next r
                     | ValueNone -> loop ()
             loop ()
 
@@ -216,9 +216,9 @@ module PullStream =
             else
                 let sPoll = source.PollNext(waker)
                 match sPoll with
-                | Pending -> Poll.Pending
-                | Completed -> Poll.Ready ValueNone
-                | Next x ->
+                | StreamPoll.Pending -> Poll.Pending
+                | StreamPoll.Completed -> Poll.Ready ValueNone
+                | StreamPoll.Next x ->
                     let r = chooser x
                     match r with
                     | ValueNone -> Poll.Pending
@@ -249,11 +249,11 @@ module PullStream =
             let rec loop () =
                 let sPoll = source.PollNext(waker)
                 match sPoll with
-                | Pending -> Pending
-                | Completed -> Completed
-                | Next x ->
+                | StreamPoll.Pending -> StreamPoll.Pending
+                | StreamPoll.Completed -> StreamPoll.Completed
+                | StreamPoll.Next x ->
                     if predicate x then
-                        Next x
+                        StreamPoll.Next x
                     else
                         loop ()
             loop ()
@@ -268,11 +268,11 @@ module PullStream =
                 | ValueNone ->
                     let sPoll = source.PollNext(waker)
                     match sPoll with
-                    | Pending -> Poll.Pending
-                    | Completed ->
+                    | StreamPoll.Pending -> Poll.Pending
+                    | StreamPoll.Completed ->
                         result <- ValueSome false
                         Poll.Ready false
-                    | Next x ->
+                    | StreamPoll.Next x ->
                         if predicate x then
                             result <- ValueSome true
                             Poll.Ready true
@@ -289,11 +289,11 @@ module PullStream =
                 | ValueNone ->
                     let sPoll = source.PollNext(waker)
                     match sPoll with
-                    | Pending -> Poll.Pending
-                    | Completed ->
+                    | StreamPoll.Pending -> Poll.Pending
+                    | StreamPoll.Completed ->
                         result <- ValueSome true
                         Poll.Ready true
-                    | Next x ->
+                    | StreamPoll.Next x ->
                         if predicate x then
                             loop ()
                         else
@@ -307,29 +307,29 @@ module PullStream =
     let tryHeadV (source: IPullStream<'a>) : Future<'a voption> =
         Future.Core.memoizeReady ^fun waker ->
             match source.PollNext(waker) with
-            | Pending -> Poll.Pending
-            | Completed -> Poll.Ready ValueNone
-            | Next x -> Poll.Ready (ValueSome x)
+            | StreamPoll.Pending -> Poll.Pending
+            | StreamPoll.Completed -> Poll.Ready ValueNone
+            | StreamPoll.Next x -> Poll.Ready (ValueSome x)
 
     let tryLastV (source: IPullStream<'a>) : Future<'a voption> =
         Future.Core.memoizeReady ^fun waker ->
             match source.PollNext(waker) with
-            | Pending -> Poll.Pending
-            | Completed -> Poll.Ready ValueNone
-            | Next x -> Poll.Ready (ValueSome x)
+            | StreamPoll.Pending -> Poll.Pending
+            | StreamPoll.Completed -> Poll.Ready ValueNone
+            | StreamPoll.Next x -> Poll.Ready (ValueSome x)
 
     let ofFuture (fut: Future<'a>) : IPullStream<'a> =
         let mutable fut = fut // fut == null, when completed
         Core.create ^fun waker ->
             if obj.ReferenceEquals(fut, null) then
-                Completed
+                StreamPoll.Completed
             else
                 let p = fut.Poll(waker)
                 match p with
-                | Poll.Pending -> Pending
+                | Poll.Pending -> StreamPoll.Pending
                 | Poll.Ready x ->
                     fut <- Unchecked.defaultof<_>
-                    Next x
+                    StreamPoll.Next x
 
     let inline singleAsync x = ofFuture x
 

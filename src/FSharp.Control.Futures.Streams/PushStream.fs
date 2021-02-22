@@ -2,7 +2,7 @@ namespace FSharp.Control.Futures.Streams
 
 open FSharp.Control.Futures
 
-
+[<RequireQualifiedAccess>]
 type Notification<'a> =
     | Next of 'a
     | Completed

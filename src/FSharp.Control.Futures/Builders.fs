@@ -32,9 +32,9 @@ type FutureBuilder() =
             member _.Poll(waker) =
                 let fr = fr.Value
                 match Future.Core.poll waker fr with
-                | Ready x ->
+                | Poll.Ready x ->
                     if not disposed then d.Dispose()
-                    Ready x
+                    Poll.Ready x
                 | p -> p }
 
     member inline _.Run(u2f): Future<'a> = Future.delay u2f

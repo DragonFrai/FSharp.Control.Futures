@@ -31,14 +31,14 @@ type BridgeChannel<'a>() =
             lock syncLock ^fun () ->
                 let (hasMsg, x) = msgQueue.TryDequeue()
                 if hasMsg
-                then Next x
+                then StreamPoll.Next x
                 else
                     if isClosed
-                    then Completed
+                    then StreamPoll.Completed
                     else
                         if waker.IsSome then invalidOp "Call wake-up on waiting"
                         waker <- ValueSome waker'
-                        Pending
+                        StreamPoll.Pending
 
         member this.Dispose() =
             lock syncLock ^fun () ->

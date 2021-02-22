@@ -88,8 +88,8 @@ module Fib =
         future {
             if n <= 1 then return n
             else
-                let! a = Executor.runAsync (fibFuture (n - 1))
-                and! b = Executor.runAsync (fibFuture (n - 2))
+                let! a = Executor.spawnOnCurrent (fibFuture (n - 1))
+                and! b = Executor.spawnOnCurrent (fibFuture (n - 2))
                 return a + b
         }
 
@@ -112,7 +112,7 @@ module Fib =
             if n <= 1
             then Future.ready n
             else
-                Future.merge (Executor.runAsync ^fibFutureCombinators (n-1)) (Executor.runAsync ^fibFutureCombinators (n-2))
+                Future.merge (Executor.spawnOnCurrent ^fibFutureCombinators (n-1)) (Executor.spawnOnCurrent ^fibFutureCombinators (n-2))
                 |> Future.map ^fun (x, y) -> x + y
         |> Future.join
 
@@ -128,11 +128,11 @@ module Fib =
                     match value with
                     | -1 ->
                         match Future.Core.poll waker f1, Future.Core.poll waker f2 with
-                        | Ready a, Ready b ->
+                        | Poll.Ready a, Poll.Ready b ->
                             value <- a + b
-                            Ready (a + b)
+                            Poll.Ready (a + b)
                         | _ -> Poll.Pending
-                    | value -> Ready value
+                    | value -> Poll.Ready value
 
         let fut = lazy(fibInner n)
         Future.Core.create ^fun w -> Future.Core.poll w fut.Value

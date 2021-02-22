@@ -31,9 +31,9 @@ module FutureAsyncTransforms =
                         (fun ec -> result <- AsyncResult.Cancelled ec; waker ())
                     )
                 match result with
-                | AsyncResult.Pending -> Pending
-                | AsyncResult.Completed result -> Ready ^ MaybeCancel.Completed result
-                | AsyncResult.Cancelled ec -> Ready ^ MaybeCancel.Cancelled ec
+                | AsyncResult.Pending -> Poll.Pending
+                | AsyncResult.Completed result -> Poll.Ready ^ MaybeCancel.Completed result
+                | AsyncResult.Cancelled ec -> Poll.Ready ^ MaybeCancel.Cancelled ec
                 | AsyncResult.Errored e -> raise e
 
         // TODO: Implement without blocking

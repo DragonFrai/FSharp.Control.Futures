@@ -20,18 +20,18 @@ module Future =
                 with
                 | e -> result <- ValueSome (Error e)
             match result with
-            | ValueSome r -> Ready r
-            | ValueNone -> Pending
+            | ValueSome r -> Poll.Ready r
+            | ValueNone -> Poll.Pending
 
     let yieldWorkflow () =
         let mutable isYielded = false
         Future.Core.create ^fun waker ->
             if isYielded then
-                Ready ()
+                Poll.Ready ()
             else
                 isYielded <- true
                 waker ()
-                Pending
+                Poll.Pending
 
     [<RequireQualifiedAccess>]
     module Seq =
@@ -51,8 +51,8 @@ module Future =
                 then
                     let waiter = body enumerator.Current
                     match Future.Core.poll waker waiter with
-                    | Ready () -> moveUntilReady enumerator binder waker
-                    | Pending -> ValueSome waiter
+                    | Poll.Ready () -> moveUntilReady enumerator binder waker
+                    | Poll.Pending -> ValueSome waiter
                 else
                     ValueNone
 
@@ -61,13 +61,13 @@ module Future =
                 | ValueNone ->
                     currentAwaited <- moveUntilReady enumerator body waker
                     if currentAwaited.IsNone
-                    then Ready ()
-                    else Pending
+                    then Poll.Ready ()
+                    else Poll.Pending
                 | ValueSome waiter ->
                     match waiter.Poll(waker) with
-                    | Ready () ->
+                    | Poll.Ready () ->
                         currentAwaited <- ValueNone
                         pollInner waker
-                    | Pending -> Pending
+                    | Poll.Pending -> Poll.Pending
 
             Future.Core.create pollInner

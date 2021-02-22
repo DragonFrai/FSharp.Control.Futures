@@ -4,7 +4,7 @@ open System
 open System.Threading
 
 
-[<Struct>]
+[<Struct; RequireQualifiedAccess>]
 type Poll<'a> =
     | Ready of 'a
     | Pending
@@ -13,13 +13,13 @@ type Poll<'a> =
 module Poll =
     let inline onReady (f: 'a -> unit) (x: Poll<'a>) : unit =
         match x with
-        | Ready x -> f x
-        | Pending -> ()
+        | Poll.Ready x -> f x
+        | Poll.Pending -> ()
 
 type Waker = unit -> unit
 
 /// # Future poll schema
-/// [ Pending -> ...(may be infinite)... -> Pending ] -> Ready x1 -> ... -> Ready xn
+/// [ Poll.Pending -> ...(may be infinite)... -> Poll.Pending ] -> Poll.Ready x1 -> ... -> Poll.Ready xn
 ///  x1 == x2 == ... == xn
 [<Interface>]
 type IFuture<'a> =
@@ -42,42 +42,42 @@ module Future =
             let mutable result: 'a = Unchecked.defaultof<_>
             Core.create ^fun waker ->
                 if obj.ReferenceEquals(poll, null) then
-                    Ready result
+                    Poll.Ready result
                 else
                     let p = poll waker
                     match p with
-                    | Pending -> Pending
-                    | Ready x ->
+                    | Poll.Pending -> Poll.Pending
+                    | Poll.Ready x ->
                         result <- x
                         poll <- Unchecked.defaultof<_>
-                        Ready x
+                        Poll.Ready x
 
         let inline poll waker (fut: Future<'a>) = fut.Poll(waker)
 
-        let getWaker = create Ready
+        let getWaker = create Poll.Ready
 
 
     let inline bindPoll' (f: 'a -> Poll<'b>) (x: Poll<'a>) : Poll<'b> =
         match x with
-        | Ready x -> f x
-        | Pending -> Pending
+        | Poll.Ready x -> f x
+        | Poll.Pending -> Poll.Pending
 
-    let ready value = Core.create ^fun _ -> Ready value
+    let ready value = Core.create ^fun _ -> Poll.Ready value
 
-    let unit () = Core.create ^fun _ -> Ready ()
+    let unit () = Core.create ^fun _ -> Poll.Ready ()
 
     let lazy' (f: unit -> 'a) : Future<'a> =
 //        let mutable x = Unchecked.defaultof<'a>
 //        let mutable func = f
 //        Core.create ^fun _ ->
 //            if obj.ReferenceEquals(Unchecked.defaultof<_>, func)
-//            then Ready x
+//            then Poll.Ready x
 //            else
 //                x <- func()
 //                func <- Unchecked.defaultof<_>
-//                Ready x
+//                Poll.Ready x
         Core.memoizeReady ^fun _ ->
-            Ready (f ())
+            Poll.Ready (f ())
 
     let never () : Future<'a> = Core.create ^fun _ -> Poll<'a>.Pending
 
@@ -88,12 +88,12 @@ module Future =
             match futB with
             | ValueNone ->
                 match Future.Core.poll waker futA with
-                     | Ready x ->
+                     | Poll.Ready x ->
                          let futB' = binder x
                          futB <- ValueSome futB'
                          futA <- Unchecked.defaultof<_>
                          Future.Core.poll waker futB'
-                     | Pending -> Pending
+                     | Poll.Pending -> Poll.Pending
             | ValueSome futB -> Future.Core.poll waker futB
 
     let map (mapping: 'a -> 'b) (fut: Future<'a>) : Future<'b> =
@@ -105,8 +105,8 @@ module Future =
                 |> bindPoll' ^fun x ->
                     let r = mapping x
                     value <- ValueSome r
-                    Ready r
-            | ValueSome x -> Ready x
+                    Poll.Ready r
+            | ValueSome x -> Poll.Ready x
 
     let apply (f: Future<'a -> 'b>) (fut: Future<'a>) : Future<'b> =
         let mutable rf = ValueNone
@@ -116,8 +116,8 @@ module Future =
             Future.Core.poll waker fut |> Poll.onReady ^fun x1 -> r1 <- ValueSome x1
             match rf, r1 with
             | ValueSome f, ValueSome x1 ->
-                Ready (f x1)
-            | _ -> Pending
+                Poll.Ready (f x1)
+            | _ -> Poll.Pending
 
     // TODO: rewrite to interlocked
     // TODO: FIX
@@ -129,7 +129,7 @@ module Future =
         let mutable fut1 = fut1
         let mutable fut2 = fut2
 
-        // when future is Pending and current waker = null, then waker already called of other branch
+        // when future is Poll.Pending and current waker = null, then waker already called of other branch
         let mutable currentWaker = nullWaker
         let mutable r1 = ValueNone
         let mutable r2 = ValueNone
@@ -160,8 +160,8 @@ module Future =
                     firstRequirePoll <- false
                     let x = fut1.Poll(proxyWaker1)
                     match x with
-                    | Pending -> ()
-                    | Ready x ->
+                    | Poll.Pending -> ()
+                    | Poll.Ready x ->
                         r1 <- ValueSome x
                         fut1 <- Unchecked.defaultof<_>
 
@@ -169,14 +169,14 @@ module Future =
                     secondRequirePoll <- false
                     let x = fut2.Poll(proxyWaker2)
                     match x with
-                    | Pending -> ()
-                    | Ready x ->
+                    | Poll.Pending -> ()
+                    | Poll.Ready x ->
                         r2 <- ValueSome x
                         fut2 <- Unchecked.defaultof<_>
 
                 match r1, r2 with
-                | ValueSome x1, ValueSome x2 -> Ready (x1, x2)
-                | _ -> Pending
+                | ValueSome x1, ValueSome x2 -> Poll.Ready (x1, x2)
+                | _ -> Poll.Pending
 
     let join (fut: Future<Future<'a>>) : Future<'a> =
         let mutable inner = ValueNone
@@ -188,7 +188,7 @@ module Future =
 
             match inner with
             | ValueSome x -> Future.Core.poll waker x
-            | ValueNone -> Pending
+            | ValueNone -> Poll.Pending
 
     let delay (creator: unit -> Future<'a>) : Future<'a> =
         let mutable inner: Future<'a> voption = ValueNone
@@ -203,5 +203,5 @@ module Future =
     let ignore future =
         Core.create ^fun waker ->
             match Future.Core.poll waker future with
-            | Ready _ -> Ready ()
-            | Pending -> Pending
+            | Poll.Ready _ -> Poll.Ready ()
+            | Poll.Pending -> Poll.Pending
