@@ -37,6 +37,19 @@ module Future =
         let inline create (__expand_poll: Waker -> Poll<'a>): Future<'a> =
             { new Future<'a> with member this.Poll(waker) = __expand_poll waker }
 
+        let inline memoizeReady (poll: Waker -> Poll<'a>) : Future<'a> =
+            let mutable result: 'a voption = ValueNone
+            Core.create ^fun waker ->
+                match result with
+                | ValueSome r -> Ready r
+                | ValueNone ->
+                    let p = poll waker
+                    match p with
+                    | Pending -> Pending
+                    | Ready x ->
+                        result <- ValueSome x
+                        Ready x
+
         let inline poll waker (fut: Future<'a>) = fut.Poll(waker)
 
         let getWaker = create Ready
