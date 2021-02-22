@@ -30,16 +30,6 @@ type PullStreamBuilder() =
     member _.Run(u2S: unit -> IPullStream<'a>): IPullStream<'a> = PullStream.delay u2S
 
 
+[<AutoOpen>]
 module PullStreamBuilderImpl =
     let pullStream = PullStreamBuilder()
-
-//    let x =
-//        pullStream {
-//            yield 1
-//            yield! [ 1; 2 ]
-//            do! Future.sleep 1000
-//            yield 2
-//            let! x = Future.ready 4
-//            yield x
-//        }
-
