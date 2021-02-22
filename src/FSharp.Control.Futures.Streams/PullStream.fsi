@@ -77,3 +77,14 @@ module PullStream =
     val all: predicate: ('a -> bool) -> source: IPullStream<'a> -> Future<bool>
 
     val zip: source1: IPullStream<'a> -> source2: IPullStream<'b> -> IPullStream<'a * 'b>
+
+    val tryHeadV: source: IPullStream<'a> -> Future<'a voption>
+
+    val tryLastV: source: IPullStream<'a> -> Future<'a voption>
+
+    val ofFuture: fut: Future<'a> -> IPullStream<'a>
+
+    /// Alias to `ofFuture`
+    val inline singleAsync: x: Future<'a> -> IPullStream<'a>
+
+    val delay: u2S: (unit -> IPullStream<'a>) -> IPullStream<'a>

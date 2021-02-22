@@ -303,3 +303,43 @@ module PullStream =
 
     let zip (source1: IPullStream<'a>) (source2: IPullStream<'b>) : IPullStream<'a * 'b> =
         notImplemented "" // TODO: Implement, basing on Seq.zip behaviour, asynchronously
+
+    let tryHeadV (source: IPullStream<'a>) : Future<'a voption> =
+        Future.Core.memoizeReady ^fun waker ->
+            match source.PollNext(waker) with
+            | Pending -> Poll.Pending
+            | Completed -> Poll.Ready ValueNone
+            | Next x -> Poll.Ready (ValueSome x)
+
+    let tryLastV (source: IPullStream<'a>) : Future<'a voption> =
+        Future.Core.memoizeReady ^fun waker ->
+            match source.PollNext(waker) with
+            | Pending -> Poll.Pending
+            | Completed -> Poll.Ready ValueNone
+            | Next x -> Poll.Ready (ValueSome x)
+
+    let ofFuture (fut: Future<'a>) : IPullStream<'a> =
+        let mutable fut = fut // fut == null, when completed
+        Core.create ^fun waker ->
+            if obj.ReferenceEquals(fut, null) then
+                Completed
+            else
+                let p = fut.Poll(waker)
+                match p with
+                | Poll.Pending -> Pending
+                | Poll.Ready x ->
+                    fut <- Unchecked.defaultof<_>
+                    Next x
+
+    let inline singleAsync x = ofFuture x
+
+    let delay (u2S: unit -> IPullStream<'a>) : IPullStream<'a> =
+        let mutable _inner: IPullStream<'a> voption = ValueNone
+        Core.create ^fun waker ->
+            match _inner with
+            | ValueNone ->
+                let inner = u2S ()
+                _inner <- ValueSome inner
+                inner.PollNext(waker)
+            | ValueSome inner -> inner.PollNext(waker)
+
