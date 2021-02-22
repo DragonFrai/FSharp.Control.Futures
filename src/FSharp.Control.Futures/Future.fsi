@@ -29,6 +29,7 @@ module Future =
 
         val inline create: __expand_poll: (Waker -> Poll<'a>) -> Future<'a>
 
+        /// Memoize first `Ready x` returned by the passed `poll` function.
         val inline memoizeReady: poll: (Waker -> Poll<'a>) -> Future<'a>
 
         val inline poll: waker: Waker -> fut: Future<'a> -> Poll<'a>
