@@ -10,30 +10,24 @@ let send (msg: 'a) (sender: ISender<'a>) =
 
 // Create
 
-let inline private closeCheck isClosed = if isClosed then raise (ObjectDisposedException "Sender already closed")
-
 let onSend (action: 'a -> unit) =
     let mutable isClosed = false
     { new ISender<'a> with
         member _.Send(x) =
-            closeCheck isClosed
+            if isClosed then raise (ObjectDisposedException "onSend sender")
             action x
 
         member _.Dispose() =
-            if isClosed
-            then raise (ObjectDisposedException "Double dispose")
-            else ()
+            isClosed <- true
     }
 
 let ignore<'a> =
     let mutable isClosed = false
     { new ISender<'a> with
         member _.Send(x) =
-            closeCheck isClosed
+            if isClosed then raise (ObjectDisposedException "ignore sender")
             ignore x
 
         member _.Dispose() =
-            if isClosed
-            then raise (ObjectDisposedException "Double dispose")
-            else ()
+            isClosed <- true
     }
