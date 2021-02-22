@@ -8,11 +8,7 @@ open FSharp.Control.Futures
 // TODO: Add IDisposable Runtime interface
 // Run future execution
 type IExecutor =
-    abstract Run: fut: Future<'a> -> 'a
-    abstract RunCatch: fut: Future<'a> -> Result<'a, exn>
-
-    abstract RunAsync: fut: Future<'a> -> Future<'a>
-    abstract RunCatchAsync: fut: Future<'a> -> Future<Result<'a, exn>>
+    abstract Spawn: fut: Future<'a> -> Future<'a>
 
 // -------------------
 // ThreadPollScheduler
@@ -196,11 +192,13 @@ module private Scheduler =
                 this.WakeTask(task)
                 task.Handle
 
+
 module private Result =
     let getOrRaise result =
         match result with
         | Ok x -> x
         | Error ex -> raise ex
+
 
 module Future =
     let onRuntime rt fut = future {
@@ -208,23 +206,15 @@ module Future =
         return! fut
     }
 
+
 type private SchedulingFutureRt(scheduler: Scheduler.IScheduler) =
 
     static let instance = SchedulingFutureRt(Scheduler.ThreadPollScheduler())
     static member GetThreadPoolInstance() = instance
 
     interface IExecutor with
-        member this.Run(fut) =
-            scheduler.Spawn(Future.onRuntime this fut).Wait() |> Result.getOrRaise
-
-        member this.RunCatch(fut) =
-            scheduler.Spawn(Future.onRuntime this fut).Wait()
-
-        member this.RunAsync(fut) =
+        member this.Spawn(fut) =
             scheduler.Spawn(Future.onRuntime this fut).Await() |> Future.map Result.getOrRaise
-
-        member this.RunCatchAsync(fut) =
-            scheduler.Spawn(Future.onRuntime this fut).Await()
 
 
 type LocalFutureRt() =
@@ -233,11 +223,7 @@ type LocalFutureRt() =
     static member GetInstance() = instance
 
     interface IExecutor with
-        member _.Run(fut) = fut |> Future.runSync
-        member _.RunAsync(fut) = fut |> Future.runSync |> Future.ready
-
-        member x.RunCatch(fut) = fut |> Future.catch |> Future.runSync
-        member x.RunCatchAsync(fut) = fut |> Future.catch |> Future.runSync |> Future.ready
+        member _.Spawn(fut) = fut |> Future.runSync |> Future.ready
 
 
 exception CurrentFutureRtIsNotSet of string
@@ -246,10 +232,10 @@ exception CurrentFutureRtIsNotSet of string
 module Executor =
 
     /// Future runtime on current thread.
-    let localRt = LocalFutureRt.GetInstance () :> IExecutor
+    let local = LocalFutureRt.GetInstance() :> IExecutor
 
     /// Future runtime on thread pool
-    let threadPoolRt = SchedulingFutureRt.GetThreadPoolInstance () :> IExecutor
+    let threadPool = SchedulingFutureRt.GetThreadPoolInstance() :> IExecutor
 
     // todo: dispose it
     // todo: Add optional lock of current runtime for using inside runtime thread for block rt switch by user
@@ -274,12 +260,9 @@ module Executor =
     let exit =
         currentRt.Value <- ValueNone
 
-    let runOn (rt: IExecutor) fut = rt.Run(fut)
-    let runCatchOn (rt: IExecutor) fut = rt.RunCatch(fut)
-    let runAsyncOn (rt: IExecutor) fut = rt.RunAsync(fut)
-    let runCatchAsyncOn (rt: IExecutor) fut = rt.RunCatchAsync(fut)
 
-    let run fut = runOn (getCurrentRtOrRaise ()) fut
-    let runCatch fut = runCatchOn (getCurrentRtOrRaise ()) fut
-    let runAsync fut = runAsyncOn (getCurrentRtOrRaise ()) fut
-    let runCatchAsync fut = runCatchAsyncOn (getCurrentRtOrRaise ()) fut
+    let spawnOn (rt: IExecutor) fut = rt.Spawn(fut)
+
+    let spawnOnCurrent fut = spawnOn (getCurrentRtOrRaise ()) fut
+
+    // RIP spawnOnThreadPool -- "da nafig" (c) DragonFrai, the murderer

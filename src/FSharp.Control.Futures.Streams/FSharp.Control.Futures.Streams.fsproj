@@ -22,6 +22,7 @@
         <Compile Include="PullStream.fsi" />
         <Compile Include="PullStream.fs" />
         <Compile Include="PullStreamBuilder.fs" />
+        <Compile Include="PushStream.fs" />
         <Compile Include="FutureBuilderExtension.fs" />
         <Compile Include="Channels\Types.fs" />
         <Compile Include="Channels\Sender.fs" />
