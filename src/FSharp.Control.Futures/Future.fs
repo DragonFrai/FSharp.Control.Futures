@@ -67,15 +67,17 @@ module Future =
     let unit () = Core.create ^fun _ -> Ready ()
 
     let lazy' (f: unit -> 'a) : Future<'a> =
-        let mutable x = Unchecked.defaultof<'a>
-        let mutable func = f
-        Core.create ^fun _ ->
-            if obj.ReferenceEquals(Unchecked.defaultof<_>, func)
-            then Ready x
-            else
-                x <- func()
-                func <- Unchecked.defaultof<_>
-                Ready x
+//        let mutable x = Unchecked.defaultof<'a>
+//        let mutable func = f
+//        Core.create ^fun _ ->
+//            if obj.ReferenceEquals(Unchecked.defaultof<_>, func)
+//            then Ready x
+//            else
+//                x <- func()
+//                func <- Unchecked.defaultof<_>
+//                Ready x
+        Core.memoizeReady ^fun _ ->
+            Ready (f ())
 
     let never () : Future<'a> = Core.create ^fun _ -> Poll<'a>.Pending
 
