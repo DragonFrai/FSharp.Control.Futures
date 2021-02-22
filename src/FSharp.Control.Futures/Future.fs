@@ -38,16 +38,18 @@ module Future =
             { new Future<'a> with member this.Poll(waker) = __expand_poll waker }
 
         let inline memoizeReady (poll: Waker -> Poll<'a>) : Future<'a> =
-            let mutable result: 'a voption = ValueNone
+            let mutable poll = poll // poll = null, when memoized
+            let mutable result: 'a = Unchecked.defaultof<_>
             Core.create ^fun waker ->
-                match result with
-                | ValueSome r -> Ready r
-                | ValueNone ->
+                if obj.ReferenceEquals(poll, null) then
+                    Ready result
+                else
                     let p = poll waker
                     match p with
                     | Pending -> Pending
                     | Ready x ->
-                        result <- ValueSome x
+                        result <- x
+                        poll <- Unchecked.defaultof<_>
                         Ready x
 
         let inline poll waker (fut: Future<'a>) = fut.Poll(waker)
