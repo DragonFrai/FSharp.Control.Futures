@@ -50,7 +50,7 @@ module PullStream =
     val collect: collector: ('a -> IPullStream<'b>) -> source: IPullStream<'a> -> IPullStream<'b>
 
     /// Alias to `PullStream.collect`
-    val bind: binder: ('a -> IPullStream<'b>) -> source: IPullStream<'a> -> IPullStream<'b>
+    val inline bind: binder: ('a -> IPullStream<'b>) -> source: IPullStream<'a> -> IPullStream<'b>
 
     val iter: action: ('a -> unit) -> source: IPullStream<'a> -> Future<unit>
 

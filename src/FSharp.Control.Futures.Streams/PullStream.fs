@@ -127,7 +127,7 @@ module PullStream =
             loop ()
 
     /// Alias to `PullStream.collect`
-    let bind binder source = collect binder source
+    let inline bind binder source = collect binder source
 
     let iter (action: 'a -> unit) (source: IPullStream<'a>) : Future<unit> =
         Future.Core.create ^fun waker ->
