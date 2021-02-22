@@ -1,10 +1,12 @@
 ﻿module FSharp.Control.Futures.Sandbox.Program
 
 open System
+open System
 open System.Diagnostics
 
 //open FSharp.Control.Tasks.V2
 
+open System.Text
 open FSharp.Control.Futures
 open FSharp.Control.Futures.Scheduling
 open FSharp.Control.Futures.Streams
@@ -284,7 +286,59 @@ let main0 () =
     let () = Future.runSync fut
     ()
 
+
+module File =
+
+    open System.IO
+
+    let readAllText (path: string) : Future<string> =
+        future {
+            let task = File.ReadAllTextAsync(path)
+            return! Future.ofTask task
+        }
+
+    let readStream (bufferSize: int) (path: string) : IPullStream<byte> =
+        pullStream {
+            let fileStream = File.OpenRead(path)
+            let count = bufferSize
+            let buffer = Array.zeroCreate count
+            let rec loop () = pullStream {
+                let! c = fileStream.ReadAsync(buffer, 0, count) |> Future.ofTask
+                if c > 0 then
+                    yield! PullStream.ofSeq buffer.[0..c-1]
+                    yield! loop ()
+                else
+                    ()
+            }
+            yield! loop ()
+        }
+
+let getRandomBytes () = pullStream {
+    let bufferSize = 32
+    let bytes = File.readStream bufferSize "/dev/urandom"
+    yield! bytes
+}
+
+let getRandomInts () = pullStream {
+        let ints =
+            getRandomBytes ()
+            |> PullStream.bufferByCount sizeof<int>
+            |> PullStream.map ^fun bytes -> BitConverter.ToInt32(ReadOnlySpan(bytes))
+        yield! ints
+    }
+
 [<EntryPoint>]
 let main argv =
-    main0 ()
+
+    future {
+        let ints = getRandomInts () |> PullStream.take 8
+        let! content =
+            ints
+            |> PullStream.fold (fun (xs: ResizeArray<_>) x -> xs.Add(x); xs) (ResizeArray())
+        let content = content |> Seq.toList
+
+        printfn "%A" content
+    }
+    |> Future.runSync
+
     0 // return an integer exit code
