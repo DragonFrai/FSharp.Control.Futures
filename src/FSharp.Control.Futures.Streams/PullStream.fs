@@ -259,7 +259,7 @@ module PullStream =
             loop ()
 
     let any (predicate: 'a -> bool) (source: IPullStream<'a>) : Future<bool> =
-        let mutable result = ValueNone
+        let mutable result: bool voption = ValueNone
         Future.Core.create ^fun waker ->
             let rec loop () =
                 match result with
@@ -278,6 +278,27 @@ module PullStream =
                             Poll.Ready true
                         else
                             loop ()
+            loop ()
+
+    let all (predicate: 'a -> bool) (source: IPullStream<'a>) : Future<bool> =
+        let mutable result: bool voption = ValueNone
+        Future.Core.create ^fun waker ->
+            let rec loop () =
+                match result with
+                | ValueSome r -> Poll.Ready r
+                | ValueNone ->
+                    let sPoll = source.PollNext(waker)
+                    match sPoll with
+                    | Pending -> Poll.Pending
+                    | Completed ->
+                        result <- ValueSome true
+                        Poll.Ready true
+                    | Next x ->
+                        if predicate x then
+                            loop ()
+                        else
+                            result <- ValueSome false
+                            Poll.Ready false
             loop ()
 
     let zip (source1: IPullStream<'a>) (source2: IPullStream<'b>) : IPullStream<'a * 'b> =
