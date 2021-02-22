@@ -8,6 +8,7 @@ open System.Diagnostics
 open FSharp.Control.Futures
 open FSharp.Control.Futures.Execution
 open FSharp.Control.Futures.Streams
+open FSharp.Control.Futures.Streams.Channels
 open Hopac
 open Hopac.Infixes
 
@@ -208,12 +209,19 @@ let main argv =
     let source = PullStream.ofSeq [1; 2; 3]
 
     let fut2 = future {
-        for x in source do
-            printfn "run wait"
-            do! Future.sleep 1000
+        let ch = Bridge.create ()
+        let! _ = future {
+            for x in ch do
             printfn "%i" x
+        }
+        and! _ = future {
+            for i in [0; 1; 2; 3; 4] do
+                Sender.send i ch
+                do! Future.sleep 1000
+        }
         ()
     }
+
     printfn "run future"
     fut2 |> Future.runSync
 

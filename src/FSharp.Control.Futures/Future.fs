@@ -106,16 +106,63 @@ module Future =
                 Ready (f x1)
             | _ -> Pending
 
-    // TODO: Fix async call waker from inner Futures
+    // TODO: rewrite to interlocked
     let merge (fut1: Future<'a>) (fut2: Future<'b>) : Future<'a * 'b> =
+        let nullWaker: Waker = Unchecked.defaultof<_>
+
+        let syncObj = obj()
+
+        let mutable fut1 = fut1
+        let mutable fut2 = fut2
+
+        // when future is Pending and current waker = null, then waker already called of other branch
+        let mutable currentWaker = nullWaker
         let mutable r1 = ValueNone
         let mutable r2 = ValueNone
+
+        let mutable firstRequirePoll = true
+        let mutable secondRequirePoll = true
+
+        let callWaker () =
+            if not (obj.ReferenceEquals(currentWaker, nullWaker)) then
+                currentWaker ()
+            currentWaker <- nullWaker
+
+        let proxyWaker1 = fun () ->
+            lock syncObj ^fun () ->
+                callWaker ()
+                firstRequirePoll <- true
+
+        let proxyWaker2 = fun () ->
+            lock syncObj ^fun () ->
+                callWaker ()
+                secondRequirePoll <- true
+
         Core.create ^fun waker ->
-            Future.Core.poll waker fut1 |> Poll.onReady ^fun x1 -> r1 <- ValueSome x1
-            Future.Core.poll waker fut2 |> Poll.onReady ^fun x2 -> r2 <- ValueSome x2
-            match r1, r2 with
-            | ValueSome x1, ValueSome x2 -> Ready (x1, x2)
-            | _ -> Pending
+            currentWaker <- waker
+
+            lock syncObj ^fun () ->
+                if firstRequirePoll then
+                    firstRequirePoll <- false
+                    let x = fut1.Poll(proxyWaker1)
+                    match x with
+                    | Pending -> ()
+                    | Ready x ->
+                        r1 <- ValueSome x
+                        fut1 <- Unchecked.defaultof<_>
+
+                if secondRequirePoll then
+                    secondRequirePoll <- false
+                    let x = fut2.Poll(proxyWaker2)
+                    match x with
+                    | Pending -> ()
+                    | Ready x ->
+                        r2 <- ValueSome x
+                        fut2 <- Unchecked.defaultof<_>
+
+                match r1, r2 with
+                | ValueSome x1, ValueSome x2 -> Ready (x1, x2)
+                | _ -> Pending
 
     let join (fut: Future<Future<'a>>) : Future<'a> =
         let mutable inner = ValueNone

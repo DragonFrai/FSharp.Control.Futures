@@ -18,7 +18,7 @@ type IChannel<'a> =
     inherit ISender<'a>
     inherit IPullStream<'a>
 
-// Broadcast types
+// Publish types
 
 type IPublishPollStream<'a> =
     inherit IPullStream<'a>
