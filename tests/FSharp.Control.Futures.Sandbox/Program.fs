@@ -6,8 +6,8 @@ open System.Diagnostics
 //open FSharp.Control.Tasks.V2
 
 open FSharp.Control.Futures
-open FSharp.Control.Futures
 open FSharp.Control.Futures.Execution
+open FSharp.Control.Futures.Streams
 open Hopac
 open Hopac.Infixes
 
@@ -130,7 +130,7 @@ module Fib =
                         | Ready a, Ready b ->
                             value <- a + b
                             Ready (a + b)
-                        | _ -> Pending
+                        | _ -> Poll.Pending
                     | value -> Ready value
 
         let fut = lazy(fibInner n)
@@ -205,13 +205,13 @@ module Fib =
 let main argv =
 //    Fib.runPrimeTest ()
 
-    //let source = PullStream.ofSeq [1; 2; 3]
+    let source = PullStream.ofSeq [1; 2; 3]
 
     let fut2 = future {
-//        for x in source do
-//            printfn "run wait"
-//            do! Future.sleep 1000
-//            printfn "%i" x
+        for x in source do
+            printfn "run wait"
+            do! Future.sleep 1000
+            printfn "%i" x
         ()
     }
     printfn "run future"
