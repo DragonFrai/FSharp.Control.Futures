@@ -2,7 +2,7 @@
 
     <PropertyGroup>
         <TargetFramework>net5.0</TargetFramework>
-        <Version>0.4.0-alpha</Version>
+        <Version>$(BumpedVersion)</Version>
         <PackageTags>F# async future</PackageTags>
         <PackageId>FSharp.Control.Futures</PackageId>
         <Title>FSharp.Control.Futures</Title>
