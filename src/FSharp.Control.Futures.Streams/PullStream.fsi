@@ -73,3 +73,5 @@ module PullStream =
     val filter: predicate: ('a -> bool) -> source: IPullStream<'a> -> IPullStream<'a>
 
     val any: predicate: ('a -> bool) -> source: IPullStream<'a> -> Future<bool>
+
+    val zip: source1: IPullStream<'a> -> source2: IPullStream<'b> -> IPullStream<'a * 'b>

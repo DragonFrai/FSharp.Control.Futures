@@ -279,3 +279,6 @@ module PullStream =
                         else
                             loop ()
             loop ()
+
+    let zip (source1: IPullStream<'a>) (source2: IPullStream<'b>) : IPullStream<'a * 'b> =
+        notImplemented "" // TODO: Implement, basing on Seq.zip behaviour, asynchronously

@@ -21,6 +21,8 @@ type PullStreamBuilder() =
 
     member _.Delay(f: unit -> IPullStream<'a>): IPullStream<'a> = notImplemented "" // TODO: Implement
 
+    member _.MergeSources(s1: IPullStream<'a>, s2: IPullStream<'b>): IPullStream<'a * 'b> = PullStream.zip s1 s2
+
 
 module PullStreamBuilderImpl =
     let pullStream = PullStreamBuilder()
