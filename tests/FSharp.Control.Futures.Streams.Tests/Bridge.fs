@@ -18,9 +18,9 @@ let bridgeSend = test "Bridge send with pollNext" {
     let x2 = ch.PollNext(noCallableWaker)
     let x3 = ch.PollNext(noCallableWaker)
 
-    Expect.equal x1 (Next 1) "Error on receive first msg"
-    Expect.equal x2 (Next 2) "Error on receive second msg"
-    Expect.equal x3 (Completed) "Error on receive third msg"
+    Expect.equal x1 (StreamPoll.Next 1) "Error on receive first msg"
+    Expect.equal x2 (StreamPoll.Next 2) "Error on receive second msg"
+    Expect.equal x3 (StreamPoll.Completed) "Error on receive third msg"
 }
 
 let bridgeSecondReceiveFromClosed = test "Bridge double pollNext from closed channel" {
@@ -32,9 +32,9 @@ let bridgeSecondReceiveFromClosed = test "Bridge double pollNext from closed cha
     let x2 = ch.PollNext(noCallableWaker)
     let x3 = ch.PollNext(noCallableWaker)
 
-    Expect.equal x1 (Next 1) "Error on receive first msg"
-    Expect.equal x2 (Completed) "Error on receive second msg"
-    Expect.equal x3 (Completed) "Error on receive third msg"
+    Expect.equal x1 (StreamPoll.Next 1) "Error on receive first msg"
+    Expect.equal x2 (StreamPoll.Completed) "Error on receive second msg"
+    Expect.equal x3 (StreamPoll.Completed) "Error on receive third msg"
 }
 
 [<Tests>]

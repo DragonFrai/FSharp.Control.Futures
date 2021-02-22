@@ -28,7 +28,7 @@ let lazyValueTest = test "Future.lazy' call passed function once" {
     let x = 12
     let fut = Future.lazy' (fun () -> x)
 
-    let expected = Ready x
+    let expected = Poll.Ready x
     let actual1 = Future.Core.poll (fun () -> do ()) fut
     let actual2 = Future.Core.poll (fun () -> do ()) fut
 
