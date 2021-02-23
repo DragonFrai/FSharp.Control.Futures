@@ -89,16 +89,22 @@ module Future =
                 Future.Core.poll waker futB
 
     let map (mapping: 'a -> 'b) (fut: Future<'a>) : Future<'b> =
-        let mutable value = ValueNone
+        let mutable _fut = fut // _fut = null, when memoized
+        let mutable _mapping = mapping // _mapping = null, when memoized
+        let mutable _value = Unchecked.defaultof<_>
         Core.create ^fun waker ->
-            match value with
-            | ValueNone ->
-                Future.Core.poll waker fut
-                |> bindPoll' ^fun x ->
+            if obj.ReferenceEquals(_mapping, null) then
+                Poll.Ready _value
+            else
+                let p = _fut.Poll(waker)
+                match p with
+                | Poll.Pending -> Poll.Pending
+                | Poll.Ready x ->
                     let r = mapping x
-                    value <- ValueSome r
+                    _value <- r
+                    _mapping <- Unchecked.defaultof<_>
+                    _fut <- Unchecked.defaultof<_>
                     Poll.Ready r
-            | ValueSome x -> Poll.Ready x
 
     let apply (f: Future<'a -> 'b>) (fut: Future<'a>) : Future<'b> =
         let mutable rf = ValueNone
