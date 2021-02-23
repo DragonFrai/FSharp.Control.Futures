@@ -21,15 +21,15 @@ module Gen =
             }
             Arb.fromGen genFunctorInt2String
 
-    type FutureInt = FutureInt of Future<int>
+    type FutureIntProvider = FutureIntProvider of (unit -> Future<int>)
     type FutureIntGen() =
         static member FutureInt() =
-            let genFutureInt: Gen<FutureInt> = gen {
+            let genFutureInt: Gen<FutureIntProvider> = gen {
                 let! i = Gen.choose (Int32.MinValue + 1, Int32.MaxValue)
-                let fut = future {
+                let futProvider () = future {
                     return i
                 }
-                return FutureInt fut
+                return FutureIntProvider futProvider
             }
             Arb.fromGen genFutureInt
 
@@ -55,20 +55,45 @@ module Expect =
 [<AutoOpen>]
 module TestHelpers =
     let private config = Gen.addToConfig FsCheckConfig.defaultConfig
-    let testProperty name = testPropertyWithConfig config name
+    let testProp name = testPropertyWithConfig config name
 
 
-let equalFuture fut1 fut2 =
+let futureEquals fut1 fut2 =
     let r1 = Future.runSync fut1
     let r2 = Future.runSync fut2
     r1 = r2
 
 
+[<AutoOpen>]
+module HaskellNaming =
+    let pure' x = Future.ready x
+    let fmap f x = Future.map f x
+    let return' x = Future.ready x
+    let ( <*> ) f fut = Future.apply f fut
+    let ( >== ) x f = Future.bind f x
+
 [<Tests>]
-let properties =
-    testList "Combinator properties" [
-        testProperty "map f = bind (return . f)" <| fun (Gen.FutureInt (fut: Future<int>)) (Gen.FunctorInt2String (mapping: int -> string)) ->
-            let rFut1: Future<string> = Future.bind (mapping >> Future.ready) fut
-            let rFut2: Future<string> = Future.map mapping fut
-            equalFuture rFut1 rFut2
-    ]
+let properties = testList "Combinator properties" [
+
+    testProp "fmap f = bind (return . f)" <| fun (Gen.FutureIntProvider (futf: unit -> Future<int>)) (Gen.FunctorInt2String (mapping: int -> string)) ->
+        let rFut1: Future<string> = Future.bind (mapping >> Future.ready) (futf ())
+        let rFut2: Future<string> = Future.map mapping (futf ())
+        futureEquals rFut1 rFut2
+
+    testProp "Homomorphism: pure f <*> pure x = pure (f x)" <| fun (x: int) (Gen.FunctorInt2String (f: int -> string)) ->
+        let r1 = pure' f <*> pure' x
+        let r2 = pure' (f x)
+        futureEquals r1 r2
+
+    testProp "fmap f x = pure f <*> x" <| fun (Gen.FutureIntProvider (f'x: unit -> Future<int>)) (Gen.FunctorInt2String (f: int -> string)) ->
+        let x1, x2 = f'x (), f'x ()
+        let r1 = fmap f x1
+        let r2 = pure' f <*> x2
+        futureEquals r1 r2
+
+    testProp "(return x) >>= f = f x" <| fun (x: int) (Gen.FunctorInt2String (f: int -> string)) ->
+        let f = f >> Future.ready // TODO: Take from arguments
+        let r1 = (return' x) >== f
+        let r2 = f x
+        futureEquals r1 r2
+]
