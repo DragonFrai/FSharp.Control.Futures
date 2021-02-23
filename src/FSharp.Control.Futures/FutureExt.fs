@@ -1,12 +1,13 @@
+
+// Includes an extension of the base Future methods,
+// which are also intended for integration with the base types BCL and FSharp.Core.
+// (Excluding things like system timers and potential OS interactions)
+
 [<AutoOpen>]
 module FSharp.Control.Futures.FutureExt
 
 open System.Collections.Generic
 
-
-// Includes an extension of the base Future methods,
-// which are also intended for integration with the base types BCL and FSharp.Core.
-// (Excluding things like system timers and potential OS interactions)
 
 [<RequireQualifiedAccess>]
 module Future =

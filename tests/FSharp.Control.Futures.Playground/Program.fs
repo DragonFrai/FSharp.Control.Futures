@@ -124,15 +124,15 @@ module Fib =
         printfn "Total %i ms\n" ms
 
         // Job/Future no parallel
-        printfn "Test Job..."
-        sw.Start()
-        for i in 1..20 do (fibJob n |> Hopac.run) |> ignore
-        let ms = sw.ElapsedMilliseconds
-        printfn "Total %i ms\n" ms
-
         printfn "Test Future..."
         sw.Restart()
         for i in 1..20 do (fibFuture n |> Future.runSync) |> ignore
+        let ms = sw.ElapsedMilliseconds
+        printfn "Total %i ms\n" ms
+
+        printfn "Test Job..."
+        sw.Start()
+        for i in 1..20 do (fibJob n |> Hopac.run) |> ignore
         let ms = sw.ElapsedMilliseconds
         printfn "Total %i ms\n" ms
 
@@ -278,6 +278,6 @@ let getRandomInts () = pullStream {
 [<EntryPoint>]
 let main argv =
 
-    main0 ()
+    Fib.runPrimeTest ()
 
     0 // return an integer exit code

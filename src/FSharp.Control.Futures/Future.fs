@@ -67,34 +67,26 @@ module Future =
     let unit () = Core.create ^fun _ -> Poll.Ready ()
 
     let lazy' (f: unit -> 'a) : Future<'a> =
-//        let mutable x = Unchecked.defaultof<'a>
-//        let mutable func = f
-//        Core.create ^fun _ ->
-//            if obj.ReferenceEquals(Unchecked.defaultof<_>, func)
-//            then Poll.Ready x
-//            else
-//                x <- func()
-//                func <- Unchecked.defaultof<_>
-//                Poll.Ready x
-        Core.memoizeReady ^fun _ ->
-            Poll.Ready (f ())
+        Core.memoizeReady ^fun _ -> Poll.Ready (f ())
 
     let never () : Future<'a> = Core.create ^fun _ -> Poll<'a>.Pending
 
     let bind (binder: 'a -> Future<'b>) (fut: Future<'a>) : Future<'b> =
+        // let binder = binder
         let mutable futA = fut
-        let mutable futB = ValueNone
+        let mutable futB = nullObj
+
         Core.create ^fun waker ->
-            match futB with
-            | ValueNone ->
+            if isNull futB then
                 match Future.Core.poll waker futA with
-                     | Poll.Ready x ->
-                         let futB' = binder x
-                         futB <- ValueSome futB'
-                         futA <- Unchecked.defaultof<_>
-                         Future.Core.poll waker futB'
-                     | Poll.Pending -> Poll.Pending
-            | ValueSome futB -> Future.Core.poll waker futB
+                | Poll.Ready x ->
+                    futB <- binder x
+                    // binder <- nullObj
+                    futA <- nullObj
+                    Future.Core.poll waker futB
+                | Poll.Pending -> Poll.Pending
+            else
+                Future.Core.poll waker futB
 
     let map (mapping: 'a -> 'b) (fut: Future<'a>) : Future<'b> =
         let mutable value = ValueNone
@@ -119,7 +111,7 @@ module Future =
                 Poll.Ready (f x1)
             | _ -> Poll.Pending
 
-    // TODO: rewrite to interlocked
+    // TODO: rewrite to interlocked and optimize branches with one or more ready on first poll
     let merge (fut1: Future<'a>) (fut2: Future<'b>) : Future<'a * 'b> =
         let nullWaker: Waker = Unchecked.defaultof<_>
 
