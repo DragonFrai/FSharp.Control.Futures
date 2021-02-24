@@ -18,4 +18,7 @@ type OrderChecker() =
         (points, points') ||> Seq.forall2 (=)
 
 
-let noCallableWaker: Waker = fun () -> invalidOp "Waker was called"
+let nonAwakenedContext: Context = { new Context() with member _.Wake() = invalidOp "Context was wake" }
+let mockContext: Context = { new Context() with member _.Wake() = do () }
+let mockContextWithWake (wake: unit -> unit) = { new Context() with member _.Wake() = wake () }
+

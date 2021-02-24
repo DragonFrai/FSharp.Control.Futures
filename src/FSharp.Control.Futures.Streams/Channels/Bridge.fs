@@ -9,7 +9,7 @@ open FSharp.Control.Futures.Streams
 type BridgeChannel<'a>() =
     let mutable isClosed = false
     let msgQueue: Queue<'a> = Queue()
-    let mutable waker: Waker voption = ValueNone
+    let mutable context: Context voption = ValueNone
     let syncLock = obj()
 
     member inline internal _.TryDequeue() = msgQueue.TryDequeue()
@@ -20,14 +20,14 @@ type BridgeChannel<'a>() =
         member this.Send(msg) =
             lock syncLock ^fun () ->
                 if isClosed then raise (ObjectDisposedException "Use after dispose")
-                match waker with
+                match context with
                 | ValueNone -> msgQueue.Enqueue(msg)
-                | ValueSome waker' ->
+                | ValueSome context' ->
                     msgQueue.Enqueue(msg)
-                    waker' ()
-                    waker <- ValueNone
+                    context'.Wake()
+                    context <- ValueNone
 
-        member this.PollNext(waker') =
+        member this.PollNext(context') =
             lock syncLock ^fun () ->
                 let (hasMsg, x) = msgQueue.TryDequeue()
                 if hasMsg
@@ -36,17 +36,17 @@ type BridgeChannel<'a>() =
                     if isClosed
                     then StreamPoll.Completed
                     else
-                        if waker.IsSome then invalidOp "Call wake-up on waiting"
-                        waker <- ValueSome waker'
+                        if context.IsSome then invalidOp "Call wake-up on waiting"
+                        context <- ValueSome context'
                         StreamPoll.Pending
 
         member this.Dispose() =
             lock syncLock ^fun () ->
                 if isClosed then invalidOp "Double dispose"
                 isClosed <- true
-                match waker with
+                match context with
                 | ValueNone -> ()
-                | ValueSome waker -> waker ()
+                | ValueSome context -> context.Wake()
 
 [<RequireQualifiedAccess>]
 module Bridge =

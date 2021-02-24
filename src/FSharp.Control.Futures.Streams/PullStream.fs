@@ -28,7 +28,7 @@ module StreamPoll =
 /// x1 != x2 != ... != xn
 [<Interface>]
 type IPullStream<'a> =
-    abstract member PollNext: Waker -> StreamPoll<'a>
+    abstract member PollNext: Context -> StreamPoll<'a>
 
 [<RequireQualifiedAccess>]
 module PullStream =
@@ -38,7 +38,7 @@ module PullStream =
 
         let inline create __expand_pollNext = { new IPullStream<_> with member _.PollNext(w) = __expand_pollNext w }
 
-        let inline pollNext (waker: Waker) (stream: IPullStream<'a>) = stream.PollNext(waker)
+        let inline pollNext (context: Context) (stream: IPullStream<'a>) = stream.PollNext(context)
 
     // -----------
     // Creation
@@ -101,15 +101,15 @@ module PullStream =
     // -----------
 
     let map (mapper: 'a -> 'b) (source: IPullStream<'a>) : IPullStream<'b> =
-        Core.create ^fun waker -> source.PollNext(waker) |> StreamPoll.map mapper
+        Core.create ^fun context -> source.PollNext(context) |> StreamPoll.map mapper
 
     let collect (collector: 'a -> IPullStream<'b>) (source: IPullStream<'a>) : IPullStream<'b> =
         let mutable inners: IPullStream<'b> voption = ValueNone
-        Core.create ^fun waker ->
+        Core.create ^fun context ->
             let rec loop () =
                 match inners with
                 | ValueNone ->
-                    match source.PollNext(waker) with
+                    match source.PollNext(context) with
                     | StreamPoll.Pending -> StreamPoll.Pending
                     | StreamPoll.Completed -> StreamPoll.Completed
                     | StreamPoll.Next x ->
@@ -117,7 +117,7 @@ module PullStream =
                         inners <- ValueSome inners'
                         loop ()
                 | ValueSome inners' ->
-                    let x = inners'.PollNext(waker)
+                    let x = inners'.PollNext(context)
                     match x with
                     | StreamPoll.Pending -> StreamPoll.Pending
                     | StreamPoll.Completed ->
@@ -130,9 +130,9 @@ module PullStream =
     let inline bind binder source = collect binder source
 
     let iter (action: 'a -> unit) (source: IPullStream<'a>) : Future<unit> =
-        Future.Core.create ^fun waker ->
+        Future.Core.create ^fun context ->
             let rec loop () =
-                match source.PollNext(waker) with
+                match source.PollNext(context) with
                 | StreamPoll.Completed -> Poll.Ready ()
                 | StreamPoll.Pending -> Poll.Pending
                 | StreamPoll.Next x ->
@@ -142,11 +142,11 @@ module PullStream =
 
     let iterAsync (action: 'a -> Future<unit>) (source: IPullStream<'a>) : Future<unit> =
         let mutable currFut: Future<unit> voption = ValueNone
-        Future.Core.create ^fun waker ->
+        Future.Core.create ^fun context ->
             let rec loop () =
                 match currFut with
                 | ValueNone ->
-                    let x = source.PollNext(waker)
+                    let x = source.PollNext(context)
                     match x with
                     | StreamPoll.Next x ->
                         let fut = action x
@@ -155,7 +155,7 @@ module PullStream =
                     | StreamPoll.Pending -> Poll.Pending
                     | StreamPoll.Completed -> Poll.Ready ()
                 | ValueSome fut ->
-                    let futPoll = fut.Poll(waker)
+                    let futPoll = fut.Poll(context)
                     match futPoll with
                     | Poll.Ready () ->
                         currFut <- ValueNone
@@ -165,9 +165,9 @@ module PullStream =
 
     let fold (folder: 's -> 'a -> 's) (initState: 's) (source: IPullStream<'a>): Future<'s> =
         let mutable currState = initState
-        Future.Core.create ^fun waker ->
+        Future.Core.create ^fun context ->
             let rec loop () =
-                let sPoll = source.PollNext(waker)
+                let sPoll = source.PollNext(context)
                 match sPoll with
                 | StreamPoll.Pending -> Poll.Pending
                 | StreamPoll.Completed -> Poll.Ready currState
@@ -180,12 +180,12 @@ module PullStream =
     let scan (folder: 's -> 'a -> 's) (initState: 's) (source: IPullStream<'a>) : IPullStream<'s> =
         let mutable currState = initState
         let mutable initReturned = false
-        Core.create ^fun waker ->
+        Core.create ^fun context ->
             if not initReturned then
                 initReturned <- true
                 StreamPoll.Next currState
             else
-                let sPoll = source.PollNext(waker)
+                let sPoll = source.PollNext(context)
                 match sPoll with
                 | StreamPoll.Pending -> StreamPoll.Pending
                 | StreamPoll.Completed -> StreamPoll.Completed
@@ -195,9 +195,9 @@ module PullStream =
                     StreamPoll.Next currState
 
     let chooseV (chooser: 'a -> 'b voption) (source: IPullStream<'a>) : IPullStream<'b> =
-        Core.create ^fun waker ->
+        Core.create ^fun context ->
             let rec loop () =
-                let sPoll = source.PollNext(waker)
+                let sPoll = source.PollNext(context)
                 match sPoll with
                 | StreamPoll.Pending -> StreamPoll.Pending
                 | StreamPoll.Completed -> StreamPoll.Completed
@@ -210,11 +210,11 @@ module PullStream =
 
     let tryPickV (chooser: 'a -> 'b voption) (source: IPullStream<'a>) : Future<'b voption> =
         let mutable result: 'b voption = ValueNone
-        Future.Core.create ^fun waker ->
+        Future.Core.create ^fun context ->
             if result.IsSome then
                 Poll.Ready result
             else
-                let sPoll = source.PollNext(waker)
+                let sPoll = source.PollNext(context)
                 match sPoll with
                 | StreamPoll.Pending -> Poll.Pending
                 | StreamPoll.Completed -> Poll.Ready ValueNone
@@ -241,12 +241,12 @@ module PullStream =
     let bufferByCount (bufferSize: int) (source: IPullStream<'a>) : IPullStream<'a[]> =
         let mutable buffer = Array.zeroCreate bufferSize
         let mutable currIdx = 0
-        Core.create ^fun waker ->
+        Core.create ^fun context ->
             if obj.ReferenceEquals(buffer, null) then
                 StreamPoll.Completed
             else
             let rec loop () =
-                let p = source.PollNext(waker)
+                let p = source.PollNext(context)
                 match p with
                 | StreamPoll.Pending -> StreamPoll.Pending
                 | StreamPoll.Completed ->
@@ -264,9 +264,9 @@ module PullStream =
             loop ()
 
     let filter (predicate: 'a -> bool) (source: IPullStream<'a>) : IPullStream<'a> =
-        Core.create ^fun waker ->
+        Core.create ^fun context ->
             let rec loop () =
-                let sPoll = source.PollNext(waker)
+                let sPoll = source.PollNext(context)
                 match sPoll with
                 | StreamPoll.Pending -> StreamPoll.Pending
                 | StreamPoll.Completed -> StreamPoll.Completed
@@ -279,13 +279,13 @@ module PullStream =
 
     let any (predicate: 'a -> bool) (source: IPullStream<'a>) : Future<bool> =
         let mutable result: bool voption = ValueNone
-        Future.Core.create ^fun waker ->
+        Future.Core.create ^fun context ->
             let rec loop () =
                 match result with
                 | ValueSome r ->
                     Poll.Ready r
                 | ValueNone ->
-                    let sPoll = source.PollNext(waker)
+                    let sPoll = source.PollNext(context)
                     match sPoll with
                     | StreamPoll.Pending -> Poll.Pending
                     | StreamPoll.Completed ->
@@ -301,12 +301,12 @@ module PullStream =
 
     let all (predicate: 'a -> bool) (source: IPullStream<'a>) : Future<bool> =
         let mutable result: bool voption = ValueNone
-        Future.Core.create ^fun waker ->
+        Future.Core.create ^fun context ->
             let rec loop () =
                 match result with
                 | ValueSome r -> Poll.Ready r
                 | ValueNone ->
-                    let sPoll = source.PollNext(waker)
+                    let sPoll = source.PollNext(context)
                     match sPoll with
                     | StreamPoll.Pending -> Poll.Pending
                     | StreamPoll.Completed ->
@@ -324,26 +324,26 @@ module PullStream =
         notImplemented "" // TODO: Implement, basing on Seq.zip behaviour, asynchronously
 
     let tryHeadV (source: IPullStream<'a>) : Future<'a voption> =
-        Future.Core.memoizeReady ^fun waker ->
-            match source.PollNext(waker) with
+        Future.Core.memoizeReady ^fun context ->
+            match source.PollNext(context) with
             | StreamPoll.Pending -> Poll.Pending
             | StreamPoll.Completed -> Poll.Ready ValueNone
             | StreamPoll.Next x -> Poll.Ready (ValueSome x)
 
     let tryLastV (source: IPullStream<'a>) : Future<'a voption> =
-        Future.Core.memoizeReady ^fun waker ->
-            match source.PollNext(waker) with
+        Future.Core.memoizeReady ^fun context ->
+            match source.PollNext(context) with
             | StreamPoll.Pending -> Poll.Pending
             | StreamPoll.Completed -> Poll.Ready ValueNone
             | StreamPoll.Next x -> Poll.Ready (ValueSome x)
 
     let ofFuture (fut: Future<'a>) : IPullStream<'a> =
         let mutable fut = fut // fut == null, when completed
-        Core.create ^fun waker ->
+        Core.create ^fun context ->
             if obj.ReferenceEquals(fut, null) then
                 StreamPoll.Completed
             else
-                let p = fut.Poll(waker)
+                let p = fut.Poll(context)
                 match p with
                 | Poll.Pending -> StreamPoll.Pending
                 | Poll.Ready x ->
@@ -354,21 +354,21 @@ module PullStream =
 
     let delay (u2S: unit -> IPullStream<'a>) : IPullStream<'a> =
         let mutable _inner: IPullStream<'a> voption = ValueNone
-        Core.create ^fun waker ->
+        Core.create ^fun context ->
             match _inner with
             | ValueNone ->
                 let inner = u2S ()
                 _inner <- ValueSome inner
-                inner.PollNext(waker)
-            | ValueSome inner -> inner.PollNext(waker)
+                inner.PollNext(context)
+            | ValueSome inner -> inner.PollNext(context)
 
     let take (count: int) (source: IPullStream<'a>) : IPullStream<'a> =
         let mutable _taken = 0
-        Core.create ^fun waker ->
+        Core.create ^fun context ->
             if _taken >= count then
                 StreamPoll.Completed
             else
-            let p = source.PollNext(waker)
+            let p = source.PollNext(context)
             match p with
             | StreamPoll.Pending -> StreamPoll.Pending
             | StreamPoll.Completed -> StreamPoll.Completed

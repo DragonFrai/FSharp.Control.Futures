@@ -16,14 +16,16 @@ module Poll =
         | Poll.Ready x -> f x
         | Poll.Pending -> ()
 
-type Waker = unit -> unit
+[<AbstractClass>]
+type Context() =
+    abstract member Wake: unit -> unit
 
 /// # Future poll schema
 /// [ Poll.Pending -> ...(may be infinite)... -> Poll.Pending ] -> Poll.Ready x1 -> ... -> Poll.Ready xn
 ///  x1 == x2 == ... == xn
 [<Interface>]
 type IFuture<'a> =
-    abstract member Poll: Waker -> Poll<'a>
+    abstract member Poll: Context -> Poll<'a>
 
 // I know, I know
 type Future<'a> = IFuture<'a>
@@ -34,17 +36,17 @@ module Future =
     [<RequireQualifiedAccess>]
     module Core =
 
-        let inline create (__expand_poll: Waker -> Poll<'a>): Future<'a> =
-            { new Future<'a> with member this.Poll(waker) = __expand_poll waker }
+        let inline create (__expand_poll: Context -> Poll<'a>): Future<'a> =
+            { new Future<'a> with member this.Poll(context) = __expand_poll context }
 
-        let inline memoizeReady (poll: Waker -> Poll<'a>) : Future<'a> =
+        let inline memoizeReady (poll: Context -> Poll<'a>) : Future<'a> =
             let mutable poll = poll // poll = null, when memoized
             let mutable result: 'a = Unchecked.defaultof<_>
-            Core.create ^fun waker ->
+            Core.create ^fun context ->
                 if obj.ReferenceEquals(poll, null) then
                     Poll.Ready result
                 else
-                    let p = poll waker
+                    let p = poll context
                     match p with
                     | Poll.Pending -> Poll.Pending
                     | Poll.Ready x ->
@@ -52,7 +54,7 @@ module Future =
                         poll <- Unchecked.defaultof<_>
                         Poll.Ready x
 
-        let inline poll waker (fut: Future<'a>) = fut.Poll(waker)
+        let inline poll context (fut: Future<'a>) = fut.Poll(context)
 
         let getWaker = create Poll.Ready
 
@@ -76,27 +78,27 @@ module Future =
         let mutable futA = fut
         let mutable futB = nullObj
 
-        Core.create ^fun waker ->
+        Core.create ^fun context ->
             if isNull futB then
-                match Future.Core.poll waker futA with
+                match Future.Core.poll context futA with
                 | Poll.Ready x ->
                     futB <- binder x
                     // binder <- nullObj
                     futA <- nullObj
-                    Future.Core.poll waker futB
+                    Future.Core.poll context futB
                 | Poll.Pending -> Poll.Pending
             else
-                Future.Core.poll waker futB
+                Future.Core.poll context futB
 
     let map (mapping: 'a -> 'b) (fut: Future<'a>) : Future<'b> =
         let mutable _fut = fut // _fut = null, when memoized
         let mutable _mapping = mapping // _mapping = null, when memoized
         let mutable _value = Unchecked.defaultof<_>
-        Core.create ^fun waker ->
+        Core.create ^fun context ->
             if obj.ReferenceEquals(_mapping, null) then
                 Poll.Ready _value
             else
-                let p = _fut.Poll(waker)
+                let p = _fut.Poll(context)
                 match p with
                 | Poll.Pending -> Poll.Pending
                 | Poll.Ready x ->
@@ -109,9 +111,9 @@ module Future =
     let apply (f: Future<'a -> 'b>) (fut: Future<'a>) : Future<'b> =
         let mutable rf = ValueNone
         let mutable r1 = ValueNone
-        Core.create ^fun waker ->
-            Future.Core.poll waker f |> Poll.onReady ^fun f -> rf <- ValueSome f
-            Future.Core.poll waker fut |> Poll.onReady ^fun x1 -> r1 <- ValueSome x1
+        Core.create ^fun context ->
+            Future.Core.poll context f |> Poll.onReady ^fun f -> rf <- ValueSome f
+            Future.Core.poll context fut |> Poll.onReady ^fun x1 -> r1 <- ValueSome x1
             match rf, r1 with
             | ValueSome f, ValueSome x1 ->
                 Poll.Ready (f x1)
@@ -119,15 +121,15 @@ module Future =
 
     // TODO: rewrite to interlocked and optimize branches with one or more ready on first poll
     let merge (fut1: Future<'a>) (fut2: Future<'b>) : Future<'a * 'b> =
-        let nullWaker: Waker = Unchecked.defaultof<_>
+        let nullWaker: Context = Unchecked.defaultof<_>
 
         let syncObj = obj()
 
         let mutable fut1 = fut1
         let mutable fut2 = fut2
 
-        // when future is Poll.Pending and current waker = null, then waker already called of other branch
-        let mutable currentWaker = nullWaker
+        // when future is Poll.Pending and current context = null, then context already called of other branch
+        let mutable context = nullWaker
         let mutable r1 = ValueNone
         let mutable r2 = ValueNone
 
@@ -135,23 +137,29 @@ module Future =
         let mutable secondRequirePoll = true
 
         let callWaker () =
-            if not (obj.ReferenceEquals(currentWaker, nullWaker)) then
-                currentWaker ()
-            currentWaker <- nullWaker
+            if not (obj.ReferenceEquals(context, nullWaker)) then
+                context.Wake()
+            context <- nullWaker
 
-        let proxyWaker1 = fun () ->
-            lock syncObj ^fun () ->
-                callWaker ()
-                firstRequirePoll <- true
+        let proxyWaker1 =
+            { new Context() with
+                member _.Wake() =
+                    lock syncObj ^fun () ->
+                        callWaker ()
+                        firstRequirePoll <- true
+            }
 
-        let proxyWaker2 = fun () ->
-            lock syncObj ^fun () ->
-                callWaker ()
-                secondRequirePoll <- true
+        let proxyWaker2 =
+            { new Context() with
+                member _.Wake() =
+                    lock syncObj ^fun () ->
+                        callWaker ()
+                        secondRequirePoll <- true
+            }
 
-        Core.create ^fun waker ->
+        Core.create ^fun context' ->
             lock syncObj ^fun () ->
-                currentWaker <- waker
+                context <- context'
 
                 if firstRequirePoll then
                     firstRequirePoll <- false
@@ -177,28 +185,28 @@ module Future =
 
     let join (fut: Future<Future<'a>>) : Future<'a> =
         let mutable inner = ValueNone
-        Core.create ^fun waker ->
+        Core.create ^fun context ->
             if inner.IsNone then
-                Future.Core.poll waker fut
+                Future.Core.poll context fut
                 |> Poll.onReady ^fun inner' ->
                     inner <- ValueSome inner'
 
             match inner with
-            | ValueSome x -> Future.Core.poll waker x
+            | ValueSome x -> Future.Core.poll context x
             | ValueNone -> Poll.Pending
 
     let delay (creator: unit -> Future<'a>) : Future<'a> =
         let mutable inner: Future<'a> voption = ValueNone
-        Core.create ^fun waker ->
+        Core.create ^fun context ->
             match inner with
-            | ValueSome fut -> fut.Poll(waker)
+            | ValueSome fut -> fut.Poll(context)
             | ValueNone ->
                 let fut = creator ()
                 inner <- ValueSome fut
-                fut.Poll(waker)
+                fut.Poll(context)
 
     let ignore future =
-        Core.create ^fun waker ->
-            match Future.Core.poll waker future with
+        Core.create ^fun context ->
+            match Future.Core.poll context future with
             | Poll.Ready _ -> Poll.Ready ()
             | Poll.Pending -> Poll.Pending

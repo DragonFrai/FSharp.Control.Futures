@@ -19,7 +19,7 @@ type private WatchState<'a> =
     /// Value is ready
     | Value of value: 'a // -> Empty / ClosedWithValue
     /// Exists waiter of value
-    | Waiting of waker: Waker // -> Value / Closed
+    | Waiting of context: Context // -> Value / Closed
     /// Only when Disposed
     | ClosedWithValue of cValue: 'a // -> Closed
     | Closed
@@ -40,14 +40,14 @@ type WatchChannel<'a>() =
                 match state with
                 | Empty -> state <- Value x
                 | Value _ -> state <- Value x
-                | Waiting waker -> state <- Value x; waker ()
+                | Waiting context -> state <- Value x; context.Wake()
                 | ClosedWithValue _ | Closed -> raise (ObjectDisposedException "WatchChannel")
 
-        member this.PollNext(waker) =
+        member this.PollNext(context) =
             lock syncLock ^fun () ->
                 match state with
                 | Value x -> state <- Empty; StreamPoll.Next x
-                | Empty -> state <- Waiting waker; StreamPoll.Pending
+                | Empty -> state <- Waiting context; StreamPoll.Pending
                 | Waiting _ -> invalidOp "Call wake-up on wake-up "
                 | ClosedWithValue x -> state <- Closed; StreamPoll.Next x
                 | Closed -> StreamPoll.Completed
@@ -58,7 +58,7 @@ type WatchChannel<'a>() =
                 match state with
                 | Empty -> state <- Closed
                 | Value x -> state <- ClosedWithValue x
-                | Waiting waker -> state <- Closed; waker ()
+                | Waiting context -> state <- Closed; context.Wake()
                 | Closed | ClosedWithValue _ -> invalidOp "Double dispose"
 
 

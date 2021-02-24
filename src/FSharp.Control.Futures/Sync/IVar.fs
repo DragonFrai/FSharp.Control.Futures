@@ -25,7 +25,7 @@ exception IVarDoublePutException
 type IVar<'a>() =
     let syncObj = obj()
     let mutable state = Empty
-    let mutable waker: Waker = Unchecked.defaultof<_>
+    let mutable context: Context = Unchecked.defaultof<_>
     let mutable value: 'a = Unchecked.defaultof<_>
 
     member _.Put(x: 'a) =
@@ -37,21 +37,21 @@ type IVar<'a>() =
             | Waiting ->
                 value <- x
                 state <- Value
-                waker ()
+                context.Wake()
             | Value -> raise IVarDoublePutException
             | _ ->
                 invalidOp "Unreachable"
 
     interface Future<'a> with
-        member _.Poll(waker') =
+        member _.Poll(context') =
             lock syncObj ^fun () ->
                 match state with
                 | Empty ->
-                    waker <- waker'
+                    context <- context'
                     state <- Waiting
                     Poll.Pending
                 | Waiting ->
-                    waker <- waker'
+                    context <- context'
                     state <- Waiting
                     Poll.Pending
                 | Value ->

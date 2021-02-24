@@ -6,19 +6,19 @@ open FSharp.Control.Futures
 
 let returnTest = test "Builder return" {
     let fut = future { return 12 }
-    let x = Future.Core.poll noCallableWaker fut
+    let x = Future.Core.poll nonAwakenedContext fut
     Expect.equal x (Poll.Ready 12) "Future return illegal value"
 }
 
 let returnBangTest = test "Builder return!" {
     let fut = future { return! Future.ready 12 }
-    let x = Future.Core.poll noCallableWaker fut
+    let x = Future.Core.poll nonAwakenedContext fut
     Expect.equal x (Poll.Ready 12) "Future return illegal value"
 }
 
 let zeroTest = test "Builder zero" {
     let fut = future { () }
-    let x = Future.Core.poll noCallableWaker fut
+    let x = Future.Core.poll nonAwakenedContext fut
     Expect.equal x (Poll.Ready ()) "Future return illegal value"
 }
 
@@ -28,7 +28,7 @@ let bindTest = test "Builder bind" {
         let! b = future { return 11 }
         return a + b
     }
-    let x = Future.Core.poll noCallableWaker fut
+    let x = Future.Core.poll nonAwakenedContext fut
     Expect.equal x (Poll.Ready 12) "Future return illegal value"
 }
 
@@ -38,7 +38,7 @@ let mergeTest = test "Builder merge" {
         and! b = future { return 11 }
         return a + b
     }
-    let x = Future.Core.poll noCallableWaker fut
+    let x = Future.Core.poll nonAwakenedContext fut
     Expect.equal x (Poll.Ready 12) "Future return illegal value"
 }
 
@@ -49,7 +49,7 @@ let forTest = test "Builder for cycle" {
         for el in seq do
             sum <- sum +  el
     }
-    let _ = Future.Core.poll noCallableWaker fut
+    let _ = Future.Core.poll nonAwakenedContext fut
     let expected = Seq.sum seq
     Expect.equal sum expected "Future return illegal value"
 }

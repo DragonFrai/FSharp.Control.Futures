@@ -32,19 +32,19 @@ module private SchedulerImpl =
 
             member _.Join() =
                 use wh = new EventWaitHandle(false, EventResetMode.AutoReset)
-                let waker () = wh.Set() |> ignore
+                let context = { new Context() with member _.Wake() = wh.Set() |> ignore }
 
                 let rec wait (current: Poll<Result<'a, exn>>) =
                     match current with
                     | Poll.Ready x -> x
                     | Poll.Pending ->
                         wh.WaitOne() |> ignore
-                        wait (Future.Core.poll waker inner)
+                        wait (Future.Core.poll context inner)
 
-                wait (Future.Core.poll waker inner)
+                wait (Future.Core.poll context inner)
 
-            member _.Poll(waker) =
-                let x = Future.Core.poll waker inner
+            member _.Poll(context) =
+                let x = Future.Core.poll context inner
                 match x with
                 | Poll.Ready x ->
                     match x with
@@ -61,11 +61,14 @@ module private SchedulerImpl =
 
         member this.Run() =
             lock syncPoll ^fun () ->
-                let waker () =
-                    lock syncPoll ^fun () ->
-                        this.PushInThreadPool()
+                let context =
+                    { new Context() with
+                        member _.Wake() =
+                            lock syncPoll ^fun () ->
+                                this.PushInThreadPool()
+                    }
                 try
-                    let x = Future.Core.poll waker future
+                    let x = Future.Core.poll context future
                     match x with
                     | Poll.Ready x ->
                         waiter.Put(Ok x)

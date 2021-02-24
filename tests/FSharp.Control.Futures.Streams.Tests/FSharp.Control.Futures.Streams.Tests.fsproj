@@ -18,8 +18,9 @@
         <PackageReference Include="YoloDev.Expecto.TestSdk" Version="0.11.1" />
         <PackageReference Include="Microsoft.NET.Test.Sdk" Version="16.8.3" />
     </ItemGroup>
-    
+
     <ItemGroup>
         <ProjectReference Include="..\..\src\FSharp.Control.Futures.Streams\FSharp.Control.Futures.Streams.fsproj" />
+        <ProjectReference Include="..\..\src\FSharp.Control.Futures\FSharp.Control.Futures.fsproj" />
     </ItemGroup>
 </Project>

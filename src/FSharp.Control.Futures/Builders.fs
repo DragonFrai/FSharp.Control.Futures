@@ -29,9 +29,9 @@ type FutureBuilder() =
         let fr = lazy(f d)
         let mutable disposed = false
         { new Future<'r> with
-            member _.Poll(waker) =
+            member _.Poll(context) =
                 let fr = fr.Value
-                match Future.Core.poll waker fr with
+                match Future.Core.poll context fr with
                 | Poll.Ready x ->
                     if not disposed then d.Dispose()
                     Poll.Ready x

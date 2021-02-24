@@ -13,11 +13,14 @@ type Poll<'a> =
 module Poll =
     val inline onReady: f: ('a -> unit) -> x: Poll<'a> -> unit
 
-type Waker = unit -> unit
+[<AbstractClass>]
+type Context =
+    new : unit -> Context
+    abstract member Wake: unit -> unit
 
 [<Interface>]
 type IFuture<'a> =
-    abstract member Poll : Waker -> Poll<'a>
+    abstract member Poll : Context -> Poll<'a>
 
 type Future<'a> = IFuture<'a>
 
@@ -27,14 +30,14 @@ module Future =
     [<RequireQualifiedAccess>]
     module Core =
 
-        val inline create: __expand_poll: (Waker -> Poll<'a>) -> Future<'a>
+        val inline create: __expand_poll: (Context -> Poll<'a>) -> Future<'a>
 
         /// Memoize first `Ready x` returned by the passed `poll` function.
-        val inline memoizeReady: poll: (Waker -> Poll<'a>) -> Future<'a>
+        val inline memoizeReady: poll: (Context -> Poll<'a>) -> Future<'a>
 
-        val inline poll: waker: Waker -> fut: Future<'a> -> Poll<'a>
+        val inline poll: context: Context -> fut: Future<'a> -> Poll<'a>
 
-        val getWaker: Future<Waker>
+        val getWaker: Future<Context>
 
 
     val ready: value: 'a -> Future<'a>

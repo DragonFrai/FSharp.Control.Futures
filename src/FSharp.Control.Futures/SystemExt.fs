@@ -19,21 +19,21 @@ module Future =
         // timer ready
         let mutable timeOut = false
 
-        let inline onWake waker _ =
+        let inline onWake (context: Context) _ =
             let timer' = timer
             timer <- Unchecked.defaultof<_>
             timeOut <- true
-            waker ()
+            context.Wake()
             timer'.Dispose()
 
-        let inline createTimer waker =
-            new Timer(onWake waker, null, dueTime, Timeout.InfiniteTimeSpan)
+        let inline createTimer context =
+            new Timer(onWake context, null, dueTime, Timeout.InfiniteTimeSpan)
 
-        Future.Core.create ^fun waker ->
+        Future.Core.create ^fun context ->
             if not (obj.ReferenceEquals(timer, null)) then invalidOp "polling Future.sleep before waking up "
             elif timeOut then Poll.Ready ()
             else
-                timer <- createTimer waker
+                timer <- createTimer context
                 Poll.Pending
 
 
@@ -53,14 +53,16 @@ module Future =
         // until the point with the result is reached
 
         use wh = new EventWaitHandle(false, EventResetMode.AutoReset)
-        let waker () = wh.Set() |> ignore
+        let ctx =
+            { new Context() with member _.Wake() = wh.Set() |> ignore }
+
 
         let rec wait (current: Poll<'a>) =
             match current with
             | Poll.Ready x -> x
             | Poll.Pending ->
                 wh.WaitOne() |> ignore
-                wait (Future.Core.poll waker f)
+                wait (Future.Core.poll ctx f)
 
-        wait (Future.Core.poll waker f)
+        wait (Future.Core.poll ctx f)
 

@@ -14,10 +14,10 @@ module Future =
 
     let catch (f: Future<'a>) : Future<Result<'a, exn>> =
         let mutable result = ValueNone
-        Future.Core.create ^fun waker ->
+        Future.Core.create ^fun context ->
             if result.IsNone then
                 try
-                    Future.Core.poll waker f |> Poll.onReady ^fun x -> result <- ValueSome (Ok x)
+                    Future.Core.poll context f |> Poll.onReady ^fun x -> result <- ValueSome (Ok x)
                 with
                 | e -> result <- ValueSome (Error e)
             match result with
@@ -26,12 +26,12 @@ module Future =
 
     let yieldWorkflow () =
         let mutable isYielded = false
-        Future.Core.create ^fun waker ->
+        Future.Core.create ^fun context ->
             if isYielded then
                 Poll.Ready ()
             else
                 isYielded <- true
-                waker ()
+                context.Wake()
                 Poll.Pending
 
 
@@ -48,28 +48,28 @@ module Future =
             // Iterate enumerator until binded future return Ready () on poll
             // return ValueNone if enumeration was completed
             // else return ValueSome x, when x is Future<unit>
-            let rec moveUntilReady (enumerator: IEnumerator<'a>) (binder: 'a -> Future<unit>) (waker: Waker) : Future<unit> voption =
+            let rec moveUntilReady (enumerator: IEnumerator<'a>) (binder: 'a -> Future<unit>) (context: Context) : Future<unit> voption =
                 if enumerator.MoveNext()
                 then
                     let waiter = body enumerator.Current
-                    match Future.Core.poll waker waiter with
-                    | Poll.Ready () -> moveUntilReady enumerator binder waker
+                    match Future.Core.poll context waiter with
+                    | Poll.Ready () -> moveUntilReady enumerator binder context
                     | Poll.Pending -> ValueSome waiter
                 else
                     ValueNone
 
-            let rec pollInner (waker: Waker) : Poll<unit> =
+            let rec pollInner (context: Context) : Poll<unit> =
                 match currentAwaited with
                 | ValueNone ->
-                    currentAwaited <- moveUntilReady enumerator body waker
+                    currentAwaited <- moveUntilReady enumerator body context
                     if currentAwaited.IsNone
                     then Poll.Ready ()
                     else Poll.Pending
                 | ValueSome waiter ->
-                    match waiter.Poll(waker) with
+                    match waiter.Poll(context) with
                     | Poll.Ready () ->
                         currentAwaited <- ValueNone
-                        pollInner waker
+                        pollInner context
                     | Poll.Pending -> Poll.Pending
 
             Future.Core.create pollInner
