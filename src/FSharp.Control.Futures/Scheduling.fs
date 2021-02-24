@@ -8,10 +8,9 @@ open FSharp.Control.Futures.Sync
 
 type IJoinHandle<'a> =
     inherit Future<'a>
-    // TODO: Add try await
+    // TODO: Add TryJoin and TryAwait
     abstract member Join: unit -> Result<'a, exn>
 
-// TODO: Add IDisposable Runtime interface
 // Run future execution
 type IScheduler =
     inherit IDisposable
