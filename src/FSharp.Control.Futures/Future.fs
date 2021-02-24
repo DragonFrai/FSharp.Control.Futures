@@ -119,69 +119,34 @@ module Future =
                 Poll.Ready (f x1)
             | _ -> Poll.Pending
 
-    // TODO: rewrite to interlocked and optimize branches with one or more ready on first poll
     let merge (fut1: Future<'a>) (fut2: Future<'b>) : Future<'a * 'b> =
-        let nullWaker: Context = Unchecked.defaultof<_>
 
-        let syncObj = obj()
-
-        let mutable fut1 = fut1
-        let mutable fut2 = fut2
+        let mutable _fut1 = fut1
+        let mutable _fut2 = fut2
 
         // when future is Poll.Pending and current context = null, then context already called of other branch
-        let mutable context = nullWaker
-        let mutable r1 = ValueNone
-        let mutable r2 = ValueNone
+        let mutable _r1 = ValueNone
+        let mutable _r2 = ValueNone
 
-        let mutable firstRequirePoll = true
-        let mutable secondRequirePoll = true
+        Core.create ^fun context ->
+            if _r1.IsNone then
+                match Core.poll context _fut1 with
+                | Poll.Ready x ->
+                    _r1 <- ValueSome x
+                    _fut1 <- nullObj
+                | Poll.Pending -> ()
+            if _r2.IsNone then
+                match Core.poll context _fut2 with
+                | Poll.Ready x ->
+                    _r2 <- ValueSome x
+                    _fut2 <- nullObj
+                | Poll.Pending -> ()
 
-        let callWaker () =
-            if not (obj.ReferenceEquals(context, nullWaker)) then
-                context.Wake()
-            context <- nullWaker
+            match _r1, _r2 with
+            | ValueSome x1, ValueSome x2 -> Poll.Ready (x1, x2)
+            | _ -> Poll.Pending
 
-        let proxyWaker1 =
-            { new Context() with
-                member _.Wake() =
-                    lock syncObj ^fun () ->
-                        callWaker ()
-                        firstRequirePoll <- true
-            }
 
-        let proxyWaker2 =
-            { new Context() with
-                member _.Wake() =
-                    lock syncObj ^fun () ->
-                        callWaker ()
-                        secondRequirePoll <- true
-            }
-
-        Core.create ^fun context' ->
-            lock syncObj ^fun () ->
-                context <- context'
-
-                if firstRequirePoll then
-                    firstRequirePoll <- false
-                    let x = fut1.Poll(proxyWaker1)
-                    match x with
-                    | Poll.Pending -> ()
-                    | Poll.Ready x ->
-                        r1 <- ValueSome x
-                        fut1 <- Unchecked.defaultof<_>
-
-                if secondRequirePoll then
-                    secondRequirePoll <- false
-                    let x = fut2.Poll(proxyWaker2)
-                    match x with
-                    | Poll.Pending -> ()
-                    | Poll.Ready x ->
-                        r2 <- ValueSome x
-                        fut2 <- Unchecked.defaultof<_>
-
-                match r1, r2 with
-                | ValueSome x1, ValueSome x2 -> Poll.Ready (x1, x2)
-                | _ -> Poll.Pending
 
     let join (fut: Future<Future<'a>>) : Future<'a> =
         let mutable inner = ValueNone

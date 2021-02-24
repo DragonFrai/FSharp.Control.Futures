@@ -20,7 +20,11 @@ type IScheduler =
 // -------------------
 // ThreadPollScheduler
 // -------------------
-module private SchedulerImpl =
+module private rec ThreadPoolImpl =
+
+    module private Utils =
+        let inline queueTask (task: ThreadPoolTask<'a>) =
+            ThreadPool.QueueUserWorkItem(fun _ -> do task.Run()) |> ignore
 
     type IVarJoinHandle<'a>() =
 
@@ -31,17 +35,7 @@ module private SchedulerImpl =
         interface IJoinHandle<'a> with
 
             member _.Join() =
-                use wh = new EventWaitHandle(false, EventResetMode.AutoReset)
-                let context = { new Context() with member _.Wake() = wh.Set() |> ignore }
-
-                let rec wait (current: Poll<Result<'a, exn>>) =
-                    match current with
-                    | Poll.Ready x -> x
-                    | Poll.Pending ->
-                        wh.WaitOne() |> ignore
-                        wait (Future.Core.poll context inner)
-
-                wait (Future.Core.poll context inner)
+                Future.runSync inner
 
             member _.Poll(context) =
                 let x = Future.Core.poll context inner
@@ -54,34 +48,46 @@ module private SchedulerImpl =
 
 
     type ThreadPoolTask<'a>(future: Future<'a>, waiter: IVarJoinHandle<'a>) =
-        let syncPoll = obj()
 
-        member this.PushInThreadPool() =
-            ThreadPool.QueueUserWorkItem(fun _ -> do this.Run()) |> ignore
+        // 0 -- false ; 1 -- true
+        let mutable isRequireWake = true // init with require to update
+        // 0 -- false ; 1 -- true
+        let mutable isInQueue = false
+
+        let sync = obj()
 
         member this.Run() =
-            lock syncPoll ^fun () ->
-                let context =
-                    { new Context() with
-                        member _.Wake() =
-                            lock syncPoll ^fun () ->
-                                this.PushInThreadPool()
-                    }
-                try
-                    let x = Future.Core.poll context future
-                    match x with
-                    | Poll.Ready x ->
-                        waiter.Put(Ok x)
-                    | Poll.Pending -> ()
-                with e ->
-                    waiter.Put(Error e)
+            lock sync ^fun () ->
+                isRequireWake <- false
+
+            let context =
+                { new Context() with
+                    member _.Wake() =
+                        lock sync ^fun () ->
+                            isRequireWake <- true
+                            if not isInQueue then
+                                Utils.queueTask this
+                }
+
+            try
+                let x = Future.Core.poll context future
+                match x with
+                | Poll.Ready x -> waiter.Put(Ok x)
+                | Poll.Pending -> ()
+            with e ->
+                waiter.Put(Error e)
+
+            lock sync ^fun () ->
+                if isRequireWake
+                then Utils.queueTask this
+                else isInQueue <- false
 
     type ThreadPoolScheduler() =
         interface IScheduler with
             member this.Spawn(fut: Future<'a>) =
                 let handle = IVarJoinHandle<'a>()
                 let task = ThreadPoolTask<'a>(fut, handle)
-                task.PushInThreadPool()
+                Utils.queueTask task
                 handle :> IJoinHandle<'a>
 
             member _.Dispose() = ()
@@ -90,7 +96,7 @@ module private SchedulerImpl =
 
 [<RequireQualifiedAccess>]
 module Schedulers =
-    let threadPool: IScheduler = upcast new SchedulerImpl.ThreadPoolScheduler()
+    let threadPool: IScheduler = upcast new ThreadPoolImpl.ThreadPoolScheduler()
 
 
 [<RequireQualifiedAccess>]
