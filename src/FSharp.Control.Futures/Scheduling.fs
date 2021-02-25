@@ -47,46 +47,63 @@ module private rec ThreadPoolImpl =
                 | Poll.Pending -> Poll.Pending
 
 
-    type ThreadPoolTask<'a>(future: Future<'a>, waiter: IVarJoinHandle<'a>) =
+    type ThreadPoolTask<'a>(future: Future<'a>, waiter: IVarJoinHandle<'a>) as this =
 
+
+        let mutable isComplete = false
         // 0 -- false ; 1 -- true
-        let mutable isRequireWake = true // init with require to update
+        let mutable isRequireWake = false // init with require to update
         // 0 -- false ; 1 -- true
         let mutable isInQueue = false
 
         let sync = obj()
 
+        let context =
+            { new Context() with
+                member _.Wake() =
+                    lock sync ^fun () ->
+                        isRequireWake <- true
+                        if not isInQueue then
+                            Utils.queueTask this
+                            isInQueue <- true
+            }
+
         member this.Run() =
-            lock sync ^fun () ->
-                isRequireWake <- false
+            let isComplete' =
+                lock sync ^fun () ->
+                    isRequireWake <- false
+                    isComplete
 
-            let context =
-                { new Context() with
-                    member _.Wake() =
-                        lock sync ^fun () ->
-                            isRequireWake <- true
-                            if not isInQueue then
-                                Utils.queueTask this
-                }
-
+            if isComplete' then ()
+            else
             try
                 let x = Future.Core.poll context future
                 match x with
-                | Poll.Ready x -> waiter.Put(Ok x)
+                | Poll.Ready x ->
+                    waiter.Put(Ok x)
+                    lock sync ^fun () ->
+                        isComplete <- true
                 | Poll.Pending -> ()
             with e ->
                 waiter.Put(Error e)
 
             lock sync ^fun () ->
-                if isRequireWake
+                if isRequireWake && not isComplete
                 then Utils.queueTask this
                 else isInQueue <- false
+
+        member _.InitForQueue() =
+            isInQueue <- true
+            isRequireWake <- true
+
+
 
     type ThreadPoolScheduler() =
         interface IScheduler with
             member this.Spawn(fut: Future<'a>) =
                 let handle = IVarJoinHandle<'a>()
                 let task = ThreadPoolTask<'a>(fut, handle)
+                task.InitForQueue()
                 Utils.queueTask task
                 handle :> IJoinHandle<'a>
 
