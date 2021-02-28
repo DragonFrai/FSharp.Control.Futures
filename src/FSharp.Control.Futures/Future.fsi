@@ -16,11 +16,11 @@ module Poll =
 [<AbstractClass>]
 type Context =
     new : unit -> Context
-    abstract member Wake: unit -> unit
+    abstract Wake: unit -> unit
 
 [<Interface>]
 type IFuture<'a> =
-    abstract member Poll : Context -> Poll<'a>
+    abstract Poll : Context -> Poll<'a>
 
 type Future<'a> = IFuture<'a>
 

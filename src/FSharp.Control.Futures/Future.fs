@@ -18,14 +18,14 @@ module Poll =
 
 [<AbstractClass>]
 type Context() =
-    abstract member Wake: unit -> unit
+    abstract Wake: unit -> unit
 
 /// # Future poll schema
 /// [ Poll.Pending -> ...(may be infinite)... -> Poll.Pending ] -> Poll.Ready x1 -> ... -> Poll.Ready xn
 ///  x1 == x2 == ... == xn
 [<Interface>]
 type IFuture<'a> =
-    abstract member Poll: Context -> Poll<'a>
+    abstract Poll: Context -> Poll<'a>
 
 // I know, I know
 type Future<'a> = IFuture<'a>
