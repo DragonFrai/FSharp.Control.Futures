@@ -9,12 +9,15 @@ module FSharp.Control.Futures.FutureExt
 open System.Collections.Generic
 
 
+exception FutureCancelledException
+
 [<RequireQualifiedAccess>]
 module Future =
 
     let catch (f: Future<'a>) : Future<Result<'a, exn>> =
         let mutable result = ValueNone
-        Future.Core.create ^fun context ->
+        Future.Core.create
+        <| fun context ->
             if result.IsNone then
                 try
                     Future.Core.poll context f |> Poll.onReady ^fun x -> result <- ValueSome (Ok x)
@@ -23,17 +26,19 @@ module Future =
             match result with
             | ValueSome r -> Poll.Ready r
             | ValueNone -> Poll.Pending
+        <| fun () -> f.Cancel()
 
     let yieldWorkflow () =
         let mutable isYielded = false
-        Future.Core.create ^fun context ->
+        Future.Core.create
+        <| fun context ->
             if isYielded then
                 Poll.Ready ()
             else
                 isYielded <- true
                 context.Wake()
                 Poll.Pending
-
+        <| fun () -> do ()
 
     [<RequireQualifiedAccess>]
     module Seq =
@@ -44,6 +49,7 @@ module Future =
         let iterAsync (source: 'a seq) (body: 'a -> Future<unit>) =
             let enumerator = source.GetEnumerator()
             let mutable currentAwaited: Future<unit> voption = ValueNone
+            let mutable isCancelled = false
 
             // Iterate enumerator until binded future return Ready () on poll
             // return ValueNone if enumeration was completed
@@ -59,6 +65,7 @@ module Future =
                     ValueNone
 
             let rec pollInner (context: Context) : Poll<unit> =
+                if isCancelled then raise FutureCancelledException
                 match currentAwaited with
                 | ValueNone ->
                     currentAwaited <- moveUntilReady enumerator body context
@@ -72,4 +79,4 @@ module Future =
                         pollInner context
                     | Poll.Pending -> Poll.Pending
 
-            Future.Core.create pollInner
+            Future.Core.create pollInner (fun () -> isCancelled <- true)

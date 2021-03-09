@@ -29,13 +29,16 @@ module Future =
         let inline createTimer context =
             new Timer(onWake context, null, dueTime, Timeout.InfiniteTimeSpan)
 
-        Future.Core.create ^fun context ->
+        Future.Core.create
+        <| fun context ->
             if not (obj.ReferenceEquals(timer, null)) then invalidOp "polling Future.sleep before waking up "
             elif timeOut then Poll.Ready ()
             else
                 timer <- createTimer context
                 Poll.Pending
-
+        <| fun () ->
+            // TODO: impl
+            do ()
 
     let sleepMs (milliseconds: int) =
         let dueTime = TimeSpan.FromMilliseconds((float) milliseconds)

@@ -46,6 +46,9 @@ module private rec ThreadPoolImpl =
                     | Error e -> raise e
                 | Poll.Pending -> Poll.Pending
 
+            member _.Cancel() =
+                // TODO: impl
+                raise (NotImplementedException "")
 
     type ThreadPoolTask<'a>(future: Future<'a>, waiter: IVarJoinHandle<'a>) as this =
 

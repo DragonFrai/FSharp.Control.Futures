@@ -28,14 +28,17 @@ type FutureBuilder() =
     member inline _.Using(d: 'D, f: 'D -> Future<'r>) : Future<'r> when 'D :> IDisposable =
         let fr = lazy(f d)
         let mutable disposed = false
-        { new Future<'r> with
-            member _.Poll(context) =
-                let fr = fr.Value
-                match Future.Core.poll context fr with
-                | Poll.Ready x ->
-                    if not disposed then d.Dispose()
-                    Poll.Ready x
-                | p -> p }
+        Future.Core.create
+        <| fun context ->
+            let fr = fr.Value
+            match Future.Core.poll context fr with
+            | Poll.Ready x ->
+                if not disposed then d.Dispose()
+                Poll.Ready x
+            | p -> p
+        <| fun () ->
+            if fr.IsValueCreated then
+                fr.Value.Cancel()
 
     member inline _.Run(u2f): Future<'a> = Future.delay u2f
 

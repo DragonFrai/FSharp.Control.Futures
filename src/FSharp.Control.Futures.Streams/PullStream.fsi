@@ -15,12 +15,16 @@ module StreamPoll =
 
 [<Interface>]
 type IPullStream<'a> =
-    abstract member PollNext: Context -> StreamPoll<'a>
+    abstract PollNext: Context -> StreamPoll<'a>
+    abstract Cancel: unit -> unit
 
 module PullStream =
 
     module Core =
+        val inline create:
+            __expand_pollNext: (Context -> StreamPoll<'a>) -> __expand_cancel: (unit -> unit) -> IPullStream<'a>
         val inline pollNext: context: Context -> stream: IPullStream<'a> -> StreamPoll<'a>
+        val inline cancel: stream: IPullStream<'a> -> unit
 
     // --------
     // Creation

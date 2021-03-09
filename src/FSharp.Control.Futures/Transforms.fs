@@ -22,7 +22,8 @@ module FutureAsyncTransforms =
         let ofAsync (x: Async<'a>) : Future<'a> =
             let mutable result = AsyncResult.Pending
             let mutable started = false
-            Future.Core.create ^fun context ->
+            Future.Core.create
+            <| fun context ->
                 if not started then
                     started <- true
                     Async.StartWithContinuations(
@@ -36,6 +37,9 @@ module FutureAsyncTransforms =
                 | AsyncResult.Completed result -> Poll.Ready result
                 | AsyncResult.Cancelled ec -> raise ec //Poll.Ready ^ MaybeCancel.Cancelled ec
                 | AsyncResult.Errored e -> raise e
+            <| fun () ->
+                // todo: impl
+                do ()
 
         // TODO: Implement without blocking
         let toAsync (x: Future<'a>) : Async<'a> =
@@ -66,7 +70,8 @@ module FutureTaskTransforms =
                 IVar.put taskResult ivar
             ) |> ignore
 
-            Future.Core.create ^fun context ->
+            Future.Core.create
+            <| fun context ->
                 let pollResult = Future.Core.poll context ivar
                 match pollResult with
                 | Poll.Ready result ->
@@ -74,6 +79,9 @@ module FutureTaskTransforms =
                     | Ok x -> Poll.Ready x
                     | Error ex -> raise ex
                 | Poll.Pending -> Poll.Pending
+            <| fun () ->
+                // TODO
+                (ivar :> Future<_>).Cancel()
 
         // TODO: Implement without blocking
         let toTask (x: Future<'a>) : Task<'a> =

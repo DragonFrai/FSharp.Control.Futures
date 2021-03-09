@@ -27,6 +27,14 @@ type BridgeChannel<'a>() =
                     context'.Wake()
                     context <- ValueNone
 
+        member this.Dispose() =
+            lock syncLock ^fun () ->
+                if isClosed then invalidOp "Double dispose"
+                isClosed <- true
+                match context with
+                | ValueNone -> ()
+                | ValueSome context -> context.Wake()
+
         member this.PollNext(context') =
             lock syncLock ^fun () ->
                 let (hasMsg, x) = msgQueue.TryDequeue()
@@ -40,17 +48,15 @@ type BridgeChannel<'a>() =
                         context <- ValueSome context'
                         StreamPoll.Pending
 
-        member this.Dispose() =
+        member this.Cancel() =
             lock syncLock ^fun () ->
-                if isClosed then invalidOp "Double dispose"
-                isClosed <- true
-                match context with
-                | ValueNone -> ()
-                | ValueSome context -> context.Wake()
+                // TODO: impl
+                do ()
+
 
 [<RequireQualifiedAccess>]
 module Bridge =
 
-    let create<'a> () = new BridgeChannel<'a>() :> IChannel<'a>
+    let create<'a> () = new BridgeChannel<'a>() :> IChannel<_>
 
     let createPair<'a> () = create<'a> () |> Channel.asPair

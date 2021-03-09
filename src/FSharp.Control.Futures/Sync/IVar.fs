@@ -17,6 +17,10 @@ module State =
     [<Literal>]
     let Value: int = 2
 
+    [<Literal>]
+    let Cancelled: int = 3
+
+
 
 exception IVarDoublePutException
 
@@ -38,7 +42,10 @@ type IVar<'a>() =
                 value <- x
                 state <- Value
                 context.Wake()
-            | Value -> raise IVarDoublePutException
+            | Value ->
+                raise IVarDoublePutException
+            | Cancelled ->
+                value <- x
             | _ ->
                 invalidOp "Unreachable"
 
@@ -56,8 +63,14 @@ type IVar<'a>() =
                     Poll.Pending
                 | Value ->
                     Poll.Ready value
+                | Cancelled ->
+                    raise FutureCancelledException
                 | _ ->
                     invalidOp "Unreachable"
+
+        member _.Cancel() =
+            lock syncObj ^fun () ->
+                state <- Cancelled
 
 module IVar =
     let create () = IVar()

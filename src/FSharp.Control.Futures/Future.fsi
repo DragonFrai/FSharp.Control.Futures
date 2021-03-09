@@ -21,6 +21,7 @@ type Context =
 [<Interface>]
 type IFuture<'a> =
     abstract Poll : Context -> Poll<'a>
+    abstract Cancel : unit -> unit
 
 type Future<'a> = IFuture<'a>
 
@@ -30,10 +31,10 @@ module Future =
     [<RequireQualifiedAccess>]
     module Core =
 
-        val inline create: __expand_poll: (Context -> Poll<'a>) -> Future<'a>
+        val inline create: __expand_poll: (Context -> Poll<'a>) -> __expand_cancel: (unit -> unit) -> Future<'a>
 
         /// Memoize first `Ready x` returned by the passed `poll` function.
-        val inline memoizeReady: poll: (Context -> Poll<'a>) -> Future<'a>
+        val inline memoizeReady: __expand_poll: (Context -> Poll<'a>) -> __expand_cancel: (unit -> unit) -> Future<'a>
 
         val inline poll: context: Context -> fut: Future<'a> -> Poll<'a>
 
@@ -60,5 +61,5 @@ module Future =
 
     val delay: creator: (unit -> Future<'a>) -> Future<'a>
 
-    val ignore: future: Future<'a> -> Future<unit>
+    val ignore: fut: Future<'a> -> Future<unit>
 
