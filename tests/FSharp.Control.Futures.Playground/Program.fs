@@ -92,7 +92,8 @@ module Fib =
                 let mutable value = -1
                 let f1 = fibInner (n-1)
                 let f2 = fibInner (n-2)
-                Future.Core.create ^fun waker ->
+                Future.Core.create
+                <| fun waker ->
                     match value with
                     | -1 ->
                         match Future.Core.poll waker f1, Future.Core.poll waker f2 with
@@ -101,6 +102,7 @@ module Fib =
                             Poll.Ready (a + b)
                         | _ -> Poll.Pending
                     | value -> Poll.Ready value
+                <| fun () -> do ()
 
         let fut = lazy(fibInner n)
         Future.Core.create ^fun w -> Future.Core.poll w fut.Value
