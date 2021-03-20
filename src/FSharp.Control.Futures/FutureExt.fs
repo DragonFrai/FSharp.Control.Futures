@@ -28,18 +28,6 @@ module Future =
             | ValueNone -> Poll.Pending
         <| fun () -> f.Cancel()
 
-    let yieldWorkflow () =
-        let mutable isYielded = false
-        Future.Core.create
-        <| fun context ->
-            if isYielded then
-                Poll.Ready ()
-            else
-                isYielded <- true
-                context.Wake()
-                Poll.Pending
-        <| fun () -> do ()
-
     [<RequireQualifiedAccess>]
     module Seq =
 

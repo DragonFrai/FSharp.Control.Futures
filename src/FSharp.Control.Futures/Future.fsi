@@ -3,7 +3,7 @@ namespace FSharp.Control.Futures
 open System
 
 // Contains the basic functions for creating and transforming `Future`.
-// If the function accepts types other than `Future` or `Waker`, then they should be placed somewhere else
+// If the function accepts types other than `Future` or `Context`, then they should be placed somewhere else
 
 [<Struct; RequireQualifiedAccess>]
 type Poll<'a> =
@@ -60,6 +60,8 @@ module Future =
     val join: fut: Future<Future<'a>> -> Future<'a>
 
     val delay: creator: (unit -> Future<'a>) -> Future<'a>
+
+    val yieldWorkflow: unit -> Future<unit>
 
     val ignore: fut: Future<'a> -> Future<unit>
 

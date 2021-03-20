@@ -216,6 +216,18 @@ module Future =
                 Core.poll context inner
         <| fun () -> _isCancelled <- true
 
+    let yieldWorkflow () =
+        let mutable isYielded = false
+        Future.Core.create
+        <| fun context ->
+            if isYielded then
+                Poll.Ready ()
+            else
+                isYielded <- true
+                context.Wake()
+                Poll.Pending
+        <| fun () -> do ()
+
     let ignore fut =
         Core.create
         <| fun context ->
