@@ -59,7 +59,6 @@ module Future =
         /// <summary> Call Future.Poll of passed Future </summary>
         val inline poll: context: Context -> fut: Future<'a> -> Poll<'a>
 
-        val getWaker: Future<Context>
 
     /// <summary> Create the Future with ready value</summary>
     /// <param name="value"> Poll body </param>

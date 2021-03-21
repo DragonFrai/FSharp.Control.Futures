@@ -1,8 +1,6 @@
 namespace rec FSharp.Control.Futures
 
-open System
 open System.ComponentModel
-open System.Threading
 
 
 [<Struct; RequireQualifiedAccess>]
@@ -66,11 +64,6 @@ module Future =
             <| __expand_cancel
 
         let inline poll context (fut: Future<'a>) = fut.Poll(context)
-
-        let getWaker =
-            Core.create
-            <| Poll.Ready
-            <| fun () -> do ()
 
 
     let inline bindPoll' (f: 'a -> Poll<'b>) (x: Poll<'a>) : Poll<'b> =
