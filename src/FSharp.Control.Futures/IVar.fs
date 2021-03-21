@@ -1,4 +1,4 @@
-namespace FSharp.Control.Futures.Sync
+namespace FSharp.Control.Futures
 
 open FSharp.Control.Futures
 
@@ -19,7 +19,6 @@ module State =
 
     [<Literal>]
     let Cancelled: int = 3
-
 
 
 exception IVarDoublePutException
@@ -74,6 +73,5 @@ type IVar<'a>() =
 
 module IVar =
     let create () = IVar()
-    // TODO: No-unit return
     let put x (ivar: IVar<_>) = ivar.Put(x)
     let read (ivar: IVar<_>) = ivar :> Future<_>

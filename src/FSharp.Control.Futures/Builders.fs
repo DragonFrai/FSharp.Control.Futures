@@ -1,7 +1,6 @@
 namespace FSharp.Control.Futures
 
 open System
-open System.Runtime.CompilerServices
 
 // -------------------
 // FutureBuilder

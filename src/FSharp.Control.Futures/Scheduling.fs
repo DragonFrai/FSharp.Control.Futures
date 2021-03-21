@@ -26,32 +26,7 @@ module private rec ThreadPoolImpl =
         let inline queueTask (task: ThreadPoolTask<'a>) =
             ThreadPool.QueueUserWorkItem(fun _ -> do task.Run()) |> ignore
 
-    type IVarJoinHandle<'a>() =
-
-        let inner: IVar<Result<'a, exn>> = IVar.create ()
-
-        member inline _.Put(x) = inner.Put(x)
-
-        interface IJoinHandle<'a> with
-
-            member _.Join() =
-                Future.runSync inner
-
-            member _.Poll(context) =
-                let x = Future.Core.poll context inner
-                match x with
-                | Poll.Ready x ->
-                    match x with
-                    | Ok x -> Poll.Ready x
-                    | Error e -> raise e
-                | Poll.Pending -> Poll.Pending
-
-            member _.Cancel() =
-                // TODO: impl
-                raise (NotImplementedException "")
-
-    type ThreadPoolTask<'a>(future: Future<'a>, waiter: IVarJoinHandle<'a>) as this =
-
+    type ThreadPoolTask<'a>(future: Future<'a>) as this =
 
         let mutable isComplete = false
         // 0 -- false ; 1 -- true
@@ -59,12 +34,14 @@ module private rec ThreadPoolImpl =
         // 0 -- false ; 1 -- true
         let mutable isInQueue = false
 
+        let waiter: IVar<Result<'a, exn>> = IVar.create ()
+
         let sync = obj()
 
         let context =
             { new Context() with
                 member _.Wake() =
-                    lock sync ^fun () ->
+                    lock sync <| fun () ->
                         isRequireWake <- true
                         if not isInQueue then
                             Utils.queueTask this
@@ -99,16 +76,34 @@ module private rec ThreadPoolImpl =
             isInQueue <- true
             isRequireWake <- true
 
+        interface IJoinHandle<'a> with
+
+            member _.Join() =
+                Future.runSync waiter
+
+            member _.Poll(context) =
+                let x = Future.Core.poll context waiter
+                match x with
+                | Poll.Ready x ->
+                    match x with
+                    | Ok x -> Poll.Ready x
+                    | Error e -> raise e
+                | Poll.Pending -> Poll.Pending
+
+            member _.Cancel() =
+                lock sync <| fun () ->
+                    waiter.Put(Error FutureCancelledException)
+                    isComplete <- true
+                future.Cancel()
 
 
     type ThreadPoolScheduler() =
         interface IScheduler with
             member this.Spawn(fut: Future<'a>) =
-                let handle = IVarJoinHandle<'a>()
-                let task = ThreadPoolTask<'a>(fut, handle)
+                let task = ThreadPoolTask<'a>(fut)
                 task.InitForQueue()
                 Utils.queueTask task
-                handle :> IJoinHandle<'a>
+                task :> IJoinHandle<'a>
 
             member _.Dispose() = ()
 
