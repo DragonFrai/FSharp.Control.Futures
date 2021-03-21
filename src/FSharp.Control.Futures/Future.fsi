@@ -1,5 +1,7 @@
 namespace FSharp.Control.Futures
 
+open System.ComponentModel
+
 
 // Contains the basic functions for creating and transforming `Future`.
 // If the function accepts types other than `Future` or `Context`, then they should be placed somewhere else
@@ -26,9 +28,11 @@ type IFuture<'a> =
     /// <summary> Poll the state </summary>
     /// <param name="context"> Current Future context </param>
     /// <returns> Current state </returns>
+    [<EditorBrowsable(EditorBrowsableState.Advanced)>]
     abstract Poll : context: Context -> Poll<'a>
 
     /// <summary> Cancel asynchronously Future computation </summary>
+    [<EditorBrowsable(EditorBrowsableState.Advanced)>]
     abstract Cancel : unit -> unit
 
 type Future<'a> = IFuture<'a>
@@ -94,8 +98,8 @@ module Future =
     /// <returns> Future, asynchronously joining the result of passed Future </returns>
     val join: fut: Future<Future<'a>> -> Future<'a>
 
-    /// <summary> Create a Future delaying invocation and computation of the Future of the passed Function </summary>
-    /// <returns> Future delaying invocation and computation of the Future of the passed Function </returns>
+    /// <summary> Create a Future delaying invocation and computation of the Future of the passed creator </summary>
+    /// <returns> Future delaying invocation and computation of the Future of the passed creator </returns>
     val delay: creator: (unit -> Future<'a>) -> Future<'a>
 
     /// <summary> Creates a Future that returns control flow to the scheduler once </summary>

@@ -1,6 +1,7 @@
 namespace rec FSharp.Control.Futures
 
 open System
+open System.ComponentModel
 open System.Threading
 
 
@@ -25,7 +26,9 @@ type Context() =
 ///  x1 == x2 == ... == xn
 [<Interface>]
 type IFuture<'a> =
+    [<EditorBrowsable(EditorBrowsableState.Advanced)>]
     abstract Poll: Context -> Poll<'a>
+    [<EditorBrowsable(EditorBrowsableState.Advanced)>]
     abstract Cancel: unit -> unit
 
 // I know, I know
