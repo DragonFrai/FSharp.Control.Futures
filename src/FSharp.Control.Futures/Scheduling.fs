@@ -5,15 +5,19 @@ open System.Threading
 open FSharp.Control.Futures
 open FSharp.Control.Futures.Sync
 
-
+/// <summary> Introduces the API to the top-level future. </summary>
+/// <remarks> Can be safely canceled </remarks>
 type IJoinHandle<'a> =
     inherit Future<'a>
-    // TODO: Add TryJoin and TryAwait
+    // TODO?: Add TryJoin and TryAwait
     abstract member Join: unit -> Result<'a, exn>
 
-// Run future execution
+/// <summary> Future scheduler. </summary>
 type IScheduler =
+    // The scheduler may contain an internal thread pool and other system resources that should be cleaned up
     inherit IDisposable
+    /// <summary> Run Future on this scheduler </summary>
+    /// <returns> Return Future waited result passed Future </returns>
     abstract Spawn: fut: Future<'a> -> IJoinHandle<'a>
 
 

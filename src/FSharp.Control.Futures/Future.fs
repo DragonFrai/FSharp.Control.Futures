@@ -38,7 +38,7 @@ module Future =
     [<RequireQualifiedAccess>]
     module Core =
 
-        let inline cancelNotNull (fut: Future<'a>) =
+        let inline cancelNullable (fut: Future<'a>) =
             if isNotNull fut then fut.Cancel()
 
         let inline create (__expand_poll: Context -> Poll<'a>) (__expand_cancel: (unit -> unit)) : Future<'a> =
@@ -109,8 +109,8 @@ module Future =
             else
                 Future.Core.poll context _futB
         <| fun () ->
-            if isNotNull _futA then _futA.Cancel()
-            if isNotNull _futB then _futB.Cancel()
+            Core.cancelNullable _futA
+            Core.cancelNullable _futB
 
     let map (mapping: 'a -> 'b) (fut: Future<'a>) : Future<'b> =
         let mutable _fut = fut // _fut = null, when memoized
@@ -129,7 +129,7 @@ module Future =
                     _value <- r
                     _fut <- Unchecked.defaultof<_>
                     Poll.Ready r
-        <| fun () -> Core.cancelNotNull _fut
+        <| fun () -> Core.cancelNullable _fut
 
     let merge (fut1: Future<'a>) (fut2: Future<'b>) : Future<'a * 'b> =
 
@@ -154,7 +154,9 @@ module Future =
                 Poll.Ready (_r1, _r2)
             else
                 Poll.Pending
-        <| fun () -> Core.cancelNotNull _fut1; Core.cancelNotNull _fut2
+        <| fun () ->
+            Core.cancelNullable _fut1
+            Core.cancelNullable _fut2
 
     let apply (f: Future<'a -> 'b>) (fut: Future<'a>) : Future<'b> =
         let mutable _fnFut = f // null when fn was got
@@ -179,7 +181,9 @@ module Future =
                 Poll.Ready (_fn _value)
             else
                 Poll.Pending
-        <| fun () -> Core.cancelNotNull _fnFut; Core.cancelNotNull _sourceFut
+        <| fun () ->
+            Core.cancelNullable _fnFut
+            Core.cancelNullable _sourceFut
 
     let join (fut: Future<Future<'a>>) : Future<'a> =
         let mutable _source = fut // null if _inner was got
@@ -194,10 +198,12 @@ module Future =
                 Future.Core.poll context _inner
             else
                 Poll.Pending
-        <| fun () -> Core.cancelNotNull _source; Core.cancelNotNull _inner
+        <| fun () ->
+            Core.cancelNullable _source
+            Core.cancelNullable _inner
 
     let delay (creator: unit -> Future<'a>) : Future<'a> =
-        // auch
+        // It is very possible that this is not needed here
         let mutable _isCancelled = false
         let mutable _inner: Future<'a> voption = ValueNone
         Core.create

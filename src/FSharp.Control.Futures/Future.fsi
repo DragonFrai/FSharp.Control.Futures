@@ -32,6 +32,7 @@ type IFuture<'a> =
     abstract Poll : context: Context -> Poll<'a>
 
     /// <summary> Cancel asynchronously Future computation </summary>
+    /// <remarks> Notifies internal asynchronous operations of Future cancellations. It is useless if Future is cold.  </remarks>
     [<EditorBrowsable(EditorBrowsableState.Advanced)>]
     abstract Cancel : unit -> unit
 

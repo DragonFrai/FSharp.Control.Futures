@@ -31,12 +31,12 @@ module Future =
 
         Future.Core.create
         <| fun context ->
-            if not (obj.ReferenceEquals(timer, null)) then invalidOp "polling Future.sleep before waking up "
-            elif timeOut then Poll.Ready ()
+            if timeOut then Poll.Ready ()
             else
                 timer <- createTimer context
                 Poll.Pending
         <| fun () ->
+            timer.Dispose()
             // TODO: impl
             do ()
 

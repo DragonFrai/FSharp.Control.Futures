@@ -1,24 +1,29 @@
 namespace FSharp.Control.Futures
 
+open System.Threading
 open FSharp.Control.Futures
 
 
 //
 //   /-> Waiting w >-\
-// Empty ---->---- Value x
+// Empty ---->---- HasValue x / Cancelled
 [<AutoOpen>]
 module State =
+
     [<Literal>]
     let Empty: int = 0
 
     [<Literal>]
     let Waiting: int = 1
 
-    [<Literal>]
-    let Value: int = 2
+    //[<Literal>]
+    //let LockToPut: int = 2
 
     [<Literal>]
-    let Cancelled: int = 3
+    let HasValue: int = 3
+
+    [<Literal>]
+    let Cancelled: int = 4
 
 
 exception IVarDoublePutException
@@ -32,16 +37,16 @@ type IVar<'a>() =
     let mutable value: 'a = Unchecked.defaultof<_>
 
     member _.Put(x: 'a) =
-        lock syncObj ^fun () ->
+        lock syncObj <| fun () ->
             match state with
             | Empty ->
                 value <- x
-                state <- Value
+                state <- HasValue
             | Waiting ->
                 value <- x
-                state <- Value
+                state <- HasValue
                 context.Wake()
-            | Value ->
+            | HasValue ->
                 raise IVarDoublePutException
             | Cancelled ->
                 value <- x
@@ -50,7 +55,7 @@ type IVar<'a>() =
 
     interface Future<'a> with
         member _.Poll(context') =
-            lock syncObj ^fun () ->
+            lock syncObj <| fun () ->
                 match state with
                 | Empty ->
                     context <- context'
@@ -60,7 +65,7 @@ type IVar<'a>() =
                     context <- context'
                     state <- Waiting
                     Poll.Pending
-                | Value ->
+                | HasValue ->
                     Poll.Ready value
                 | Cancelled ->
                     raise FutureCancelledException
@@ -68,7 +73,7 @@ type IVar<'a>() =
                     invalidOp "Unreachable"
 
         member _.Cancel() =
-            lock syncObj ^fun () ->
+            lock syncObj <| fun () ->
                 state <- Cancelled
 
 module IVar =

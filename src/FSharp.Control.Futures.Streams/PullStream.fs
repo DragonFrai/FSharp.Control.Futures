@@ -1,6 +1,7 @@
 namespace FSharp.Control.Futures.Streams
 
 open System
+open System.IO
 open FSharp.Control.Futures
 
 
@@ -413,7 +414,40 @@ module PullStream =
             source.Cancel()
 
     let zip (source1: IPullStream<'a>) (source2: IPullStream<'b>) : IPullStream<'a * 'b> =
-        notImplemented "" // TODO: Implement, basing on Seq.zip behaviour, asynchronously
+
+        let mutable v1 = ValueNone
+        let mutable v2 = ValueNone
+
+        Core.create
+        <| fun ctx ->
+            if v1.IsNone then
+                v1 <- ValueSome (Core.pollNext ctx source1)
+            if v2.IsNone then
+                v2 <- ValueSome (Core.pollNext ctx source2)
+
+            let inline getV x = match x with ValueSome x -> x | ValueNone -> invalidOp "unreachable"
+            let r1, r2 = getV v1, getV v2
+            match r1, r2 with
+            | StreamPoll.Completed, _ ->
+                source2.Cancel()
+                StreamPoll.Completed
+            | _, StreamPoll.Completed ->
+                source1.Cancel()
+                StreamPoll.Completed
+            | StreamPoll.Pending, _ ->
+                v1 <- ValueNone
+                StreamPoll.Pending
+            | _, StreamPoll.Pending ->
+                v2 <- ValueNone
+                StreamPoll.Pending
+            | StreamPoll.Next x1, StreamPoll.Next x2 ->
+                v1 <- ValueNone
+                v2 <- ValueNone
+                StreamPoll.Next (x1, x2)
+
+        <| fun () ->
+            source1.Cancel()
+            source2.Cancel()
 
     let tryHeadV (source: IPullStream<'a>) : Future<'a voption> =
         Future.Core.memoizeReady
