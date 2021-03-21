@@ -19,7 +19,6 @@
         <Compile Include="Future.fsi" />
         <Compile Include="Future.fs" />
         <Compile Include="FutureExt.fs" />
-        <Compile Include="SystemExt.fs" />
         <Compile Include="Builders.fs" />
         <Compile Include="IVar.fs" />
         <Compile Include="Sync\Mutex.fs" />
