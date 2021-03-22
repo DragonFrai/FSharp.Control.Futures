@@ -90,7 +90,7 @@ module Future =
     module Seq =
 
         let iter (seq: 'a seq) (body: 'a -> unit) =
-            Future.lazy' ^fun () -> for x in seq do body x
+            Future.lazy' (fun () -> for x in seq do body x)
 
         let iterAsync (source: 'a seq) (body: 'a -> Future<unit>) =
             let enumerator = source.GetEnumerator()

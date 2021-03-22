@@ -15,6 +15,7 @@ type private State<'a> =
     | Cancelled
     | CancelledWithValue
 
+// TODO: Rewrite to interlocked if more efficient .
 [<Class; Sealed>]
 type IVar<'a>() =
     let syncObj = obj()

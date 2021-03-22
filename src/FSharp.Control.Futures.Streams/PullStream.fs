@@ -340,7 +340,9 @@ module PullStream =
                 | StreamPoll.Next x ->
                     if currIdx >= bufferSize then
                         currIdx <- 0
-                        StreamPoll.Next buffer
+                        let buffer' = buffer
+                        buffer <- Array.zeroCreate bufferSize
+                        StreamPoll.Next buffer'
                     else
                         buffer.[currIdx] <- x
                         currIdx <- currIdx + 1

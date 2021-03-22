@@ -3,7 +3,6 @@ namespace FSharp.Control.Futures.Scheduling
 open System
 open System.Threading
 open FSharp.Control.Futures
-open FSharp.Control.Futures.Sync
 
 /// <summary> Introduces the API to the top-level future. </summary>
 /// <remarks> Can be safely canceled </remarks>
@@ -26,9 +25,8 @@ type IScheduler =
 // -------------------
 module private rec ThreadPoolImpl =
 
-    module private Utils =
-        let inline queueTask (task: ThreadPoolTask<'a>) =
-            ThreadPool.QueueUserWorkItem(fun _ -> do task.Run()) |> ignore
+    let private addTaskToThreadPoolQueue (task: ThreadPoolTask<'a>) =
+        ThreadPool.QueueUserWorkItem(fun _ -> do task.Run()) |> ignore
 
     type ThreadPoolTask<'a>(future: Future<'a>) as this =
 
@@ -48,13 +46,13 @@ module private rec ThreadPoolImpl =
                     lock sync <| fun () ->
                         isRequireWake <- true
                         if not isInQueue then
-                            Utils.queueTask this
+                            addTaskToThreadPoolQueue this
                             isInQueue <- true
             }
 
         member this.Run() =
             let isComplete' =
-                lock sync ^fun () ->
+                lock sync <| fun () ->
                     isRequireWake <- false
                     isComplete
 
@@ -71,9 +69,9 @@ module private rec ThreadPoolImpl =
             with e ->
                 waiter.Put(Error e)
 
-            lock sync ^fun () ->
+            lock sync <| fun () ->
                 if isRequireWake && not isComplete
-                then Utils.queueTask this
+                then addTaskToThreadPoolQueue this
                 else isInQueue <- false
 
         member _.InitForQueue() =
@@ -106,7 +104,7 @@ module private rec ThreadPoolImpl =
             member this.Spawn(fut: Future<'a>) =
                 let task = ThreadPoolTask<'a>(fut)
                 task.InitForQueue()
-                Utils.queueTask task
+                addTaskToThreadPoolQueue task
                 task :> IJoinHandle<'a>
 
             member _.Dispose() = ()
