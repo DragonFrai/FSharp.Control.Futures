@@ -45,6 +45,12 @@ type IVar<'a>() =
         | Ok () -> ()
         | Error ex -> raise ex
 
+    member this.TryRead() =
+        lock syncObj <| fun () ->
+            match state with
+            | HasValue value -> ValueSome value
+            | Empty | Waiting _ | Cancelled | CancelledWithValue -> ValueNone
+
     interface Future<'a> with
 
         member _.Poll(context) =
@@ -70,5 +76,6 @@ type IVar<'a>() =
 module IVar =
     let inline create () = IVar()
     let inline put x (ivar: IVar<_>) = ivar.Put(x)
-    let inline tryPut x (ivar: IVar<_>) = ivar.TryPut x
+    let inline tryPut x (ivar: IVar<_>) = ivar.TryPut(x)
     let inline read (ivar: IVar<_>) = ivar :> Future<_>
+    let inline tryRead (ivar: IVar<_>) = ivar.TryRead()
