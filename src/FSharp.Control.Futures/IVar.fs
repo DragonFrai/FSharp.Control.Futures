@@ -1,82 +1,74 @@
 namespace FSharp.Control.Futures
 
-open System.Threading
 open FSharp.Control.Futures
-
-
-//
-//   /-> Waiting w >-\
-// Empty ---->---- HasValue x / Cancelled
-[<AutoOpen>]
-module State =
-
-    [<Literal>]
-    let Empty: int = 0
-
-    [<Literal>]
-    let Waiting: int = 1
-
-    //[<Literal>]
-    //let LockToPut: int = 2
-
-    [<Literal>]
-    let HasValue: int = 3
-
-    [<Literal>]
-    let Cancelled: int = 4
 
 
 exception IVarDoublePutException
 
-// TODO: Rewrite to interlocked
+//   /-> Waiting w >-\
+// Empty ---->---- HasValue x / Cancelled
+[<Struct>]
+type private State<'a> =
+    | Empty
+    | Waiting of ctx: Context
+    | HasValue of value: 'a
+    | Cancelled
+    | CancelledWithValue
+
 [<Class; Sealed>]
 type IVar<'a>() =
     let syncObj = obj()
     let mutable state = Empty
-    let mutable context: Context = Unchecked.defaultof<_>
-    let mutable value: 'a = Unchecked.defaultof<_>
 
-    member _.Put(x: 'a) =
+    // return Error if put of the value failed (IVarDoublePutException)
+    member inline private _.TryPutInner(x: 'a) : Result<unit, exn> =
         lock syncObj <| fun () ->
             match state with
             | Empty ->
-                value <- x
-                state <- HasValue
-            | Waiting ->
-                value <- x
-                state <- HasValue
+                state <- HasValue x
+                Ok ()
+            | Waiting context ->
+                state <- HasValue x
                 context.Wake()
-            | HasValue ->
-                raise IVarDoublePutException
+                Ok ()
             | Cancelled ->
-                value <- x
-            | _ ->
-                invalidOp "Unreachable"
+                state <- CancelledWithValue
+                Ok ()
+            | HasValue _ | CancelledWithValue ->
+                Error IVarDoublePutException
+
+    member this.TryPut(x: 'a) =
+        this.TryPutInner(x)
+
+    member this.Put(x: 'a) =
+        match this.TryPutInner(x) with
+        | Ok () -> ()
+        | Error ex -> raise ex
 
     interface Future<'a> with
-        member _.Poll(context') =
+
+        member _.Poll(context) =
             lock syncObj <| fun () ->
                 match state with
-                | Empty ->
-                    context <- context'
-                    state <- Waiting
+                | Empty | Waiting _ ->
+                    state <- Waiting context
                     Poll.Pending
-                | Waiting ->
-                    context <- context'
-                    state <- Waiting
-                    Poll.Pending
-                | HasValue ->
+                | HasValue value ->
                     Poll.Ready value
-                | Cancelled ->
+                | Cancelled | CancelledWithValue ->
                     raise FutureCancelledException
-                | _ ->
-                    invalidOp "Unreachable"
 
         member _.Cancel() =
             lock syncObj <| fun () ->
-                state <- Cancelled
+                match state with
+                | Empty | Waiting _ ->
+                    state <- Cancelled
+                | HasValue _ ->
+                    state <- CancelledWithValue
+                | Cancelled | CancelledWithValue -> ()
 
 module IVar =
-    let create () = IVar()
-    let put x (ivar: IVar<_>) = ivar.Put(x)
-    let read (ivar: IVar<_>) = ivar :> Future<_>
+    let inline create () = IVar()
+    let inline put x (ivar: IVar<_>) = ivar.Put(x)
+    let inline tryPut x (ivar: IVar<_>) = ivar.TryPut x
+    let inline read (ivar: IVar<_>) = ivar :> Future<_>

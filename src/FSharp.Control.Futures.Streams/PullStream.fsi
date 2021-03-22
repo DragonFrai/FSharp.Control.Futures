@@ -1,5 +1,6 @@
 namespace FSharp.Control.Futures.Streams
 
+open System.ComponentModel
 open FSharp.Control.Futures
 
 
@@ -15,7 +16,11 @@ module StreamPoll =
 
 [<Interface>]
 type IPullStream<'a> =
+
+    [<EditorBrowsable(EditorBrowsableState.Advanced)>]
     abstract PollNext: Context -> StreamPoll<'a>
+
+    [<EditorBrowsable(EditorBrowsableState.Advanced)>]
     abstract Cancel: unit -> unit
 
 module PullStream =

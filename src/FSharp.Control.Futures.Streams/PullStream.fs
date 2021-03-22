@@ -1,7 +1,6 @@
 namespace FSharp.Control.Futures.Streams
 
-open System
-open System.IO
+open System.ComponentModel
 open FSharp.Control.Futures
 
 
@@ -30,7 +29,11 @@ module StreamPoll =
 /// x1 != x2 != ... != xn
 [<Interface>]
 type IPullStream<'a> =
+
+    [<EditorBrowsable(EditorBrowsableState.Advanced)>]
     abstract PollNext: Context -> StreamPoll<'a>
+
+    [<EditorBrowsable(EditorBrowsableState.Advanced)>]
     abstract Cancel: unit -> unit
 
 exception StreamCancelledException
