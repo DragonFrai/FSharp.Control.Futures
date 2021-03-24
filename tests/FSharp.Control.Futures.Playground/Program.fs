@@ -7,6 +7,7 @@ open System.Diagnostics
 //open FSharp.Control.Tasks.V2
 
 open System.Text
+
 open FSharp.Control.Futures
 open FSharp.Control.Futures.Playground
 open FSharp.Control.Futures.Scheduling
@@ -196,7 +197,7 @@ let main2 () =
         }
 
     xs
-    |> Stream.iter (printfn "%A")
+    |> Streams.Stream.iter (printfn "%A")
     |> Future.runSync
 
     ()
@@ -256,7 +257,7 @@ module File =
             let rec loop () = stream {
                 let! c = fileStream.ReadAsync(buffer, 0, count) |> Future.ofTask
                 if c > 0 then
-                    yield! Stream.ofSeq buffer.[0..c-1]
+                    yield! Streams.Stream.ofSeq buffer.[0..c-1]
                     yield! loop ()
                 else
                     ()
