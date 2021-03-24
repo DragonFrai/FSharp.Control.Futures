@@ -69,13 +69,12 @@ module Future =
     /// but without the cost of complex general purpose scheduler synchronization
     let runSync (f: Future<'a>) : 'a =
         // The simplest implementation of the Future scheduler.
-        // Based on a polling cycle (polling -> waiting for awakening -> awakening -> polling)
+        // Based on a polling cycle (polling -> waiting for awakening -> awakening -> polling -> ...)
         // until the point with the result is reached
 
         use wh = new EventWaitHandle(false, EventResetMode.AutoReset)
         let ctx =
             { new Context() with member _.Wake() = wh.Set() |> ignore }
-
 
         let rec wait (current: Poll<'a>) =
             match current with
@@ -89,9 +88,15 @@ module Future =
     [<RequireQualifiedAccess>]
     module Seq =
 
+        /// <summary> Creates a future iterated over a sequence </summary>
+        /// <remarks> The generated future does not substitute implicit breakpoints,
+        /// so on long iterations you should use <code>iterAsync</code> and <code>yieldWorkflow</code> </remarks>
         let iter (seq: 'a seq) (body: 'a -> unit) =
             Future.lazy' (fun () -> for x in seq do body x)
 
+        /// <summary> Creates a future async iterated over a sequence </summary>
+        /// <remarks> The generated future does not substitute implicit breakpoints,
+        /// so on long iterations you should use <code>yieldWorkflow</code> </remarks>
         let iterAsync (source: 'a seq) (body: 'a -> Future<unit>) =
             let enumerator = source.GetEnumerator()
             let mutable currentAwaited: Future<unit> voption = ValueNone

@@ -16,6 +16,9 @@ type private State<'a> =
     | CancelledWithValue
 
 // TODO: Rewrite to interlocked if more efficient .
+/// An immutable cell to asynchronously wait for a single value.
+/// Represents the pending future in which value can be put.
+/// If you never put a value, you will endlessly wait for it.
 [<Class; Sealed>]
 type IVar<'a>() =
     let syncObj = obj()
@@ -75,8 +78,19 @@ type IVar<'a>() =
                 | Cancelled | CancelledWithValue -> ()
 
 module IVar =
+    /// Create empty IVar instance
     let inline create () = IVar()
+
+    /// Put a value and if it is already set raise exception
     let inline put x (ivar: IVar<_>) = ivar.Put(x)
+
+    /// Tries to put a value and if it is already set returns an Error
     let inline tryPut x (ivar: IVar<_>) = ivar.TryPut(x)
+
+    /// <summary> Returns the future pending value. </summary>
+    /// <remarks> IVar itself is a future, therefore
+    /// it is impossible to expect or launch this future in two places at once. </remarks>
     let inline read (ivar: IVar<_>) = ivar :> Future<_>
+
+    /// Immediately gets the current IVar value and returns Some x if set
     let inline tryRead (ivar: IVar<_>) = ivar.TryRead()

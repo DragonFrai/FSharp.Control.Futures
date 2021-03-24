@@ -31,9 +31,7 @@ module private rec ThreadPoolImpl =
     type ThreadPoolTask<'a>(future: Future<'a>) as this =
 
         let mutable isComplete = false
-        // 0 -- false ; 1 -- true
         let mutable isRequireWake = false // init with require to update
-        // 0 -- false ; 1 -- true
         let mutable isInQueue = false
 
         let waiter: IVar<Result<'a, exn>> = IVar.create ()
@@ -119,5 +117,9 @@ module Schedulers =
 [<RequireQualifiedAccess>]
 module Scheduler =
 
-    let spawnOn (runtime: IScheduler) fut = runtime.Spawn(fut)
+    /// <summary> Run Future on passed scheduler </summary>
+    /// <returns> Return Future waited result passed Future </returns>
+    let spawnOn (scheduler: IScheduler) fut = scheduler.Spawn(fut)
+    /// <summary> Run Future on thread pool scheduler </summary>
+    /// <returns> Return Future waited result passed Future </returns>
     let spawnOnThreadPool fut = spawnOn Schedulers.threadPool fut
