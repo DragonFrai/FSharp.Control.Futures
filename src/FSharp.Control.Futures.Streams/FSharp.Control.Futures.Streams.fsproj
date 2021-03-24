@@ -19,11 +19,11 @@
 
     <ItemGroup>
         <Compile Include="Utils.fs" />
-        <Compile Include="PullStream.fsi" />
-        <Compile Include="PullStream.fs" />
-        <Compile Include="PullStreamBuilder.fs" />
-        <Compile Include="PushStream.fs" />
+        <Compile Include="Stream.fsi" />
+        <Compile Include="Stream.fs" />
+        <Compile Include="Builders.fs" />
         <Compile Include="FutureBuilderExtension.fs" />
+        <Compile Include="PushStream.fs" />
         <Compile Include="Channels\Types.fs" />
         <Compile Include="Channels\Sender.fs" />
         <Compile Include="Channels\Channel.fs" />

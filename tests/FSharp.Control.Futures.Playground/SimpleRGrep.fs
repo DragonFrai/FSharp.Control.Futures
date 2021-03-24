@@ -43,7 +43,7 @@ let scanAllRec (path: string) (content: string) (scheduler: IScheduler) (paralle
     let isEnded = false
     let fileCrawler = Scheduler.spawnOn scheduler (findFilesRec path files (ref isEnded))
 
-    let scanString (s: string) (fileSource: string) = pullStream {
+    let scanString (s: string) (fileSource: string) = stream {
         let mutable current = 0
         let mutable entryIdx = s.IndexOf(content, current)
         while entryIdx <> -1 do

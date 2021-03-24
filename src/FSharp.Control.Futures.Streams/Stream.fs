@@ -28,7 +28,7 @@ module StreamPoll =
 ///
 /// x1 != x2 != ... != xn
 [<Interface>]
-type IPullStream<'a> =
+type IStream<'a> =
 
     [<EditorBrowsable(EditorBrowsableState.Advanced)>]
     abstract PollNext: Context -> StreamPoll<'a>
@@ -39,20 +39,20 @@ type IPullStream<'a> =
 exception StreamCancelledException
 
 [<RequireQualifiedAccess>]
-module PullStream =
+module Stream =
 
     [<RequireQualifiedAccess>]
     module Core =
 
         let inline create (__expand_pollNext: Context -> StreamPoll<'a>) (__expand_cancel: unit -> unit) =
-            { new IPullStream<_> with
+            { new IStream<_> with
                 member _.PollNext(ctx) = __expand_pollNext ctx
                 member _.Cancel() = __expand_cancel () }
 
-        let inline cancel (stream: IPullStream<'a>) =
+        let inline cancel (stream: IStream<'a>) =
             stream.Cancel()
 
-        let inline pollNext (context: Context) (stream: IPullStream<'a>) = stream.PollNext(context)
+        let inline pollNext (context: Context) (stream: IStream<'a>) = stream.PollNext(context)
 
     // -----------
     // Creation
@@ -133,7 +133,7 @@ module PullStream =
         <| fun () ->
             do ()
 
-    let ofSeq (src: 'a seq) : IPullStream<'a> =
+    let ofSeq (src: 'a seq) : IStream<'a> =
         let mutable enumerator = src.GetEnumerator()
         Core.create
         <| fun _ ->
@@ -147,14 +147,14 @@ module PullStream =
     // Combinators
     // -----------
 
-    let map (mapper: 'a -> 'b) (source: IPullStream<'a>) : IPullStream<'b> =
+    let map (mapper: 'a -> 'b) (source: IStream<'a>) : IStream<'b> =
         Core.create
         <| fun context -> source.PollNext(context) |> StreamPoll.map mapper
         <| fun () -> do source.Cancel()
 
-    let collect (collector: 'a -> IPullStream<'b>) (source: IPullStream<'a>) : IPullStream<'b> =
+    let collect (collector: 'a -> IStream<'b>) (source: IStream<'a>) : IStream<'b> =
         let mutable source = source
-        let mutable inners: IPullStream<'b> voption = ValueNone
+        let mutable inners: IStream<'b> voption = ValueNone
         Core.create
         <| fun context ->
             let rec loop () =
@@ -187,7 +187,7 @@ module PullStream =
     /// Alias to `PullStream.collect`
     let inline bind binder source = collect binder source
 
-    let iter (action: 'a -> unit) (source: IPullStream<'a>) : Future<unit> =
+    let iter (action: 'a -> unit) (source: IStream<'a>) : Future<unit> =
         let mutable source = source
         Future.Core.create
         <| fun context ->
@@ -203,7 +203,7 @@ module PullStream =
             source.Cancel()
             source <- Unchecked.defaultof<_>
 
-    let iterAsync (action: 'a -> Future<unit>) (source: IPullStream<'a>) : Future<unit> =
+    let iterAsync (action: 'a -> Future<unit>) (source: IStream<'a>) : Future<unit> =
         let mutable currFut: Future<unit> voption = ValueNone
         Future.Core.create
         <| fun context ->
@@ -234,7 +234,7 @@ module PullStream =
                 currFut <- ValueNone
             | ValueNone -> ()
 
-    let fold (folder: 's -> 'a -> 's) (initState: 's) (source: IPullStream<'a>): Future<'s> =
+    let fold (folder: 's -> 'a -> 's) (initState: 's) (source: IStream<'a>): Future<'s> =
         let mutable currState = initState
         Future.Core.create
         <| fun context ->
@@ -251,7 +251,7 @@ module PullStream =
         <| fun () ->
             source.Cancel()
 
-    let scan (folder: 's -> 'a -> 's) (initState: 's) (source: IPullStream<'a>) : IPullStream<'s> =
+    let scan (folder: 's -> 'a -> 's) (initState: 's) (source: IStream<'a>) : IStream<'s> =
         let mutable currState = initState
         let mutable initReturned = false
         Core.create
@@ -271,7 +271,7 @@ module PullStream =
         <| fun () ->
             source.Cancel()
 
-    let chooseV (chooser: 'a -> 'b voption) (source: IPullStream<'a>) : IPullStream<'b> =
+    let chooseV (chooser: 'a -> 'b voption) (source: IStream<'a>) : IStream<'b> =
         Core.create
         <| fun context ->
             let rec loop () =
@@ -288,7 +288,7 @@ module PullStream =
         <| fun () ->
             source.Cancel()
 
-    let tryPickV (chooser: 'a -> 'b voption) (source: IPullStream<'a>) : Future<'b voption> =
+    let tryPickV (chooser: 'a -> 'b voption) (source: IStream<'a>) : Future<'b voption> =
         let mutable result: 'b voption = ValueNone
         Future.Core.create
         <| fun context ->
@@ -309,19 +309,19 @@ module PullStream =
         <| fun () ->
             source.Cancel()
 
-    let pickV (chooser: 'a -> 'b voption) (source: IPullStream<'a>) : Future<'b> =
+    let pickV (chooser: 'a -> 'b voption) (source: IStream<'a>) : Future<'b> =
         tryPickV chooser source
         |> Future.map ^function
             | ValueSome r -> r
             | ValueNone -> raise (System.Collections.Generic.KeyNotFoundException())
 
-    let join (source: IPullStream<IPullStream<'a>>) : IPullStream<'a> =
+    let join (source: IStream<IStream<'a>>) : IStream<'a> =
         bind id source
 
-    let append (source1: IPullStream<'a>) (source2: IPullStream<'a>) : IPullStream<'a> =
+    let append (source1: IStream<'a>) (source2: IStream<'a>) : IStream<'a> =
         join (ofSeq [ source1; source2 ])
 
-    let bufferByCount (bufferSize: int) (source: IPullStream<'a>) : IPullStream<'a[]> =
+    let bufferByCount (bufferSize: int) (source: IStream<'a>) : IStream<'a[]> =
         let mutable buffer = Array.zeroCreate bufferSize
         let mutable currIdx = 0
         Core.create
@@ -352,7 +352,7 @@ module PullStream =
             source.Cancel()
             buffer <- Unchecked.defaultof<_>
 
-    let filter (predicate: 'a -> bool) (source: IPullStream<'a>) : IPullStream<'a> =
+    let filter (predicate: 'a -> bool) (source: IStream<'a>) : IStream<'a> =
         Core.create
         <| fun context ->
             let rec loop () =
@@ -369,7 +369,7 @@ module PullStream =
         <| fun () ->
             source.Cancel()
 
-    let any (predicate: 'a -> bool) (source: IPullStream<'a>) : Future<bool> =
+    let any (predicate: 'a -> bool) (source: IStream<'a>) : Future<bool> =
         let mutable result: bool voption = ValueNone
         Future.Core.create
         <| fun context ->
@@ -394,7 +394,7 @@ module PullStream =
         <| fun () ->
             source.Cancel()
 
-    let all (predicate: 'a -> bool) (source: IPullStream<'a>) : Future<bool> =
+    let all (predicate: 'a -> bool) (source: IStream<'a>) : Future<bool> =
         let mutable result: bool voption = ValueNone
         Future.Core.create
         <| fun context ->
@@ -418,7 +418,7 @@ module PullStream =
         <| fun () ->
             source.Cancel()
 
-    let zip (source1: IPullStream<'a>) (source2: IPullStream<'b>) : IPullStream<'a * 'b> =
+    let zip (source1: IStream<'a>) (source2: IStream<'b>) : IStream<'a * 'b> =
 
         let mutable v1 = ValueNone
         let mutable v2 = ValueNone
@@ -454,7 +454,7 @@ module PullStream =
             source1.Cancel()
             source2.Cancel()
 
-    let tryHeadV (source: IPullStream<'a>) : Future<'a voption> =
+    let tryHeadV (source: IStream<'a>) : Future<'a voption> =
         Future.Core.memoizeReady
         <| fun context ->
             match source.PollNext(context) with
@@ -464,7 +464,7 @@ module PullStream =
         <| fun () ->
             source.Cancel()
 
-    let tryLastV (source: IPullStream<'a>) : Future<'a voption> =
+    let tryLastV (source: IStream<'a>) : Future<'a voption> =
         Future.Core.memoizeReady
         <| fun context ->
             match source.PollNext(context) with
@@ -474,7 +474,7 @@ module PullStream =
         <| fun () ->
             source.Cancel()
 
-    let ofFuture (fut: Future<'a>) : IPullStream<'a> =
+    let ofFuture (fut: Future<'a>) : IStream<'a> =
         let mutable fut = fut // fut == null, when completed
         Core.create
         <| fun context ->
@@ -493,8 +493,8 @@ module PullStream =
 
     let inline singleAsync x = ofFuture x
 
-    let delay (u2S: unit -> IPullStream<'a>) : IPullStream<'a> =
-        let mutable _inner: IPullStream<'a> voption = ValueNone
+    let delay (u2S: unit -> IStream<'a>) : IStream<'a> =
+        let mutable _inner: IStream<'a> voption = ValueNone
         Core.create
         <| fun context ->
             match _inner with
@@ -510,7 +510,7 @@ module PullStream =
                 _inner <- ValueNone
             | ValueNone -> ()
 
-    let take (count: int) (source: IPullStream<'a>) : IPullStream<'a> =
+    let take (count: int) (source: IStream<'a>) : IStream<'a> =
         let mutable _taken = 0
         Core.create
         <| fun context ->

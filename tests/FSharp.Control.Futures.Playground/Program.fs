@@ -158,7 +158,7 @@ module Fib =
 let main1 () =
     //    Fib.runPrimeTest ()
 
-    let source = PullStream.ofSeq [1; 2; 3]
+    let source = Stream.ofSeq [1; 2; 3]
 
     let fut2 = future {
         let ch = Bridge.create ()
@@ -186,7 +186,7 @@ let main1 () =
 let main2 () =
 
     let xs =
-        pullStream {
+        stream {
             yield 0
             yield! [ 1; 2 ]
             do! Future.sleepMs 5000
@@ -196,7 +196,7 @@ let main2 () =
         }
 
     xs
-    |> PullStream.iter (printfn "%A")
+    |> Stream.iter (printfn "%A")
     |> Future.runSync
 
     ()
@@ -248,15 +248,15 @@ module File =
             return! Future.ofTask task
         }
 
-    let readStream (bufferSize: int) (path: string) : IPullStream<byte> =
-        pullStream {
+    let readStream (bufferSize: int) (path: string) : IStream<byte> =
+        stream {
             let fileStream = File.OpenRead(path)
             let count = bufferSize
             let buffer = Array.zeroCreate count
-            let rec loop () = pullStream {
+            let rec loop () = stream {
                 let! c = fileStream.ReadAsync(buffer, 0, count) |> Future.ofTask
                 if c > 0 then
-                    yield! PullStream.ofSeq buffer.[0..c-1]
+                    yield! Stream.ofSeq buffer.[0..c-1]
                     yield! loop ()
                 else
                     ()
@@ -264,17 +264,17 @@ module File =
             yield! loop ()
         }
 
-let getRandomBytes () = pullStream {
+let getRandomBytes () = stream {
     let bufferSize = 32
     let bytes = File.readStream bufferSize "/dev/urandom"
     yield! bytes
 }
 
-let getRandomInts () = pullStream {
+let getRandomInts () = stream {
         let ints =
             getRandomBytes ()
-            |> PullStream.bufferByCount sizeof<int>
-            |> PullStream.map ^fun bytes -> BitConverter.ToInt32(ReadOnlySpan(bytes))
+            |> Stream.bufferByCount sizeof<int>
+            |> Stream.map ^fun bytes -> BitConverter.ToInt32(ReadOnlySpan(bytes))
         yield! ints
     }
 
