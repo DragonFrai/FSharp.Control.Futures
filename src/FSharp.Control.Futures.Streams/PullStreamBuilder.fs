@@ -29,6 +29,12 @@ type PullStreamBuilder() =
 
     member _.Run(u2S: unit -> IPullStream<'a>): IPullStream<'a> = PullStream.delay u2S
 
+    member this.While(cond: unit -> bool, body: unit -> IPullStream<'a>): IPullStream<'a> =
+        let rec loop (): IPullStream<'a> =
+            if cond ()
+            then this.Combine(body (), loop)
+            else PullStream.empty ()
+        loop ()
 
 [<AutoOpen>]
 module PullStreamBuilderImpl =

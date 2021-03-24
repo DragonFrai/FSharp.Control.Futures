@@ -8,6 +8,7 @@ open System.Diagnostics
 
 open System.Text
 open FSharp.Control.Futures
+open FSharp.Control.Futures.Playground
 open FSharp.Control.Futures.Scheduling
 open FSharp.Control.Futures.Streams
 open FSharp.Control.Futures.Streams.Channels
@@ -279,30 +280,8 @@ let getRandomInts () = pullStream {
 
 [<EntryPoint>]
 let main argv =
-    let s1 = pullStream {
-        yield 11
-        do! Future.sleepMs 1000
-        yield 12
-        yield 13
-        do! Future.sleepMs 1000
-        yield 14
-        do! Future.sleepMs 1000
-        yield 15
-        do! Future.sleepMs 1000
-    }
-    let s2 = pullStream {
-        yield 21
-        do! Future.sleepMs 1000
-        yield 22
-        yield 23
-        do! Future.sleepMs 1000
-    }
 
-    let s12 = PullStream.zip s1 s2
-
-    future {
-        for x in s12 do
-            printfn "%A " x
-    } |> Future.runSync
+    let scanner = SimpleRGrep.scanAllRec "/home/vlad/" "2018" Schedulers.threadPool 2
+    Future.runSync scanner
 
     0 // return an integer exit code
