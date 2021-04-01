@@ -88,7 +88,7 @@ module Stream =
         <| fun _ -> StreamPoll.Next value
         <| fun () -> do ()
 
-    let never () =
+    let never<'a> : IStream<'a> =
         Core.create
         <| fun _ -> StreamPoll.Pending
         <| fun () -> do ()

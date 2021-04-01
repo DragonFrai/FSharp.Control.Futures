@@ -41,7 +41,7 @@ module Stream =
 
     val always: value: 'a -> IStream<'a>
 
-    val never: unit -> IStream<'a>
+    val never<'a> : IStream<'a>
 
     val replicate: count: int -> value: 'a -> IStream<'a>
 
