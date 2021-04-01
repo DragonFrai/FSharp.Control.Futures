@@ -55,7 +55,7 @@ module Future =
         /// <param name="__expand_poll"> Poll body </param>
         /// <param name="__expand_cancel"> Poll body </param>
         /// <returns> Future implementations with passed members </returns>
-        val inline memoizeReady: __expand_poll: (Context -> Poll<'a>) -> __expand_cancel: (unit -> unit) -> Future<'a>
+        val inline createMemo: __expand_poll: (Context -> Poll<'a>) -> __expand_cancel: (unit -> unit) -> Future<'a>
 
         /// <summary> Call Future.Poll of passed Future </summary>
         val inline poll: context: Context -> fut: Future<'a> -> Poll<'a>

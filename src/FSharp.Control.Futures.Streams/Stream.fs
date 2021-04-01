@@ -455,7 +455,7 @@ module Stream =
             source2.Cancel()
 
     let tryHeadV (source: IStream<'a>) : Future<'a voption> =
-        Future.Core.memoizeReady
+        Future.Core.createMemo
         <| fun context ->
             match source.PollNext(context) with
             | StreamPoll.Pending -> Poll.Pending
@@ -465,7 +465,7 @@ module Stream =
             source.Cancel()
 
     let tryLastV (source: IStream<'a>) : Future<'a voption> =
-        Future.Core.memoizeReady
+        Future.Core.createMemo
         <| fun context ->
             match source.PollNext(context) with
             | StreamPoll.Pending -> Poll.Pending

@@ -46,7 +46,7 @@ module Future =
                 member this.Poll(context) = __expand_poll context
                 member this.Cancel() = __expand_cancel () }
 
-        let inline memoizeReady (__expand_poll: Context -> Poll<'a>) (__expand_cancel: (unit -> unit)) : Future<'a> =
+        let inline createMemo (__expand_poll: Context -> Poll<'a>) (__expand_cancel: (unit -> unit)) : Future<'a> =
             let mutable hasResult = false; // 0 -- pending; 1 -- with value
             let mutable result: 'a = Unchecked.defaultof<_>
             Core.create
@@ -82,7 +82,7 @@ module Future =
         <| fun () -> do ()
 
     let lazy' (f: unit -> 'a) : Future<'a> =
-        Core.memoizeReady
+        Core.createMemo
         <| fun _ -> Poll.Ready (f ())
         <| fun () -> do ()
 
@@ -165,7 +165,7 @@ module Future =
         let mutable _value = Unchecked.defaultof<_>
 
         // Memoize the result so as not to call Apply twice
-        Core.memoizeReady
+        Core.createMemo
         <| fun context ->
             if isNotNull _fnFut then
                 Future.Core.poll context _fnFut
@@ -186,37 +186,41 @@ module Future =
             Core.cancelNullable _sourceFut
 
     let join (fut: Future<Future<'a>>) : Future<'a> =
-        let mutable _source = fut // null if _inner was got
+        // _inner == null до дожидания _source
+        // _inner != null после дожидания _source
+        let mutable _source = fut //
         let mutable _inner = Unchecked.defaultof<_> //
         Core.create
         <| fun context ->
-            if isNull _inner then
-                Future.Core.poll context fut
-                |> (Poll.onReady <| fun inner' -> _inner <- inner')
-
             if isNotNull _inner then
                 Future.Core.poll context _inner
             else
-                Poll.Pending
+                let sourcePoll = Future.Core.poll context _source
+                match sourcePoll with
+                | Poll.Ready inner ->
+                    _inner <- inner
+                    _source <- Unchecked.defaultof<_>
+                    Future.Core.poll context inner
+                | Poll.Pending -> Poll.Pending
         <| fun () ->
             Core.cancelNullable _source
             Core.cancelNullable _inner
 
     let delay (creator: unit -> Future<'a>) : Future<'a> =
-        // It is very possible that this is not needed here
-        let mutable _isCancelled = false
-        let mutable _inner: Future<'a> voption = ValueNone
+        // Фьюча с задержкой её инстанцирования.
+        // Когда _inner == null, то фьюча еще не инициализирована
+        //
+        let mutable _inner: Future<'a> = Unchecked.defaultof<_>
         Core.create
         <| fun context ->
-            if _isCancelled then
-                invalidOp "Poll future after cancel"
-            match _inner with
-            | ValueSome inner -> Core.poll context inner
-            | ValueNone ->
+            if isNotNull _inner
+            then Core.poll context _inner
+            else
                 let inner = creator ()
-                _inner <- ValueSome inner
+                _inner <- inner
                 Core.poll context inner
-        <| fun () -> _isCancelled <- true
+        <| fun () ->
+            Core.cancelNullable _inner
 
     let yieldWorkflow () =
         let mutable isYielded = false
