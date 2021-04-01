@@ -33,7 +33,7 @@ type StreamBuilder() =
         let rec loop (): IStream<'a> =
             if cond ()
             then this.Combine(body (), loop)
-            else Stream.empty ()
+            else Stream.empty
         loop ()
 
 [<AutoOpen>]
