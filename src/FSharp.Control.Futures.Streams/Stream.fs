@@ -67,7 +67,6 @@ module Stream =
     type SingleState<'a> =
         | Value of 'a
         | Completed
-        | Cancelled
 
     let single value =
         let mutable state = SingleState.Value value
@@ -78,12 +77,10 @@ module Stream =
                 state <- Completed
                 StreamPoll.Next x
             | Completed -> StreamPoll.Completed
-            | Cancelled -> raise StreamCancelledException
         <| fun () ->
             match state with
-            | Value x -> state <- Cancelled
-            | Completed -> state <- Cancelled
-            | Cancelled -> invalidOp "Double cancel"
+            | Value _ -> state <- Completed
+            | Completed -> state <- Completed
 
     /// Always returns SeqNext of the value
     let always value =
@@ -153,46 +150,46 @@ module Stream =
         <| fun () -> do source.Cancel()
 
     let collect (collector: 'a -> IStream<'b>) (source: IStream<'a>) : IStream<'b> =
-        let mutable source = source
-        let mutable inners: IStream<'b> voption = ValueNone
+        let mutable _source = source
+        let mutable _inners: IStream<'b> voption = ValueNone
         Core.create
         <| fun context ->
             let rec loop () =
-                match inners with
+                match _inners with
                 | ValueNone ->
-                    match source.PollNext(context) with
+                    match _source.PollNext(context) with
                     | StreamPoll.Pending -> StreamPoll.Pending
                     | StreamPoll.Completed -> StreamPoll.Completed
                     | StreamPoll.Next x ->
                         let inners' = collector x
-                        inners <- ValueSome inners'
+                        _inners <- ValueSome inners'
                         loop ()
                 | ValueSome inners' ->
                     let x = inners'.PollNext(context)
                     match x with
                     | StreamPoll.Pending -> StreamPoll.Pending
                     | StreamPoll.Completed ->
-                        inners <- ValueNone
+                        _inners <- ValueNone
                         loop ()
                     | StreamPoll.Next x -> StreamPoll.Next x
             loop ()
         <| fun () ->
-            source.Cancel()
-            match inners with
+            _source.Cancel()
+            match _inners with
             | ValueSome x ->
                 x.Cancel()
-                inners <- ValueNone
+                _inners <- ValueNone
             | ValueNone -> ()
 
     /// Alias to `PullStream.collect`
     let inline bind binder source = collect binder source
 
     let iter (action: 'a -> unit) (source: IStream<'a>) : Future<unit> =
-        let mutable source = source
+        let mutable _source = source
         Future.Core.create
         <| fun context ->
             let rec loop () =
-                match source.PollNext(context) with
+                match _source.PollNext(context) with
                 | StreamPoll.Completed -> Poll.Ready ()
                 | StreamPoll.Pending -> Poll.Pending
                 | StreamPoll.Next x ->
@@ -200,21 +197,21 @@ module Stream =
                     loop ()
             loop ()
         <| fun () ->
-            source.Cancel()
-            source <- Unchecked.defaultof<_>
+            _source.Cancel()
+            _source <- Unchecked.defaultof<_>
 
     let iterAsync (action: 'a -> Future<unit>) (source: IStream<'a>) : Future<unit> =
-        let mutable currFut: Future<unit> voption = ValueNone
+        let mutable _currFut: Future<unit> voption = ValueNone
         Future.Core.create
         <| fun context ->
             let rec loop () =
-                match currFut with
+                match _currFut with
                 | ValueNone ->
                     let x = source.PollNext(context)
                     match x with
                     | StreamPoll.Next x ->
                         let fut = action x
-                        currFut <- ValueSome fut
+                        _currFut <- ValueSome fut
                         loop ()
                     | StreamPoll.Pending -> Poll.Pending
                     | StreamPoll.Completed -> Poll.Ready ()
@@ -222,52 +219,52 @@ module Stream =
                     let futPoll = fut.Poll(context)
                     match futPoll with
                     | Poll.Ready () ->
-                        currFut <- ValueNone
+                        _currFut <- ValueNone
                         loop ()
                     | Poll.Pending -> Poll.Pending
             loop ()
         <| fun () ->
             source.Cancel()
-            match currFut with
+            match _currFut with
             | ValueSome fut ->
                 fut.Cancel()
-                currFut <- ValueNone
+                _currFut <- ValueNone
             | ValueNone -> ()
 
     let fold (folder: 's -> 'a -> 's) (initState: 's) (source: IStream<'a>): Future<'s> =
-        let mutable currState = initState
+        let mutable _currState = initState
         Future.Core.create
         <| fun context ->
             let rec loop () =
                 let sPoll = source.PollNext(context)
                 match sPoll with
                 | StreamPoll.Pending -> Poll.Pending
-                | StreamPoll.Completed -> Poll.Ready currState
+                | StreamPoll.Completed -> Poll.Ready _currState
                 | StreamPoll.Next x ->
-                    let state = folder currState x
-                    currState <- state
+                    let state = folder _currState x
+                    _currState <- state
                     loop ()
             loop ()
         <| fun () ->
             source.Cancel()
 
     let scan (folder: 's -> 'a -> 's) (initState: 's) (source: IStream<'a>) : IStream<'s> =
-        let mutable currState = initState
-        let mutable initReturned = false
+        let mutable _currState = initState
+        let mutable _initReturned = false
         Core.create
         <| fun context ->
-            if not initReturned then
-                initReturned <- true
-                StreamPoll.Next currState
+            if not _initReturned then
+                _initReturned <- true
+                StreamPoll.Next _currState
             else
                 let sPoll = source.PollNext(context)
                 match sPoll with
                 | StreamPoll.Pending -> StreamPoll.Pending
                 | StreamPoll.Completed -> StreamPoll.Completed
                 | StreamPoll.Next x ->
-                    let state = folder currState x
-                    currState <- state
-                    StreamPoll.Next currState
+                    let state = folder _currState x
+                    _currState <- state
+                    StreamPoll.Next _currState
         <| fun () ->
             source.Cancel()
 
