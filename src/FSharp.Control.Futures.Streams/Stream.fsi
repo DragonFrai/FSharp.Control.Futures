@@ -35,7 +35,7 @@ module Stream =
     // Creation
     // --------
 
-    val empty: unit -> IStream<'a>
+    val empty<'a> : IStream<'a>
 
     val single: value: 'a -> IStream<'a>
 

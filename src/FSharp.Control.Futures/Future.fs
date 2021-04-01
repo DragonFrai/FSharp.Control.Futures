@@ -76,19 +76,19 @@ module Future =
         <| fun _ -> Poll.Ready value
         <| fun () -> do ()
 
-    let unit () =
+    let unit =
         Core.create
         <| fun _ -> Poll.Ready ()
+        <| fun () -> do ()
+
+    let never<'a> : Future<'a> =
+        Core.create
+        <| fun _ -> Poll<'a>.Pending
         <| fun () -> do ()
 
     let lazy' (f: unit -> 'a) : Future<'a> =
         Core.createMemo
         <| fun _ -> Poll.Ready (f ())
-        <| fun () -> do ()
-
-    let never () : Future<'a> =
-        Core.create
-        <| fun _ -> Poll<'a>.Pending
         <| fun () -> do ()
 
     let bind (binder: 'a -> Future<'b>) (fut: Future<'a>) : Future<'b> =

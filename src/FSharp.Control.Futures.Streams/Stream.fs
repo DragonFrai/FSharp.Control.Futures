@@ -58,7 +58,7 @@ module Stream =
     // Creation
     // -----------
 
-    let empty () =
+    let empty<'a> : IStream<'a> =
         Core.create
         <| fun _ -> StreamPoll.Completed
         <| fun () -> do ()

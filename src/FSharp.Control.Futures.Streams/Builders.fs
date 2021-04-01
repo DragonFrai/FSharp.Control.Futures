@@ -13,7 +13,7 @@ type StreamBuilder() =
 
     member _.YieldFrom(xs: 'a seq): IStream<'a> = Stream.ofSeq xs
 
-    member _.Zero() = Stream.empty ()
+    member _.Zero() = Stream.empty
 
     member _.Bind(x: IStream<'a>, f: 'a -> IStream<'b>): IStream<'b> = Stream.collect f x
 

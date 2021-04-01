@@ -12,7 +12,7 @@ type FutureBuilder() =
 
     member inline _.Bind(x, f) = Future.bind f x
 
-    member inline _.Zero(): Future<unit> = Future.unit ()
+    member inline _.Zero(): Future<unit> = Future.unit
 
     member inline _.ReturnFrom(f: Future<'a>): Future<'a> = f
 
@@ -28,7 +28,7 @@ type FutureBuilder() =
         let rec loop () =
             if cond ()
             then this.Combine(body (), loop)
-            else Future.unit ()
+            else Future.unit
         loop ()
 
     member inline _.Using(d: 'D, f: 'D -> Future<'r>) : Future<'r> when 'D :> IDisposable =

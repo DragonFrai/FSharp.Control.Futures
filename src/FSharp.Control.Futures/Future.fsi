@@ -68,15 +68,15 @@ module Future =
 
     /// <summary> Create the Future returned <code>Ready ()</code> when polled</summary>
     /// <returns> Future returned <code>Ready ()value)</code> when polled </returns>
-    val unit: unit -> Future<unit>
+    val unit: Future<unit>
+
+    /// <summary> Creates always pending Future </summary>
+    /// <returns> always pending Future </returns>
+    val never: Future<'a>
 
     /// <summary> Creates the Future lazy evaluator for the passed function </summary>
     /// <returns> Future lazy evaluator for the passed function </returns>
     val lazy': f: (unit -> 'a) -> Future<'a>
-
-    /// <summary> Creates always pending Future </summary>
-    /// <returns> always pending Future </returns>
-    val never: unit -> Future<'a>
 
     /// <summary> Creates the Future, asynchronously applies the result of the passed future to the binder </summary>
     /// <returns> Future, asynchronously applies the result of the passed future to the binder </returns>
