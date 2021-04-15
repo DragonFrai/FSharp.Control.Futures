@@ -1,6 +1,7 @@
 namespace rec FSharp.Control.Futures
 
 open System.ComponentModel
+open System.Diagnostics.CodeAnalysis
 
 
 [<Struct; RequireQualifiedAccess>]

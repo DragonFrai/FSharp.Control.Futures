@@ -30,6 +30,15 @@ module Future =
             | ValueNone -> Poll.Pending
         <| fun () -> f.Cancel()
 
+    let finally' (finalization: Future<unit>) (fut: Future<'a>) =
+        fut
+        |> catch
+        |> Future.bind (fun r -> Future.bind (fun () -> Future.ready r) finalization)
+        |> Future.map (function Ok x -> x | Error exn -> raise exn)
+    
+//    let finallySync (finalization: unit -> unit) (fut: Future<'a>) =
+//
+
     let sleep (dueTime: TimeSpan) =
 
         let mutable timer: Timer = Unchecked.defaultof<_>
