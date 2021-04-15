@@ -150,36 +150,36 @@ module Stream =
         <| fun () -> do source.Cancel()
 
     let collect (collector: 'a -> IStream<'b>) (source: IStream<'a>) : IStream<'b> =
+
+        // Берем по одному IStream<'b> из _source, перебираем их элементы, пока каждый из них не закончится
+
         let mutable _source = source
-        let mutable _inners: IStream<'b> voption = ValueNone
+        let mutable _inners: IStream<'b> = Unchecked.defaultof<_>
         Core.create
         <| fun context ->
-            let rec loop () =
-                match _inners with
-                | ValueNone ->
+            let rec loopUntilNext () =
+                if obj.ReferenceEquals(_inners, null)
+                then
                     match _source.PollNext(context) with
                     | StreamPoll.Pending -> StreamPoll.Pending
                     | StreamPoll.Completed -> StreamPoll.Completed
                     | StreamPoll.Next x ->
-                        let inners' = collector x
-                        _inners <- ValueSome inners'
-                        loop ()
-                | ValueSome inners' ->
-                    let x = inners'.PollNext(context)
+                        _inners <- collector x
+                        loopUntilNext ()
+                else
+                    let x = _inners.PollNext(context)
                     match x with
                     | StreamPoll.Pending -> StreamPoll.Pending
                     | StreamPoll.Completed ->
-                        _inners <- ValueNone
-                        loop ()
+                        _inners <- Unchecked.defaultof<_>
+                        loopUntilNext ()
                     | StreamPoll.Next x -> StreamPoll.Next x
-            loop ()
+            loopUntilNext ()
         <| fun () ->
             _source.Cancel()
-            match _inners with
-            | ValueSome x ->
-                x.Cancel()
-                _inners <- ValueNone
-            | ValueNone -> ()
+            if not (obj.ReferenceEquals(_inners, null)) then
+                _inners.Cancel()
+                _inners <- Unchecked.defaultof<_>
 
     /// Alias to `PullStream.collect`
     let inline bind binder source = collect binder source
