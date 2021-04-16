@@ -8,14 +8,15 @@ open FSharp.Control.Futures.Streams
 
 type BridgeChannel<'a>() =
     let mutable isDisposed = false
-    let mutable msgQueue: Queue<'a> = Queue() // null when cancelled
+    let mutable isCancelled = false
+    let mutable msgQueue: Queue<'a> = Queue()
     let mutable context: Context voption = ValueNone
     let syncLock = obj()
 
     member inline internal _.TryDequeue() = msgQueue.TryDequeue()
     member internal _.SyncObj: obj = syncLock
     member inline private this.EnqueueIfNoCancelled(msg) =
-        if not (obj.ReferenceEquals(msgQueue, null)) then msgQueue.Enqueue(msg)
+        if (not isCancelled) && (not (obj.ReferenceEquals(msgQueue, null))) then msgQueue.Enqueue(msg)
 
 
     interface IChannel<'a> with
@@ -33,7 +34,6 @@ type BridgeChannel<'a>() =
         member this.Dispose() =
             lock syncLock ^fun () ->
                 isDisposed <- true
-                msgQueue <- Unchecked.defaultof<_>
                 match context with
                 | ValueNone -> ()
                 | ValueSome context -> context.Wake()
@@ -42,7 +42,10 @@ type BridgeChannel<'a>() =
             lock syncLock ^fun () ->
                 let (hasMsg, x) = msgQueue.TryDequeue()
                 if hasMsg
-                then StreamPoll.Next x
+                then
+                    if isCancelled && msgQueue.Count = 0
+                    then msgQueue <- Unchecked.defaultof<_>
+                    StreamPoll.Next x
                 else
                     if isDisposed
                     then StreamPoll.Completed
@@ -53,6 +56,7 @@ type BridgeChannel<'a>() =
 
         member this.Cancel() =
             lock syncLock ^fun () ->
+                isCancelled <- true
                 msgQueue <- Unchecked.defaultof<_>
                 // TODO: impl
                 do ()
