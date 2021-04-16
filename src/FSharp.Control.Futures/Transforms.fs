@@ -2,7 +2,9 @@
 module FSharp.Control.Futures.Transforms
 
 open System
+open System.Threading
 open FSharp.Control.Futures
+open FSharp.Control.Futures.Scheduling
 open FSharp.Control.Futures.Sync
 
 
@@ -41,11 +43,23 @@ module FutureAsyncTransforms =
                 // todo: impl
                 do ()
 
-        // TODO: Implement without blocking
-        let toAsync (x: Future<'a>) : Async<'a> =
+        let toAsync (fut: Future<'a>) : Async<'a> =
+            // TODO: notify Async based awaiter about Future cancellation
+
+            let wh = new EventWaitHandle(false, EventResetMode.AutoReset)
+            let ctx = { new Context() with member _.Wake() = wh.Set() |> ignore }
+
+            let rec wait () =
+                let current = Future.Core.poll ctx fut
+                match current with
+                | Poll.Ready x -> async { return x }
+                | Poll.Pending -> async {
+                    let _whr = Async.AwaitWaitHandle(wh)
+                    return! wait ()
+                }
+
             async {
-                let r = x |> Future.runSync
-                return r
+                return! wait ()
             }
 
 

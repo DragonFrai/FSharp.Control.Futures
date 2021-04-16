@@ -43,17 +43,17 @@ type Mutex<'a>(inner: 'a) =
         }
 
 
-    /// <summary> Sync version of Lock.
-    /// Try immediately take monitor and execute passed action outside the async context. </summary>
-    /// <returns> 'true' if blocking is successful </returns>
-    member _.TryLock(action: 'a -> unit) : bool =
-        let canEnter = Monitor.TryEnter(sync)
-        if canEnter then
-            action inner
-            Monitor.Exit(sync)
-            true
-        else
-            false
+//    /// <summary> Sync version of Lock.
+//    /// Try immediately take monitor and execute passed action outside the async context. </summary>
+//    /// <returns> 'true' if blocking is successful </returns>
+//    member _.TryLock(action: 'a -> unit) : bool =
+//        let canEnter = Monitor.TryEnter(sync)
+//        if canEnter then
+//            action inner
+//            Monitor.Exit(sync)
+//            true
+//        else
+//            false
 
 and private MutexWaiter<'a> =
 

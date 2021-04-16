@@ -7,30 +7,33 @@ open FSharp.Control.Futures.Streams
 
 
 type BridgeChannel<'a>() =
-    let mutable isClosed = false
-    let msgQueue: Queue<'a> = Queue()
+    let mutable isDisposed = false
+    let mutable msgQueue: Queue<'a> = Queue() // null when cancelled
     let mutable context: Context voption = ValueNone
     let syncLock = obj()
 
     member inline internal _.TryDequeue() = msgQueue.TryDequeue()
     member internal _.SyncObj: obj = syncLock
+    member inline private this.EnqueueIfNoCancelled(msg) =
+        if not (obj.ReferenceEquals(msgQueue, null)) then msgQueue.Enqueue(msg)
+
 
     interface IChannel<'a> with
 
         member this.Send(msg) =
             lock syncLock ^fun () ->
-                if isClosed then raise (ObjectDisposedException "Use after dispose")
+                if isDisposed then raise (ObjectDisposedException "Use after dispose")
                 match context with
-                | ValueNone -> msgQueue.Enqueue(msg)
+                | ValueNone -> this.EnqueueIfNoCancelled(msg)
                 | ValueSome context' ->
-                    msgQueue.Enqueue(msg)
+                    this.EnqueueIfNoCancelled(msg)
                     context'.Wake()
                     context <- ValueNone
 
         member this.Dispose() =
             lock syncLock ^fun () ->
-                if isClosed then invalidOp "Double dispose"
-                isClosed <- true
+                isDisposed <- true
+                msgQueue <- Unchecked.defaultof<_>
                 match context with
                 | ValueNone -> ()
                 | ValueSome context -> context.Wake()
@@ -41,7 +44,7 @@ type BridgeChannel<'a>() =
                 if hasMsg
                 then StreamPoll.Next x
                 else
-                    if isClosed
+                    if isDisposed
                     then StreamPoll.Completed
                     else
                         if context.IsSome then invalidOp "Call wake-up on waiting"
@@ -50,6 +53,7 @@ type BridgeChannel<'a>() =
 
         member this.Cancel() =
             lock syncLock ^fun () ->
+                msgQueue <- Unchecked.defaultof<_>
                 // TODO: impl
                 do ()
 

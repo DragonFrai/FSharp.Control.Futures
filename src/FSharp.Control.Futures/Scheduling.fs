@@ -8,7 +8,6 @@ open FSharp.Control.Futures
 /// <remarks> Can be safely canceled </remarks>
 type IJoinHandle<'a> =
     inherit Future<'a>
-    // TODO?: Add TryJoin and TryAwait
     abstract member Join: unit -> Result<'a, exn>
 
 /// <summary> Future scheduler. </summary>

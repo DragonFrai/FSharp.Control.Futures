@@ -37,6 +37,7 @@ type IStream<'a> =
     abstract Cancel: unit -> unit
 
 exception StreamCancelledException
+exception StreamCompletedException
 
 [<RequireQualifiedAccess>]
 module Stream =
@@ -461,32 +462,53 @@ module Stream =
         <| fun () ->
             source.Cancel()
 
+    let head (source: IStream<'a>) : Future<'a> =
+        future {
+            let! head = tryHeadV source
+            match head with
+            | ValueSome x -> return x
+            | ValueNone -> return raise StreamCompletedException
+        }
+
     let tryLastV (source: IStream<'a>) : Future<'a voption> =
+        let mutable last = ValueNone
         Future.Core.createMemo
         <| fun context ->
-            match source.PollNext(context) with
-            | StreamPoll.Pending -> Poll.Pending
-            | StreamPoll.Completed -> Poll.Ready ValueNone
-            | StreamPoll.Next x -> Poll.Ready (ValueSome x)
+            let rec loop () =
+                match source.PollNext(context) with
+                | StreamPoll.Pending -> Poll.Pending
+                | StreamPoll.Completed -> Poll.Ready last
+                | StreamPoll.Next x ->
+                    last <- ValueSome x
+                    loop ()
+            loop ()
         <| fun () ->
             source.Cancel()
 
+    let last (source: IStream<'a>) : Future<'a> =
+        future {
+            let! head = tryLastV source
+            match head with
+            | ValueSome x -> return x
+            | ValueNone -> return raise StreamCompletedException
+        }
+
     let ofFuture (fut: Future<'a>) : IStream<'a> =
-        let mutable fut = fut // fut == null, when completed
+        let mutable _fut = fut // fut == null, when completed
         Core.create
         <| fun context ->
-            if obj.ReferenceEquals(fut, null) then
+            if obj.ReferenceEquals(_fut, null) then
                 StreamPoll.Completed
             else
-                let p = fut.Poll(context)
+                let p = _fut.Poll(context)
                 match p with
                 | Poll.Pending -> StreamPoll.Pending
                 | Poll.Ready x ->
-                    fut <- Unchecked.defaultof<_>
+                    _fut <- Unchecked.defaultof<_>
                     StreamPoll.Next x
         <| fun () ->
-            if not (obj.ReferenceEquals(fut, null)) then
-                fut.Cancel()
+            if not (obj.ReferenceEquals(_fut, null)) then
+                _fut.Cancel()
 
     let inline singleAsync x = ofFuture x
 

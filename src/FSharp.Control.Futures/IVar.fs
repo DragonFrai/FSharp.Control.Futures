@@ -82,7 +82,7 @@ module IVar =
     let inline create () = IVar()
 
     /// Put a value and if it is already set raise exception
-    let inline put x (ivar: IVar<_>) = ivar.Put(x)
+    let inline put (x: 'a) (ivar: IVar<'a>) = ivar.Put(x)
 
     /// Tries to put a value and if it is already set returns an Error
     let inline tryPut x (ivar: IVar<_>) = ivar.TryPut(x)
