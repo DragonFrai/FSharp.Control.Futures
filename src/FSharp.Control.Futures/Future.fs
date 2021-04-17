@@ -134,27 +134,52 @@ module Future =
 
     let merge (fut1: Future<'a>) (fut2: Future<'b>) : Future<'a * 'b> =
 
+        let mutable _exn = Unchecked.defaultof<_>
         let mutable _fut1 = fut1 // if null -- has _r1
         let mutable _fut2 = fut2 // if null -- has _r2
         let mutable _r1 = Unchecked.defaultof<_>
         let mutable _r2 = Unchecked.defaultof<_>
 
+        let inline onExn exn =
+            _exn <- exn
+            _fut1 <- Unchecked.defaultof<_>
+            _fut2 <- Unchecked.defaultof<_>
+            _r1 <- Unchecked.defaultof<_>
+            _r2 <- Unchecked.defaultof<_>
+
         Core.create
-        <| fun context ->
-            if isNotNull _fut1 then
-                Future.Core.poll context _fut1
-                |> (Poll.onReady <| fun x ->
-                    _fut1 <- nullObj
-                    _r1 <- x)
-            if isNotNull _fut2 then
-                Future.Core.poll context _fut2
-                |> (Poll.onReady <| fun x ->
-                    _fut2 <- nullObj
-                    _r2 <- x)
-            if (isNull _fut1) && (isNull _fut2) then
-                Poll.Ready (_r1, _r2)
+        <| fun ctx ->
+            if isNull _exn // if has not exception
+            then
+                if isNotNull _fut1 then
+                    try
+                        Future.Core.poll ctx _fut1
+                        |> Poll.onReady (fun x ->
+                            _fut1 <- Unchecked.defaultof<_>
+                            _r1 <- x)
+                    with
+                    | exn ->
+                        Core.cancelNullable _fut2
+                        onExn exn
+                        raise exn
+
+                if isNotNull _fut2 then
+                    try
+                        Future.Core.poll ctx _fut2
+                        |> Poll.onReady (fun x ->
+                            _fut2 <- Unchecked.defaultof<_>
+                            _r2 <- x)
+                    with
+                    | exn ->
+                        Core.cancelNullable _fut1
+                        onExn exn
+                        raise exn
+
+                if (isNull _fut1) && (isNull _fut2)
+                    then Poll.Ready (_r1, _r2)
+                    else Poll.Pending
             else
-                Poll.Pending
+                raise _exn
         <| fun () ->
             Core.cancelNullable _fut1
             Core.cancelNullable _fut2
