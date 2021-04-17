@@ -18,6 +18,17 @@ module StreamPoll =
         | StreamPoll.Pending -> StreamPoll.Pending
         | StreamPoll.Completed -> StreamPoll.Completed
 
+    let inline mapCompleted action poll =
+        match poll with
+        | StreamPoll.Completed -> action (); poll
+        | _ -> poll
+
+    let inline bindCompleted binder poll =
+        match poll with
+        | StreamPoll.Completed -> binder ()
+        | _ -> poll
+
+
 
 /// # SeqStream pollNext schema
 /// [ [ StreamPoll.Pending -> ...(may be inf)... -> StreamPoll.Pending ] -> StreamPoll.Next x1 ] ->
@@ -52,6 +63,9 @@ module Stream =
 
         let inline cancel (stream: IStream<'a>) =
             stream.Cancel()
+
+        let inline cancelNullable (stream: IStream<'a>) =
+            if not (obj.ReferenceEquals(stream, null)) then stream.Cancel()
 
         let inline pollNext (context: Context) (stream: IStream<'a>) = stream.PollNext(context)
 
@@ -317,7 +331,28 @@ module Stream =
         bind id source
 
     let append (source1: IStream<'a>) (source2: IStream<'a>) : IStream<'a> =
-        join (ofSeq [ source1; source2 ])
+        let mutable _source1 = source1 // when = null -- already completed
+        let mutable _source2 = source2 // when _source1 and _source2 = null then completed
+
+        Core.create
+        <| fun ctx ->
+            if isNotNull _source1 then
+                _source1
+                |> Core.pollNext ctx
+                |> StreamPoll.bindCompleted (fun () ->
+                    _source1 <- Unchecked.defaultof<_>
+                    _source2
+                    |> Core.pollNext ctx
+                    |> StreamPoll.mapCompleted (fun () -> _source2 <- Unchecked.defaultof<_>)
+                )
+            elif isNotNull _source2 then
+                _source2
+                |> Core.pollNext ctx
+                |> StreamPoll.mapCompleted (fun () -> _source2 <- Unchecked.defaultof<_>)
+            else StreamPoll.Completed
+        <| fun () ->
+            Core.cancelNullable _source1
+            Core.cancelNullable _source2
 
     let bufferByCount (bufferSize: int) (source: IStream<'a>) : IStream<'a[]> =
         let mutable buffer = Array.zeroCreate bufferSize

@@ -282,8 +282,6 @@ let getRandomInts () = stream {
 [<EntryPoint>]
 let main argv =
 
-
-
     let scanner = SimpleRGrep.scanAllRec "/home/vlad/" "2018" Schedulers.threadPool 2
     Future.runSync scanner
 

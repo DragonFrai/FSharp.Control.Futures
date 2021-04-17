@@ -28,6 +28,6 @@ type IPublishStream<'a> =
     abstract member Subscribe: unit -> IPublishStream<'a>
 
 type IPublishChannel<'a> =
-    inherit ISender<'a>
+    inherit IChannel<'a>
     inherit IPublishStream<'a>
 
