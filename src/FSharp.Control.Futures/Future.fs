@@ -16,6 +16,11 @@ module Poll =
         | Poll.Ready x -> f x
         | Poll.Pending -> ()
 
+    let inline map (f: 'a -> 'b) (x: Poll<'a>) : Poll<'b> =
+        match x with
+        | Poll.Ready x -> Poll.Ready (f x)
+        | Poll.Pending -> Poll.Pending
+
 [<AbstractClass>]
 type Context() =
     abstract Wake: unit -> unit
@@ -178,6 +183,65 @@ module Future =
                 if (isNull _fut1) && (isNull _fut2)
                     then Poll.Ready (_r1, _r2)
                     else Poll.Pending
+            else
+                raise _exn
+        <| fun () ->
+            Core.cancelNullable _fut1
+            Core.cancelNullable _fut2
+
+    let first (fut1: Future<'a>) (fut2: Future<'a>) : Future<'a> =
+
+        let mutable _exn = Unchecked.defaultof<_>
+        let mutable _fut1 = fut1 // if null -- has _r
+        let mutable _fut2 = fut2 // if null -- has _r
+        let mutable _r = Unchecked.defaultof<_>
+
+        let inline onExn exn =
+            _exn <- exn
+            _fut1 <- Unchecked.defaultof<_>
+            _fut2 <- Unchecked.defaultof<_>
+            _r <- Unchecked.defaultof<_>
+
+        Core.create
+        <| fun ctx ->
+            if isNull _exn // if has not exception
+            then
+                if isNull _fut1
+                then Poll.Ready _r
+                else
+                    let poll =
+                        try
+                            Future.Core.poll ctx _fut1
+                        with
+                        | exn ->
+                            Core.cancelNullable _fut2
+                            onExn exn
+                            raise exn
+                    match poll with
+                    | Poll.Ready x ->
+                        _fut2.Cancel()
+                        _fut1 <- Unchecked.defaultof<_>
+                        _fut2 <- Unchecked.defaultof<_>
+                        _r <- x
+                        Poll.Ready x
+                    | Poll.Pending ->
+                        let poll =
+                            try
+                                Future.Core.poll ctx _fut2
+                            with
+                            | exn ->
+                                Core.cancelNullable _fut1
+                                onExn exn
+                                raise exn
+                        match poll with
+                            | Poll.Ready x ->
+                                _fut1.Cancel()
+                                _fut1 <- Unchecked.defaultof<_>
+                                _fut2 <- Unchecked.defaultof<_>
+                                _r <- x
+                                Poll.Ready x
+                            | Poll.Pending ->
+                                Poll.Pending
             else
                 raise _exn
         <| fun () ->

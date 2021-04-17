@@ -91,8 +91,17 @@ module Future =
     val apply: f: Future<'a -> 'b> -> fut: Future<'a> -> Future<'b>
 
     /// <summary> Creates the Future, asynchronously merging the results of passed Futures </summary>
+    /// <remarks> If one of the Futures threw an exception, the same exception will be thrown everywhere,
+    /// and the other Futures will be canceled </remarks>
     /// <returns> Future, asynchronously merging the results of passed Future </returns>
     val merge: fut1: Future<'a> -> fut2: Future<'b> -> Future<'a * 'b>
+
+    /// <summary> Creates a Futures that will return the result of
+    /// the first one that pulled out the result from the passed  </summary>
+    /// <remarks> If one of the Futures threw an exception, the same exception will be thrown everywhere,
+    /// and the other Futures will be canceled </remarks>
+    /// <returns> Future, asynchronously merging the results of passed Future </returns>
+    val first: fut1: Future<'a> -> fut2: Future<'a> -> Future<'a>
 
     /// <summary> Creates the Future, asynchronously joining the result of passed Future </summary>
     /// <returns> Future, asynchronously joining the result of passed Future </returns>
