@@ -12,6 +12,7 @@
         <Compile Include="NeverTests.fs" />
         <Compile Include="LazyTests.fs" />
         <Compile Include="IVarTests.fs" />
+        <Compile Include="CombinatorsTests.fs" />
         <Compile Include="BuilderTests.fs" />
         <Compile Include="FutureProperties\Combinators.fs" />
         <Compile Include="Main.fs" />
