@@ -294,11 +294,17 @@ let main argv =
 //    Future.runSync futLoop
 
     // Stream while
-    let loop () = stream {
-        for i in Seq.initInfinite id do
-            yield i
-    }
-    let futLoop = loop () |> Streams.Stream.iter (fun _x -> ())
+    let loop () =
+        printfn "Loop"
+        stream {
+            for i in Stream.initInfinite id do
+                if (i % 100000) = 0 then
+                    printfn "break point"
+                    yield i
+    //            Threading.Thread.Sleep(1)
+                yield i
+        }
+    let futLoop = (loop ()) |> Streams.Stream.iter (fun _x -> ())
     Future.runSync futLoop
 
 //    // Future test

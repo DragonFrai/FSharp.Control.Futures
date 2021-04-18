@@ -172,24 +172,23 @@ module Stream =
         let mutable _inners: IStream<'b> = Unchecked.defaultof<_>
         Core.create
         <| fun context ->
-            let rec loopUntilNext () =
+            let mutable _result = ValueNone
+            while _result.IsNone do
                 if obj.ReferenceEquals(_inners, null)
                 then
                     match _source.PollNext(context) with
-                    | StreamPoll.Pending -> StreamPoll.Pending
-                    | StreamPoll.Completed -> StreamPoll.Completed
-                    | StreamPoll.Next x ->
-                        _inners <- collector x
-                        loopUntilNext ()
+                    | StreamPoll.Pending -> _result <- ValueSome StreamPoll.Pending
+                    | StreamPoll.Completed -> _result <- ValueSome StreamPoll.Completed
+                    | StreamPoll.Next x -> _inners <- collector x
                 else
                     let x = _inners.PollNext(context)
                     match x with
-                    | StreamPoll.Pending -> StreamPoll.Pending
-                    | StreamPoll.Completed ->
-                        _inners <- Unchecked.defaultof<_>
-                        loopUntilNext ()
-                    | StreamPoll.Next x -> StreamPoll.Next x
-            loopUntilNext ()
+                    | StreamPoll.Pending -> _result <- ValueSome StreamPoll.Pending
+                    | StreamPoll.Completed -> _inners <- Unchecked.defaultof<_>
+                    | StreamPoll.Next x -> _result <- ValueSome (StreamPoll.Next x)
+
+            ValueOption.get _result
+
         <| fun () ->
             _source.Cancel()
             if not (obj.ReferenceEquals(_inners, null)) then
@@ -203,14 +202,13 @@ module Stream =
         let mutable _source = source
         Future.Core.create
         <| fun context ->
-            let rec loop () =
+            let mutable _result = ValueNone
+            while _result.IsNone do
                 match _source.PollNext(context) with
-                | StreamPoll.Completed -> Poll.Ready ()
-                | StreamPoll.Pending -> Poll.Pending
-                | StreamPoll.Next x ->
-                    action x
-                    loop ()
-            loop ()
+                | StreamPoll.Completed -> _result <- ValueSome (Poll.Ready ())
+                | StreamPoll.Pending -> _result <- ValueSome Poll.Pending
+                | StreamPoll.Next x -> action x
+            ValueOption.get _result
         <| fun () ->
             _source.Cancel()
             _source <- Unchecked.defaultof<_>
