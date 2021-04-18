@@ -25,11 +25,8 @@ type FutureBuilder() =
     member inline _.For(source, body) = Future.Seq.iterAsync source body
 
     member this.While(cond: unit -> bool, body: unit -> Future<unit>): Future<unit> =
-        let rec loop () =
-            if cond ()
-            then this.Combine(body (), loop)
-            else Future.unit
-        loop ()
+        let whileSeq = seq { while cond () do yield () }
+        this.For(whileSeq, body)
 
     member inline _.Using(d: 'D, f: 'D -> Future<'r>) : Future<'r> when 'D :> IDisposable =
         let fr = lazy(f d)

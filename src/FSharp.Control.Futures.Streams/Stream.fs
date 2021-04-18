@@ -301,11 +301,12 @@ module Stream =
             source.Cancel()
 
     let tryPickV (chooser: 'a -> 'b voption) (source: IStream<'a>) : Future<'b voption> =
-        let mutable result: 'b voption = ValueNone
+        let mutable _source = source
+        let mutable _result: 'b voption = ValueNone
         Future.Core.create
         <| fun context ->
-            if result.IsSome then
-                Poll.Ready result
+            if _result.IsSome then
+                Poll.Ready _result
             else
                 let sPoll = source.PollNext(context)
                 match sPoll with
@@ -316,8 +317,9 @@ module Stream =
                     match r with
                     | ValueNone -> Poll.Pending
                     | ValueSome r ->
-                        result <- ValueSome r
-                        Poll.Ready result
+                        _result <- ValueSome r
+                        _source <- Unchecked.defaultof<_>
+                        Poll.Ready _result
         <| fun () ->
             source.Cancel()
 
@@ -542,8 +544,7 @@ module Stream =
                     _fut <- Unchecked.defaultof<_>
                     StreamPoll.Next x
         <| fun () ->
-            if not (obj.ReferenceEquals(_fut, null)) then
-                _fut.Cancel()
+            Future.Core.cancelNullable _fut
 
     let inline singleAsync x = ofFuture x
 

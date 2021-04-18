@@ -282,7 +282,38 @@ let getRandomInts () = stream {
 [<EntryPoint>]
 let main argv =
 
-    let scanner = SimpleRGrep.scanAllRec "/home/vlad/" "2018" Schedulers.threadPool 2
-    Future.runSync scanner
+//    let scanner = SimpleRGrep.scanAllRec "/home/vlad/" "2018" Schedulers.threadPool 2
+//    Future.runSync scanner
+
+    // Stream test
+//    let rec loop iter = stream {
+//        yield iter
+//        yield! loop (iter + 1)
+//    }
+//    let futLoop = loop 0 |> Streams.Stream.iter (fun _x -> ())
+//    Future.runSync futLoop
+
+    // Stream while
+    let loop () = stream {
+        for i in Seq.initInfinite id do
+            yield i
+    }
+    let futLoop = loop () |> Streams.Stream.iter (fun _x -> ())
+    Future.runSync futLoop
+
+//    // Future test
+//    let rec fLoop iter = future {
+//        do ()
+//        return! fLoop (iter + 1)
+//    }
+//    Future.runSync (fLoop 0)
+
+
+//    // Async test
+//    let rec aLoop iter = async {
+//        do ()
+//        return! aLoop (iter + 1)
+//    }
+//    Async.StartImmediate(aLoop 0)
 
     0 // return an integer exit code

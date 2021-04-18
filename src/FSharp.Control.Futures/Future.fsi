@@ -60,6 +60,8 @@ module Future =
         /// <summary> Call Future.Poll of passed Future </summary>
         val inline poll: context: Context -> fut: Future<'a> -> Poll<'a>
 
+        val inline cancelNullable: Future<'a> -> unit
+
 
     /// <summary> Create the Future with ready value</summary>
     /// <param name="value"> Poll body </param>

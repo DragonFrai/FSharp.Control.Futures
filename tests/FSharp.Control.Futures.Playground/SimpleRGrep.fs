@@ -18,8 +18,8 @@ let readFile (path: string) = future {
             reader <- new StreamReader(path)
         with
         | e -> ()
-
-    if reader <> null then
+    let info = System.IO.FileInfo(path)
+    if (reader <> null) && (info.Length < (1024L*1024L*8L)) then
         return! reader.ReadToEndAsync() |> Future.ofTask |> Future.map (fun s -> reader.Dispose(); s)
     else
         return! Future.ready ""
@@ -44,18 +44,24 @@ let scanAllRec (path: string) (content: string) (scheduler: IScheduler) (paralle
     let fileCrawler = Scheduler.spawnOn scheduler (findFilesRec path files (ref isEnded))
 
     let scanString (s: string) (fileSource: string) =
-        let mutable current = 0
-        let mutable entryIdx = s.IndexOf(content, current)
-        let rec loop () =
-            if entryIdx = -1 then Stream.empty
-            else
-                stream {
-                    current <- entryIdx + content.Length
-                    yield { FilePath = fileSource; SymbolIdx = entryIdx }
-                    entryIdx <- s.IndexOf(content, current)
-                    yield! loop ()
-                }
-        loop ()
+        // Я без понятия как выразить это функционально с рекурсивным лупом
+
+        stream {
+            let mutable entryIdx = s.IndexOf(content, 0)
+            while entryIdx <> -1 do
+                let current = entryIdx + content.Length
+                yield { FilePath = fileSource; SymbolIdx = entryIdx }
+                entryIdx <- s.IndexOf(content, current)
+        }
+
+//        let rec loop entryIdx = stream {
+//            if entryIdx = -1 then ()
+//            else
+//                let current = entryIdx + content.Length
+//                yield { FilePath = fileSource; SymbolIdx = entryIdx }
+//                yield! loop (s.IndexOf(content, current))
+//        }
+//        loop (s.IndexOf(content, 0))
 
     let scanFileWorker () = future {
         while (not isEnded) do
