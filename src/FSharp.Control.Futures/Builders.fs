@@ -15,7 +15,7 @@ module private Internal =
         | Handler of handler: 'handler
         | Cancelled
 
-    let tryWith (body: unit -> Future<'a>) (handler: exn -> Future<'a>) : Future<'a> =
+    let inline tryWith (body: unit -> Future<'a>) (handler: exn -> Future<'a>) : Future<'a> =
         let mutable _current = TryWithState.Empty
         Future.Core.create
         <| fun ctx ->
@@ -68,7 +68,7 @@ type FutureBuilder() =
         let whileSeq = seq { while cond () do yield () }
         this.For(whileSeq, body)
 
-    member inline _.TryWith(body, handler): Future<'a> =
+    member _.TryWith(body, handler): Future<'a> =
         Internal.tryWith body handler
 
     member inline _.Using(d: 'D, f: 'D -> Future<'r>) : Future<'r> when 'D :> IDisposable =
