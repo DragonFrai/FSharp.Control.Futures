@@ -3,6 +3,14 @@ module internal Utils
 
 open FSharp.Control.Futures
 
+[<RequireQualifiedAccess>]
+module Option =
+    let ofValueOption = function
+        | ValueSome x -> Some x
+        | ValueNone -> None
+    let toValueOption = function
+        | Some x -> ValueSome x
+        | None -> ValueNone
 
 let inline ( ^ ) f x = f x
 

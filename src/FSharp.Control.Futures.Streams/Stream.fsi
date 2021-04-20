@@ -74,6 +74,8 @@ module Stream =
 
     val tryPickV: chooser: ('a -> 'b voption) -> source: IStream<'a> -> Future<'b voption>
 
+    val tryPick: chooser: ('a -> 'b option) -> source: IStream<'a> -> Future<'b option>
+
     val pickV: chooser: ('a -> 'b voption) -> source: IStream<'a> -> Future<'b>
 
     val join: source: IStream<IStream<'a>> -> IStream<'a>
@@ -88,9 +90,17 @@ module Stream =
 
     val zip: source1: IStream<'a> -> source2: IStream<'b> -> IStream<'a * 'b>
 
+    val tryLastV: source: IStream<'a> -> Future<'a voption>
+
+    val tryLast: source: IStream<'a> -> Future<'a option>
+
+    val last: source: IStream<'a> -> Future<'a>
+
     val tryHeadV: source: IStream<'a> -> Future<'a voption>
 
-    val tryLastV: source: IStream<'a> -> Future<'a voption>
+    val tryHead: source: IStream<'a> -> Future<'a option>
+
+    val head: source: IStream<'a> -> Future<'a>
 
     val ofFuture: fut: Future<'a> -> IStream<'a>
 

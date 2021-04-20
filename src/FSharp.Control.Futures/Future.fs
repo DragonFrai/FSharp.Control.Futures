@@ -1,7 +1,6 @@
 namespace rec FSharp.Control.Futures
 
 open System.ComponentModel
-open System.Diagnostics.CodeAnalysis
 
 
 [<Struct; RequireQualifiedAccess>]
@@ -15,6 +14,16 @@ module Poll =
         match x with
         | Poll.Ready x -> f x
         | Poll.Pending -> ()
+
+    let inline bind (binder: 'a -> Poll<'b>) (x: Poll<'a>): Poll<'b> =
+        match x with
+        | Poll.Ready x -> binder x
+        | Poll.Pending -> Poll.Pending
+
+    let inline bindPending (binder: unit -> Poll<'a>) (x: Poll<'a>): Poll<'a> =
+        match x with
+        | Poll.Ready x -> Poll.Ready x
+        | Poll.Pending -> binder ()
 
     let inline map (f: 'a -> 'b) (x: Poll<'a>) : Poll<'b> =
         match x with
@@ -47,12 +56,15 @@ module Future =
         let inline cancelNullable (fut: Future<'a>) =
             if isNotNull fut then fut.Cancel()
 
-        let inline create (__expand_poll: Context -> Poll<'a>) (__expand_cancel: (unit -> unit)) : Future<'a> =
+        let inline cancel (fut: Future<'a>) =
+            fut.Cancel()
+
+        let inline create (__expand_poll: Context -> Poll<'a>) (__expand_cancel: unit -> unit) : Future<'a> =
             { new Future<'a> with
                 member this.Poll(context) = __expand_poll context
                 member this.Cancel() = __expand_cancel () }
 
-        let inline createMemo (__expand_poll: Context -> Poll<'a>) (__expand_cancel: (unit -> unit)) : Future<'a> =
+        let inline createMemo (__expand_poll: Context -> Poll<'a>) (__expand_cancel: unit -> unit) : Future<'a> =
             let mutable hasResult = false; // 0 -- pending; 1 -- with value
             let mutable result: 'a = Unchecked.defaultof<_>
             Core.create
@@ -72,10 +84,6 @@ module Future =
         let inline poll context (fut: Future<'a>) = fut.Poll(context)
 
 
-    let inline bindPoll' (f: 'a -> Poll<'b>) (x: Poll<'a>) : Poll<'b> =
-        match x with
-        | Poll.Ready x -> f x
-        | Poll.Pending -> Poll.Pending
 
     let ready value =
         Core.create

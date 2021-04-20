@@ -1,6 +1,5 @@
 namespace FSharp.Control.Futures.Sync
 
-open System.Threading
 open FSharp.Control.Futures
 
 // TODO
@@ -41,19 +40,6 @@ type Mutex<'a>(inner: 'a) =
                     |> Future.bind action
                     |> Future.finally' (Future.lazy' release)
         }
-
-
-//    /// <summary> Sync version of Lock.
-//    /// Try immediately take monitor and execute passed action outside the async context. </summary>
-//    /// <returns> 'true' if blocking is successful </returns>
-//    member _.TryLock(action: 'a -> unit) : bool =
-//        let canEnter = Monitor.TryEnter(sync)
-//        if canEnter then
-//            action inner
-//            Monitor.Exit(sync)
-//            true
-//        else
-//            false
 
 and private MutexWaiter<'a> =
 

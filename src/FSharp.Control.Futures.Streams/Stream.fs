@@ -146,13 +146,13 @@ module Stream =
             do ()
 
     let ofSeq (src: 'a seq) : IStream<'a> =
-        let mutable enumerator = src.GetEnumerator()
+        let mutable _enumerator = src.GetEnumerator()
         Core.create
         <| fun _ ->
-            if enumerator.MoveNext()
-            then StreamPoll.Next enumerator.Current
+            if _enumerator.MoveNext()
+            then StreamPoll.Next _enumerator.Current
             else StreamPoll.Completed
-        <| fun () -> enumerator <- Unchecked.defaultof<_>
+        <| fun () -> _enumerator <- Unchecked.defaultof<_>
 
 
     // -----------
@@ -321,6 +321,9 @@ module Stream =
         <| fun () ->
             source.Cancel()
 
+    let tryPick (chooser: 'a -> 'b option) (source: IStream<'a>) : Future<'b option> =
+        tryPickV (chooser >> Option.toValueOption) source |> Future.map Option.ofValueOption
+
     let pickV (chooser: 'a -> 'b voption) (source: IStream<'a>) : Future<'b> =
         tryPickV chooser source
         |> Future.map ^function
@@ -424,8 +427,7 @@ module Stream =
                         else
                             loop ()
             loop ()
-        <| fun () ->
-            source.Cancel()
+        <| source.Cancel
 
     let all (predicate: 'a -> bool) (source: IStream<'a>) : Future<bool> =
         let mutable result: bool voption = ValueNone
@@ -494,15 +496,17 @@ module Stream =
             | StreamPoll.Pending -> Poll.Pending
             | StreamPoll.Completed -> Poll.Ready ValueNone
             | StreamPoll.Next x -> Poll.Ready (ValueSome x)
-        <| fun () ->
-            source.Cancel()
+        <| source.Cancel
+
+    let tryHead (source: IStream<'a>) : Future<'a option> =
+        tryHeadV source |> Future.map (function ValueSome x -> Some x | ValueNone -> None)
 
     let head (source: IStream<'a>) : Future<'a> =
         future {
             let! head = tryHeadV source
             match head with
             | ValueSome x -> return x
-            | ValueNone -> return raise StreamCompletedException
+            | ValueNone -> return invalidArg (nameof source) "The input stream was empty."
         }
 
     let tryLastV (source: IStream<'a>) : Future<'a voption> =
@@ -520,12 +524,15 @@ module Stream =
         <| fun () ->
             source.Cancel()
 
+    let tryLast (source: IStream<'a>) : Future<'a option> =
+        tryLastV source |> Future.map (function ValueSome x -> Some x | ValueNone -> None)
+
     let last (source: IStream<'a>) : Future<'a> =
         future {
             let! head = tryLastV source
             match head with
             | ValueSome x -> return x
-            | ValueNone -> return raise StreamCompletedException
+            | ValueNone -> return invalidArg (nameof source) "The input stream was empty."
         }
 
     let ofFuture (fut: Future<'a>) : IStream<'a> =
