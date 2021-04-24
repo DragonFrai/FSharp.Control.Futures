@@ -2,7 +2,10 @@ namespace FSharp.Control.Futures
 
 open System.ComponentModel
 
+// Contains the basic functions for creating and transforming `Computation`.
+// If the function accepts types other than `Computation` or `Context`, then they should be placed somewhere else
 
+/// <summary> Current state of a Computation </summary>
 [<Struct; RequireQualifiedAccess>]
 type Poll<'a> =
     | Ready of 'a
@@ -41,6 +44,8 @@ module Poll =
         | Poll.Ready x -> Poll.Ready (f x)
         | Poll.Pending -> Poll.Pending
 
+/// <summary> The context of the running computation.
+/// Allows the computation to signal its ability to move forward (awake) through the Wake method </summary>
 [<AbstractClass>]
 type Context() =
     abstract Wake: unit -> unit
@@ -50,8 +55,14 @@ type Context() =
 ///  x1 == x2 == ... == xn
 [<Interface>]
 type IComputation<'a> =
+    /// <summary> Poll the state </summary>
+    /// <param name="context"> Current Computation context </param>
+    /// <returns> Current state </returns>
     [<EditorBrowsable(EditorBrowsableState.Advanced)>]
-    abstract Poll: Context -> Poll<'a>
+    abstract Poll: context: Context -> Poll<'a>
+
+    /// <summary> Cancel asynchronously Computation computation </summary>
+    /// <remarks> Notifies internal asynchronous operations of Computation cancellations. It is useless if Computation is cold.  </remarks>
     [<EditorBrowsable(EditorBrowsableState.Advanced)>]
     abstract Cancel: unit -> unit
 
@@ -64,11 +75,20 @@ module Computation =
     let inline cancel (comp: IComputation<'a>) =
         comp.Cancel()
 
+    /// <summary> Create a Computation with members from passed functions </summary>
+    /// <param name="__expand_poll"> Poll body </param>
+    /// <param name="__expand_cancel"> Poll body </param>
+    /// <returns> Computation implementations with passed members </returns>
     let inline create (__expand_poll: Context -> Poll<'a>) (__expand_cancel: unit -> unit) : IComputation<'a> =
         { new IComputation<'a> with
             member this.Poll(context) = __expand_poll context
             member this.Cancel() = __expand_cancel () }
 
+    /// <summary> Create a Computation memoizing the first <code>Ready x</code> value
+    /// with members from passed functions </summary>
+    /// <param name="__expand_poll"> Poll body </param>
+    /// <param name="__expand_cancel"> Poll body </param>
+    /// <returns> Computation implementations with passed members </returns>
     let inline createMemo (__expand_poll: Context -> Poll<'a>) (__expand_cancel: unit -> unit) : IComputation<'a> =
         let mutable hasResult = false; // 0 -- pending; 1 -- with value
         let mutable result: 'a = Unchecked.defaultof<_>
@@ -89,27 +109,37 @@ module Computation =
     let inline poll context (comp: IComputation<'a>) = comp.Poll(context)
 
 
-
+    /// <summary> Create the Computation with ready value</summary>
+    /// <param name="value"> Poll body </param>
+    /// <returns> Computation returned <code>Ready value</code> when polled </returns>
     let ready value =
         create
         <| fun _ -> Poll.Ready value
         <| fun () -> do ()
 
+    /// <summary> Create the Computation returned <code>Ready ()</code> when polled</summary>
+    /// <returns> Computation returned <code>Ready ()value)</code> when polled </returns>
     let unit =
         create
         <| fun _ -> Poll.Ready ()
         <| fun () -> do ()
 
+    /// <summary> Creates always pending Computation </summary>
+    /// <returns> always pending Computation </returns>
     let never<'a> : IComputation<'a> =
         create
         <| fun _ -> Poll<'a>.Pending
         <| fun () -> do ()
 
+    /// <summary> Creates the Computation lazy evaluator for the passed function </summary>
+    /// <returns> Computation lazy evaluator for the passed function </returns>
     let lazy' (f: unit -> 'a) : IComputation<'a> =
         createMemo
         <| fun _ -> Poll.Ready (f ())
         <| fun () -> do ()
 
+    /// <summary> Creates the Computation, asynchronously applies the result of the passed compure to the binder </summary>
+    /// <returns> Computation, asynchronously applies the result of the passed compure to the binder </returns>
     let bind (binder: 'a -> IComputation<'b>) (comp: IComputation<'a>) : IComputation<'b> =
         // let binder = binder
         let mutable _compA = comp
@@ -131,6 +161,8 @@ module Computation =
             cancelNullable _compA
             cancelNullable _compB
 
+    /// <summary> Creates the Computation, asynchronously applies mapper to result passed Computation </summary>
+    /// <returns> Computation, asynchronously applies mapper to result passed Computation </returns>
     let map (mapping: 'a -> 'b) (comp: IComputation<'a>) : IComputation<'b> =
         let mutable _comp = comp // _comp = null, when memoized
         //let mutable _mapping = mapping // _mapping = null, when memoized
@@ -150,6 +182,10 @@ module Computation =
                     Poll.Ready r
         <| fun () -> cancelNullable _comp
 
+    /// <summary> Creates the Computation, asynchronously merging the results of passed Computations </summary>
+    /// <remarks> If one of the Computations threw an exception, the same exception will be thrown everywhere,
+    /// and the other Computations will be canceled </remarks>
+    /// <returns> Computation, asynchronously merging the results of passed Computation </returns>
     let merge (comp1: IComputation<'a>) (comp2: IComputation<'b>) : IComputation<'a * 'b> =
 
         let mutable _exn = Unchecked.defaultof<_>
@@ -202,6 +238,11 @@ module Computation =
             cancelNullable _comp1
             cancelNullable _comp2
 
+    /// <summary> Creates a Computations that will return the result of
+    /// the first one that pulled out the result from the passed  </summary>
+    /// <remarks> If one of the Computations threw an exception, the same exception will be thrown everywhere,
+    /// and the other Computations will be canceled </remarks>
+    /// <returns> Computation, asynchronously merging the results of passed Computation </returns>
     let first (comp1: IComputation<'a>) (comp2: IComputation<'a>) : IComputation<'a> =
 
         let mutable _exn = Unchecked.defaultof<_>
@@ -261,6 +302,8 @@ module Computation =
             cancelNullable _comp1
             cancelNullable _comp2
 
+    /// <summary> Creates the Computation, asynchronously applies 'f' function to result passed Computation </summary>
+    /// <returns> Computation, asynchronously applies 'f' function to result passed Computation </returns>
     let apply (f: IComputation<'a -> 'b>) (comp: IComputation<'a>) : IComputation<'b> =
         let mutable _fnFut = f // null when fn was got
         let mutable _sourceFut = comp // null when 'a was got
@@ -288,6 +331,8 @@ module Computation =
             cancelNullable _fnFut
             cancelNullable _sourceFut
 
+    /// <summary> Creates the Computation, asynchronously joining the result of passed Computation </summary>
+    /// <returns> Computation, asynchronously joining the result of passed Computation </returns>
     let join (comp: IComputation<IComputation<'a>>) : IComputation<'a> =
         // _inner == null до дожидания _source
         // _inner != null после дожидания _source
@@ -309,6 +354,8 @@ module Computation =
             cancelNullable _source
             cancelNullable _inner
 
+    /// <summary> Create a Computation delaying invocation and computation of the Computation of the passed creator </summary>
+    /// <returns> Computation delaying invocation and computation of the Computation of the passed creator </returns>
     let delay (creator: unit -> IComputation<'a>) : IComputation<'a> =
         // Фьюча с задержкой её инстанцирования.
         // Когда _inner == null, то фьюча еще не инициализирована
@@ -325,6 +372,8 @@ module Computation =
         <| fun () ->
             cancelNullable _inner
 
+    /// <summary> Creates a Computation that returns control flow to the scheduler once </summary>
+    /// <returns> Computation that returns control flow to the scheduler once </returns>
     let yieldWorkflow () =
         let mutable isYielded = false
         create
@@ -337,6 +386,8 @@ module Computation =
                 Poll.Pending
         <| fun () -> do ()
 
+    /// <summary> Creates a Computation that ignore result of the passed Computation </summary>
+    /// <returns> Computation that ignore result of the passed Computation </returns>
     let ignore comp =
         create
         <| fun context ->
@@ -364,38 +415,68 @@ module Future =
 
     let inline create (__expand_creator: unit -> IComputation<'a>) : Future<'a> = { Future.Raw = __expand_creator }
 
+    /// <summary> Create the Future with ready value</summary>
+    /// <param name="value"> Poll body </param>
+    /// <returns> Future returned <code>Ready value</code> when polled </returns>
     let inline ready value =
         create (fun () -> Computation.ready value)
 
+    /// <summary> Create the Future returned <code>Ready ()</code> when polled</summary>
+    /// <returns> Future returned <code>Ready ()value)</code> when polled </returns>
     let unit =
         create (fun () -> Computation.unit)
 
+    /// <summary> Creates always pending Future </summary>
+    /// <returns> always pending Future </returns>
     let inline never<'a> : Future<'a> =
         create (fun () -> Computation.never<'a>)
 
+    /// <summary> Creates the Future lazy evaluator for the passed function </summary>
+    /// <returns> Future lazy evaluator for the passed function </returns>
     let inline lazy' f =
         create (fun () -> Computation.lazy' f)
 
+    /// <summary> Creates the Future, asynchronously applies the result of the passed future to the binder </summary>
+    /// <returns> Future, asynchronously applies the result of the passed future to the binder </returns>
     let inline bind binder fut =
         create (fun () -> Computation.bind (binder >> runRaw) (runRaw fut) )
 
+    /// <summary> Creates the Future, asynchronously applies mapper to result passed Computation </summary>
+    /// <returns> Future, asynchronously applies mapper to result passed Computation </returns>
     let inline map mapping fut =
         create (fun () -> Computation.map mapping (runRaw fut))
 
+    /// <summary> Creates the Future, asynchronously applies 'f' function to result passed Computation </summary>
+    /// <returns> Future, asynchronously applies 'f' function to result passed Computation </returns>
     let inline apply f fut =
         create (fun () -> Computation.apply (runRaw f) (runRaw fut))
 
+    /// <summary> Creates the Future, asynchronously merging the results of passed Future </summary>
+    /// <remarks> If one of the Computations threw an exception, the same exception will be thrown everywhere,
+    /// and the other Future will be canceled </remarks>
+    /// <returns> Future, asynchronously merging the results of passed Future </returns>
     let inline merge fut1 fut2 =
         create (fun () -> Computation.merge (runRaw fut1) (runRaw fut2))
 
+    /// <summary> Creates a Future that will return the result of
+    /// the first one that pulled out the result from the passed  </summary>
+    /// <remarks> If one of the Future threw an exception, the same exception will be thrown everywhere,
+    /// and the other Future will be canceled </remarks>
+    /// <returns> Future, asynchronously merging the results of passed Future </returns>
     let inline first fut1 fut2 =
         create (fun () -> Computation.first (runRaw fut1) (runRaw fut2))
 
+    /// <summary> Creates the Future, asynchronously joining the result of passed Computation </summary>
+    /// <returns> Future, asynchronously joining the result of passed Computation </returns>
     let inline join fut =
         create (fun () -> Computation.join (runRaw (map runRaw fut)))
 
+    /// <summary> Creates a Future that returns control flow to the scheduler once </summary>
+    /// <returns> Future that returns control flow to the scheduler once </returns>
     let yieldWorkflow = create Computation.yieldWorkflow
 
+    /// <summary> Creates a Future that ignore result of the passed Computation </summary>
+    /// <returns> Future that ignore result of the passed Computation </returns>
     let inline ignore fut =
         create (fun () -> Computation.ignore (runRaw fut))
 
