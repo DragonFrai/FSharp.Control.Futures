@@ -198,7 +198,7 @@ module Stream =
     /// Alias to `PullStream.collect`
     let inline bind binder source = collect binder source
 
-    let iter (action: 'a -> unit) (source: IStream<'a>) : Future<unit> =
+    let iter (action: 'a -> unit) (source: IStream<'a>) : IComputationTmp<unit> =
         let mutable _source = source
         Future.Core.create
         <| fun context ->
@@ -213,8 +213,8 @@ module Stream =
             _source.Cancel()
             _source <- Unchecked.defaultof<_>
 
-    let iterAsync (action: 'a -> Future<unit>) (source: IStream<'a>) : Future<unit> =
-        let mutable _currFut: Future<unit> voption = ValueNone
+    let iterAsync (action: 'a -> IComputationTmp<unit>) (source: IStream<'a>) : IComputationTmp<unit> =
+        let mutable _currFut: IComputationTmp<unit> voption = ValueNone
         Future.Core.create
         <| fun context ->
             let rec loop () =
@@ -244,7 +244,7 @@ module Stream =
                 _currFut <- ValueNone
             | ValueNone -> ()
 
-    let fold (folder: 's -> 'a -> 's) (initState: 's) (source: IStream<'a>): Future<'s> =
+    let fold (folder: 's -> 'a -> 's) (initState: 's) (source: IStream<'a>): IComputationTmp<'s> =
         let mutable _currState = initState
         Future.Core.create
         <| fun context ->
@@ -298,7 +298,7 @@ module Stream =
         <| fun () ->
             source.Cancel()
 
-    let tryPickV (chooser: 'a -> 'b voption) (source: IStream<'a>) : Future<'b voption> =
+    let tryPickV (chooser: 'a -> 'b voption) (source: IStream<'a>) : IComputationTmp<'b voption> =
         let mutable _source = source
         let mutable _result: 'b voption = ValueNone
         Future.Core.create
@@ -321,10 +321,10 @@ module Stream =
         <| fun () ->
             source.Cancel()
 
-    let tryPick (chooser: 'a -> 'b option) (source: IStream<'a>) : Future<'b option> =
+    let tryPick (chooser: 'a -> 'b option) (source: IStream<'a>) : IComputationTmp<'b option> =
         tryPickV (chooser >> Option.toValueOption) source |> Future.map Option.ofValueOption
 
-    let pickV (chooser: 'a -> 'b voption) (source: IStream<'a>) : Future<'b> =
+    let pickV (chooser: 'a -> 'b voption) (source: IStream<'a>) : IComputationTmp<'b> =
         tryPickV chooser source
         |> Future.map ^function
             | ValueSome r -> r
@@ -405,7 +405,7 @@ module Stream =
         <| fun () ->
             source.Cancel()
 
-    let any (predicate: 'a -> bool) (source: IStream<'a>) : Future<bool> =
+    let any (predicate: 'a -> bool) (source: IStream<'a>) : IComputationTmp<bool> =
         let mutable result: bool voption = ValueNone
         Future.Core.create
         <| fun context ->
@@ -429,7 +429,7 @@ module Stream =
             loop ()
         <| source.Cancel
 
-    let all (predicate: 'a -> bool) (source: IStream<'a>) : Future<bool> =
+    let all (predicate: 'a -> bool) (source: IStream<'a>) : IComputationTmp<bool> =
         let mutable result: bool voption = ValueNone
         Future.Core.create
         <| fun context ->
@@ -489,7 +489,7 @@ module Stream =
             source1.Cancel()
             source2.Cancel()
 
-    let tryHeadV (source: IStream<'a>) : Future<'a voption> =
+    let tryHeadV (source: IStream<'a>) : IComputationTmp<'a voption> =
         Future.Core.createMemo
         <| fun context ->
             match source.PollNext(context) with
@@ -498,10 +498,10 @@ module Stream =
             | StreamPoll.Next x -> Poll.Ready (ValueSome x)
         <| source.Cancel
 
-    let tryHead (source: IStream<'a>) : Future<'a option> =
+    let tryHead (source: IStream<'a>) : IComputationTmp<'a option> =
         tryHeadV source |> Future.map (function ValueSome x -> Some x | ValueNone -> None)
 
-    let head (source: IStream<'a>) : Future<'a> =
+    let head (source: IStream<'a>) : IComputationTmp<'a> =
         future {
             let! head = tryHeadV source
             match head with
@@ -509,7 +509,7 @@ module Stream =
             | ValueNone -> return invalidArg (nameof source) "The input stream was empty."
         }
 
-    let tryLastV (source: IStream<'a>) : Future<'a voption> =
+    let tryLastV (source: IStream<'a>) : IComputationTmp<'a voption> =
         let mutable last = ValueNone
         Future.Core.createMemo
         <| fun context ->
@@ -524,10 +524,10 @@ module Stream =
         <| fun () ->
             source.Cancel()
 
-    let tryLast (source: IStream<'a>) : Future<'a option> =
+    let tryLast (source: IStream<'a>) : IComputationTmp<'a option> =
         tryLastV source |> Future.map (function ValueSome x -> Some x | ValueNone -> None)
 
-    let last (source: IStream<'a>) : Future<'a> =
+    let last (source: IStream<'a>) : IComputationTmp<'a> =
         future {
             let! head = tryLastV source
             match head with
@@ -535,7 +535,7 @@ module Stream =
             | ValueNone -> return invalidArg (nameof source) "The input stream was empty."
         }
 
-    let ofFuture (fut: Future<'a>) : IStream<'a> =
+    let ofFuture (fut: IComputationTmp<'a>) : IStream<'a> =
         let mutable _fut = fut // fut == null, when completed
         Core.create
         <| fun context ->

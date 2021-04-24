@@ -62,21 +62,21 @@ module Stream =
     /// Alias to `PullStream.collect`
     val inline bind: binder: ('a -> IStream<'b>) -> source: IStream<'a> -> IStream<'b>
 
-    val iter: action: ('a -> unit) -> source: IStream<'a> -> Future<unit>
+    val iter: action: ('a -> unit) -> source: IStream<'a> -> IComputationTmp<unit>
 
-    val iterAsync: action: ('a -> Future<unit>) -> source: IStream<'a> -> Future<unit>
+    val iterAsync: action: ('a -> IComputationTmp<unit>) -> source: IStream<'a> -> IComputationTmp<unit>
 
-    val fold: folder: ('s -> 'a -> 's) -> initState: 's -> source: IStream<'a> -> Future<'s>
+    val fold: folder: ('s -> 'a -> 's) -> initState: 's -> source: IStream<'a> -> IComputationTmp<'s>
 
     val scan: folder: ('s -> 'a -> 's) -> initState: 's -> source: IStream<'a> -> IStream<'s>
 
     val chooseV: chooser: ('a -> 'b voption) -> source: IStream<'a> -> IStream<'b>
 
-    val tryPickV: chooser: ('a -> 'b voption) -> source: IStream<'a> -> Future<'b voption>
+    val tryPickV: chooser: ('a -> 'b voption) -> source: IStream<'a> -> IComputationTmp<'b voption>
 
-    val tryPick: chooser: ('a -> 'b option) -> source: IStream<'a> -> Future<'b option>
+    val tryPick: chooser: ('a -> 'b option) -> source: IStream<'a> -> IComputationTmp<'b option>
 
-    val pickV: chooser: ('a -> 'b voption) -> source: IStream<'a> -> Future<'b>
+    val pickV: chooser: ('a -> 'b voption) -> source: IStream<'a> -> IComputationTmp<'b>
 
     val join: source: IStream<IStream<'a>> -> IStream<'a>
 
@@ -84,28 +84,28 @@ module Stream =
 
     val filter: predicate: ('a -> bool) -> source: IStream<'a> -> IStream<'a>
 
-    val any: predicate: ('a -> bool) -> source: IStream<'a> -> Future<bool>
+    val any: predicate: ('a -> bool) -> source: IStream<'a> -> IComputationTmp<bool>
 
-    val all: predicate: ('a -> bool) -> source: IStream<'a> -> Future<bool>
+    val all: predicate: ('a -> bool) -> source: IStream<'a> -> IComputationTmp<bool>
 
     val zip: source1: IStream<'a> -> source2: IStream<'b> -> IStream<'a * 'b>
 
-    val tryLastV: source: IStream<'a> -> Future<'a voption>
+    val tryLastV: source: IStream<'a> -> IComputationTmp<'a voption>
 
-    val tryLast: source: IStream<'a> -> Future<'a option>
+    val tryLast: source: IStream<'a> -> IComputationTmp<'a option>
 
-    val last: source: IStream<'a> -> Future<'a>
+    val last: source: IStream<'a> -> IComputationTmp<'a>
 
-    val tryHeadV: source: IStream<'a> -> Future<'a voption>
+    val tryHeadV: source: IStream<'a> -> IComputationTmp<'a voption>
 
-    val tryHead: source: IStream<'a> -> Future<'a option>
+    val tryHead: source: IStream<'a> -> IComputationTmp<'a option>
 
-    val head: source: IStream<'a> -> Future<'a>
+    val head: source: IStream<'a> -> IComputationTmp<'a>
 
-    val ofFuture: fut: Future<'a> -> IStream<'a>
+    val ofFuture: fut: IComputationTmp<'a> -> IStream<'a>
 
     /// Alias to `ofFuture`
-    val inline singleAsync: x: Future<'a> -> IStream<'a>
+    val inline singleAsync: x: IComputationTmp<'a> -> IStream<'a>
 
     val delay: u2S: (unit -> IStream<'a>) -> IStream<'a>
 

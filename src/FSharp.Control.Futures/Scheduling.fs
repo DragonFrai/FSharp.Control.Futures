@@ -7,7 +7,7 @@ open FSharp.Control.Futures
 /// <summary> Introduces the API to the top-level future. </summary>
 /// <remarks> Can be safely canceled </remarks>
 type IJoinHandle<'a> =
-    inherit Future<'a>
+    inherit IComputation<'a>
     abstract member Join: unit -> Result<'a, exn>
 
 /// <summary> Future scheduler. </summary>
@@ -16,7 +16,7 @@ type IScheduler =
     inherit IDisposable
     /// <summary> Run Future on this scheduler </summary>
     /// <returns> Return Future waited result passed Future </returns>
-    abstract Spawn: fut: Future<'a> -> IJoinHandle<'a>
+    abstract Spawn: fut: IComputation<'a> -> IJoinHandle<'a>
 
 
 // -------------------
@@ -27,13 +27,13 @@ module private rec ThreadPoolImpl =
     let private addTaskToThreadPoolQueue (task: ThreadPoolTask<'a>) =
         ThreadPool.QueueUserWorkItem(fun _ -> do task.Run()) |> ignore
 
-    type ThreadPoolTask<'a>(future: Future<'a>) as this =
+    type ThreadPoolTask<'a>(future: IComputation<'a>) as this =
 
         let mutable isComplete = false
         let mutable isRequireWake = false // init with require to update
         let mutable isInQueue = false
 
-        let waiter: IVar<Result<'a, exn>> = IVar.create ()
+        let waiter: OnceVar<Result<'a, exn>> = OnceVar.create ()
 
         let sync = obj()
 
@@ -56,7 +56,7 @@ module private rec ThreadPoolImpl =
             if isComplete' then ()
             else
             try
-                let x = Future.Core.poll context future
+                let x = Computation.poll context future
                 match x with
                 | Poll.Ready x ->
                     waiter.Put(Ok x)
@@ -78,10 +78,10 @@ module private rec ThreadPoolImpl =
         interface IJoinHandle<'a> with
 
             member _.Join() =
-                Future.runSync waiter
+                Computation.runSync waiter
 
             member _.Poll(context) =
-                let x = Future.Core.poll context waiter
+                let x = Computation.poll context waiter
                 match x with
                 | Poll.Ready x ->
                     match x with
@@ -98,7 +98,7 @@ module private rec ThreadPoolImpl =
 
     type ThreadPoolScheduler() =
         interface IScheduler with
-            member this.Spawn(fut: Future<'a>) =
+            member this.Spawn(fut: IComputation<'a>) =
                 let task = ThreadPoolTask<'a>(fut)
                 task.InitForQueue()
                 addTaskToThreadPoolQueue task

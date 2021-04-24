@@ -9,7 +9,7 @@ type StreamBuilder() =
 
     member inline _.YieldFrom(x: IStream<'a>): IStream<'a> = x
 
-    member inline _.YieldFrom(x: Future<'a>): IStream<'a> = Stream.ofFuture x
+    member inline _.YieldFrom(x: IComputationTmp<'a>): IStream<'a> = Stream.ofFuture x
 
     member inline _.YieldFrom(xs: 'a seq): IStream<'a> = Stream.ofSeq xs
 
@@ -17,7 +17,7 @@ type StreamBuilder() =
 
     member inline _.Bind(x: IStream<'a>, f: 'a -> IStream<'b>): IStream<'b> = Stream.collect f x
 
-    member inline this.Bind(x: Future<'a>, f: 'a -> IStream<'b>): IStream<'b> = this.Bind(Stream.ofFuture x, f)
+    member inline this.Bind(x: IComputationTmp<'a>, f: 'a -> IStream<'b>): IStream<'b> = this.Bind(Stream.ofFuture x, f)
 
     member inline _.Combine(s1: IStream<'a>, u2S2: unit -> IStream<'a>): IStream<'a> = Stream.append s1 (Stream.delay u2S2)
 

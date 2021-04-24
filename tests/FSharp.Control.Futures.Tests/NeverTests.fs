@@ -5,7 +5,7 @@ open FSharp.Control.Futures
 
 
 let neverValueTest = test "Future.never future returns Pending" {
-    let fut: Future<int> = Future.never
+    let fut: IComputationTmp<int> = Future.never
 
     let expected = Poll.Pending
     let actual1 = Future.Core.poll (mockContext) fut

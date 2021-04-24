@@ -1,4 +1,4 @@
-namespace rec FSharp.Control.Futures
+namespace FSharp.Control.Futures
 
 open System.ComponentModel
 
@@ -10,6 +10,17 @@ type Poll<'a> =
 
 [<RequireQualifiedAccess>]
 module Poll =
+
+    let inline isReady x =
+        match x with
+        | Poll.Ready _ -> true
+        | Poll.Pending -> false
+
+    let inline isPending x =
+        match x with
+        | Poll.Ready _ -> false
+        | Poll.Pending -> true
+
     let inline onReady (f: 'a -> unit) (x: Poll<'a>) : unit =
         match x with
         | Poll.Ready x -> f x
@@ -38,214 +49,208 @@ type Context() =
 /// [ Poll.Pending -> ...(may be infinite)... -> Poll.Pending ] -> Poll.Ready x1 -> ... -> Poll.Ready xn
 ///  x1 == x2 == ... == xn
 [<Interface>]
-type IFuture<'a> =
+type IComputation<'a> =
     [<EditorBrowsable(EditorBrowsableState.Advanced)>]
     abstract Poll: Context -> Poll<'a>
     [<EditorBrowsable(EditorBrowsableState.Advanced)>]
     abstract Cancel: unit -> unit
 
-// I know, I know
-type Future<'a> = IFuture<'a>
-
 [<RequireQualifiedAccess>]
-module Future =
+module Computation =
 
-    [<RequireQualifiedAccess>]
-    module Core =
+    let inline cancelNullable (comp: IComputation<'a>) =
+        if isNotNull comp then comp.Cancel()
 
-        let inline cancelNullable (fut: Future<'a>) =
-            if isNotNull fut then fut.Cancel()
+    let inline cancel (comp: IComputation<'a>) =
+        comp.Cancel()
 
-        let inline cancel (fut: Future<'a>) =
-            fut.Cancel()
+    let inline create (__expand_poll: Context -> Poll<'a>) (__expand_cancel: unit -> unit) : IComputation<'a> =
+        { new IComputation<'a> with
+            member this.Poll(context) = __expand_poll context
+            member this.Cancel() = __expand_cancel () }
 
-        let inline create (__expand_poll: Context -> Poll<'a>) (__expand_cancel: unit -> unit) : Future<'a> =
-            { new Future<'a> with
-                member this.Poll(context) = __expand_poll context
-                member this.Cancel() = __expand_cancel () }
+    let inline createMemo (__expand_poll: Context -> Poll<'a>) (__expand_cancel: unit -> unit) : IComputation<'a> =
+        let mutable hasResult = false; // 0 -- pending; 1 -- with value
+        let mutable result: 'a = Unchecked.defaultof<_>
+        create
+        <| fun ctx ->
+            if hasResult then
+                Poll.Ready result
+            else
+                let p = __expand_poll ctx
+                match p with
+                | Poll.Pending -> Poll.Pending
+                | Poll.Ready x ->
+                    result <- x
+                    hasResult <- true
+                    Poll.Ready x
+        <| __expand_cancel
 
-        let inline createMemo (__expand_poll: Context -> Poll<'a>) (__expand_cancel: unit -> unit) : Future<'a> =
-            let mutable hasResult = false; // 0 -- pending; 1 -- with value
-            let mutable result: 'a = Unchecked.defaultof<_>
-            Core.create
-            <| fun ctx ->
-                if hasResult then
-                    Poll.Ready result
-                else
-                    let p = __expand_poll ctx
-                    match p with
-                    | Poll.Pending -> Poll.Pending
-                    | Poll.Ready x ->
-                        result <- x
-                        hasResult <- true
-                        Poll.Ready x
-            <| __expand_cancel
-
-        let inline poll context (fut: Future<'a>) = fut.Poll(context)
+    let inline poll context (comp: IComputation<'a>) = comp.Poll(context)
 
 
 
     let ready value =
-        Core.create
+        create
         <| fun _ -> Poll.Ready value
         <| fun () -> do ()
 
     let unit =
-        Core.create
+        create
         <| fun _ -> Poll.Ready ()
         <| fun () -> do ()
 
-    let never<'a> : Future<'a> =
-        Core.create
+    let never<'a> : IComputation<'a> =
+        create
         <| fun _ -> Poll<'a>.Pending
         <| fun () -> do ()
 
-    let lazy' (f: unit -> 'a) : Future<'a> =
-        Core.createMemo
+    let lazy' (f: unit -> 'a) : IComputation<'a> =
+        createMemo
         <| fun _ -> Poll.Ready (f ())
         <| fun () -> do ()
 
-    let bind (binder: 'a -> Future<'b>) (fut: Future<'a>) : Future<'b> =
+    let bind (binder: 'a -> IComputation<'b>) (comp: IComputation<'a>) : IComputation<'b> =
         // let binder = binder
-        let mutable _futA = fut
-        let mutable _futB = nullObj
+        let mutable _compA = comp
+        let mutable _compB = nullObj
 
-        Core.create
+        create
         <| fun context ->
-            if isNull _futB then
-                match Future.Core.poll context _futA with
+            if isNull _compB then
+                match poll context _compA with
                 | Poll.Ready x ->
-                    _futB <- binder x
+                    _compB <- binder x
                     // binder <- nullObj
-                    _futA <- nullObj
-                    Future.Core.poll context _futB
+                    _compA <- nullObj
+                    poll context _compB
                 | Poll.Pending -> Poll.Pending
             else
-                Future.Core.poll context _futB
+                poll context _compB
         <| fun () ->
-            Core.cancelNullable _futA
-            Core.cancelNullable _futB
+            cancelNullable _compA
+            cancelNullable _compB
 
-    let map (mapping: 'a -> 'b) (fut: Future<'a>) : Future<'b> =
-        let mutable _fut = fut // _fut = null, when memoized
+    let map (mapping: 'a -> 'b) (comp: IComputation<'a>) : IComputation<'b> =
+        let mutable _comp = comp // _comp = null, when memoized
         //let mutable _mapping = mapping // _mapping = null, when memoized
         let mutable _value = Unchecked.defaultof<_>
 
-        Core.create
+        create
         <| fun context ->
-            if isNull _fut then
+            if isNull _comp then
                 Poll.Ready _value
             else
-                match _fut.Poll(context) with
+                match _comp.Poll(context) with
                 | Poll.Pending -> Poll.Pending
                 | Poll.Ready x ->
                     let r = mapping x
                     _value <- r
-                    _fut <- Unchecked.defaultof<_>
+                    _comp <- Unchecked.defaultof<_>
                     Poll.Ready r
-        <| fun () -> Core.cancelNullable _fut
+        <| fun () -> cancelNullable _comp
 
-    let merge (fut1: Future<'a>) (fut2: Future<'b>) : Future<'a * 'b> =
+    let merge (comp1: IComputation<'a>) (comp2: IComputation<'b>) : IComputation<'a * 'b> =
 
         let mutable _exn = Unchecked.defaultof<_>
-        let mutable _fut1 = fut1 // if null -- has _r1
-        let mutable _fut2 = fut2 // if null -- has _r2
+        let mutable _comp1 = comp1 // if null -- has _r1
+        let mutable _comp2 = comp2 // if null -- has _r2
         let mutable _r1 = Unchecked.defaultof<_>
         let mutable _r2 = Unchecked.defaultof<_>
 
         let inline onExn exn =
             _exn <- exn
-            _fut1 <- Unchecked.defaultof<_>
-            _fut2 <- Unchecked.defaultof<_>
+            _comp1 <- Unchecked.defaultof<_>
+            _comp2 <- Unchecked.defaultof<_>
             _r1 <- Unchecked.defaultof<_>
             _r2 <- Unchecked.defaultof<_>
 
-        Core.create
+        create
         <| fun ctx ->
             if isNull _exn // if has not exception
             then
-                if isNotNull _fut1 then
+                if isNotNull _comp1 then
                     try
-                        Future.Core.poll ctx _fut1
+                        poll ctx _comp1
                         |> Poll.onReady (fun x ->
-                            _fut1 <- Unchecked.defaultof<_>
+                            _comp1 <- Unchecked.defaultof<_>
                             _r1 <- x)
                     with
                     | exn ->
-                        Core.cancelNullable _fut2
+                        cancelNullable _comp2
                         onExn exn
                         raise exn
 
-                if isNotNull _fut2 then
+                if isNotNull _comp2 then
                     try
-                        Future.Core.poll ctx _fut2
+                        poll ctx _comp2
                         |> Poll.onReady (fun x ->
-                            _fut2 <- Unchecked.defaultof<_>
+                            _comp2 <- Unchecked.defaultof<_>
                             _r2 <- x)
                     with
                     | exn ->
-                        Core.cancelNullable _fut1
+                        cancelNullable _comp1
                         onExn exn
                         raise exn
 
-                if (isNull _fut1) && (isNull _fut2)
+                if (isNull _comp1) && (isNull _comp2)
                     then Poll.Ready (_r1, _r2)
                     else Poll.Pending
             else
                 raise _exn
         <| fun () ->
-            Core.cancelNullable _fut1
-            Core.cancelNullable _fut2
+            cancelNullable _comp1
+            cancelNullable _comp2
 
-    let first (fut1: Future<'a>) (fut2: Future<'a>) : Future<'a> =
+    let first (comp1: IComputation<'a>) (comp2: IComputation<'a>) : IComputation<'a> =
 
         let mutable _exn = Unchecked.defaultof<_>
-        let mutable _fut1 = fut1 // if null -- has _r
-        let mutable _fut2 = fut2 // if null -- has _r
+        let mutable _comp1 = comp1 // if null -- has _r
+        let mutable _comp2 = comp2 // if null -- has _r
         let mutable _r = Unchecked.defaultof<_>
 
         let inline onExn exn =
             _exn <- exn
-            _fut1 <- Unchecked.defaultof<_>
-            _fut2 <- Unchecked.defaultof<_>
+            _comp1 <- Unchecked.defaultof<_>
+            _comp2 <- Unchecked.defaultof<_>
             _r <- Unchecked.defaultof<_>
 
-        Core.create
+        create
         <| fun ctx ->
             if isNull _exn // if has not exception
             then
-                if isNull _fut1
+                if isNull _comp1
                 then Poll.Ready _r
                 else
-                    let poll =
+                    let pollR =
                         try
-                            Future.Core.poll ctx _fut1
+                            poll ctx _comp1
                         with
                         | exn ->
-                            Core.cancelNullable _fut2
+                            cancelNullable _comp2
                             onExn exn
                             raise exn
-                    match poll with
+                    match pollR with
                     | Poll.Ready x ->
-                        _fut2.Cancel()
-                        _fut1 <- Unchecked.defaultof<_>
-                        _fut2 <- Unchecked.defaultof<_>
+                        _comp2.Cancel()
+                        _comp1 <- Unchecked.defaultof<_>
+                        _comp2 <- Unchecked.defaultof<_>
                         _r <- x
                         Poll.Ready x
                     | Poll.Pending ->
-                        let poll =
+                        let pollR =
                             try
-                                Future.Core.poll ctx _fut2
+                                poll ctx _comp2
                             with
                             | exn ->
-                                Core.cancelNullable _fut1
+                                cancelNullable _comp1
                                 onExn exn
                                 raise exn
-                        match poll with
+                        match pollR with
                             | Poll.Ready x ->
-                                _fut1.Cancel()
-                                _fut1 <- Unchecked.defaultof<_>
-                                _fut2 <- Unchecked.defaultof<_>
+                                _comp1.Cancel()
+                                _comp1 <- Unchecked.defaultof<_>
+                                _comp2 <- Unchecked.defaultof<_>
                                 _r <- x
                                 Poll.Ready x
                             | Poll.Pending ->
@@ -253,25 +258,25 @@ module Future =
             else
                 raise _exn
         <| fun () ->
-            Core.cancelNullable _fut1
-            Core.cancelNullable _fut2
+            cancelNullable _comp1
+            cancelNullable _comp2
 
-    let apply (f: Future<'a -> 'b>) (fut: Future<'a>) : Future<'b> =
+    let apply (f: IComputation<'a -> 'b>) (comp: IComputation<'a>) : IComputation<'b> =
         let mutable _fnFut = f // null when fn was got
-        let mutable _sourceFut = fut // null when 'a was got
+        let mutable _sourceFut = comp // null when 'a was got
         let mutable _fn = Unchecked.defaultof<_>
         let mutable _value = Unchecked.defaultof<_>
 
         // Memoize the result so as not to call Apply twice
-        Core.createMemo
+        createMemo
         <| fun context ->
             if isNotNull _fnFut then
-                Future.Core.poll context _fnFut
+                poll context _fnFut
                 |> (Poll.onReady <| fun x ->
                     _fnFut <- nullObj
                     _fn <- x)
             if isNotNull _sourceFut then
-                Future.Core.poll context _sourceFut
+                poll context _sourceFut
                 |> (Poll.onReady <| fun x ->
                     _sourceFut <- nullObj
                     _value <- x)
@@ -280,49 +285,49 @@ module Future =
             else
                 Poll.Pending
         <| fun () ->
-            Core.cancelNullable _fnFut
-            Core.cancelNullable _sourceFut
+            cancelNullable _fnFut
+            cancelNullable _sourceFut
 
-    let join (fut: Future<Future<'a>>) : Future<'a> =
+    let join (comp: IComputation<IComputation<'a>>) : IComputation<'a> =
         // _inner == null до дожидания _source
         // _inner != null после дожидания _source
-        let mutable _source = fut //
+        let mutable _source = comp //
         let mutable _inner = Unchecked.defaultof<_> //
-        Core.create
+        create
         <| fun context ->
             if isNotNull _inner then
-                Future.Core.poll context _inner
+                poll context _inner
             else
-                let sourcePoll = Future.Core.poll context _source
+                let sourcePoll = poll context _source
                 match sourcePoll with
                 | Poll.Ready inner ->
                     _inner <- inner
                     _source <- Unchecked.defaultof<_>
-                    Future.Core.poll context inner
+                    poll context inner
                 | Poll.Pending -> Poll.Pending
         <| fun () ->
-            Core.cancelNullable _source
-            Core.cancelNullable _inner
+            cancelNullable _source
+            cancelNullable _inner
 
-    let delay (creator: unit -> Future<'a>) : Future<'a> =
+    let delay (creator: unit -> IComputation<'a>) : IComputation<'a> =
         // Фьюча с задержкой её инстанцирования.
         // Когда _inner == null, то фьюча еще не инициализирована
         //
-        let mutable _inner: Future<'a> = Unchecked.defaultof<_>
-        Core.create
+        let mutable _inner: IComputation<'a> = Unchecked.defaultof<_>
+        create
         <| fun context ->
             if isNotNull _inner
-            then Core.poll context _inner
+            then poll context _inner
             else
                 let inner = creator ()
                 _inner <- inner
-                Core.poll context inner
+                poll context inner
         <| fun () ->
-            Core.cancelNullable _inner
+            cancelNullable _inner
 
     let yieldWorkflow () =
         let mutable isYielded = false
-        Future.Core.create
+        create
         <| fun context ->
             if isYielded then
                 Poll.Ready ()
@@ -332,10 +337,65 @@ module Future =
                 Poll.Pending
         <| fun () -> do ()
 
-    let ignore fut =
-        Core.create
+    let ignore comp =
+        create
         <| fun context ->
-            match Future.Core.poll context fut with
+            match poll context comp with
             | Poll.Ready _ -> Poll.Ready ()
             | Poll.Pending -> Poll.Pending
-        <| fun () -> do fut.Cancel()
+        <| fun () -> do comp.Cancel()
+
+
+[<Struct; NoComparison; NoEquality>]
+type Future<'a> =
+    { Raw: unit -> IComputation<'a> }
+    //member inline this.Raw = this.Raw
+
+[<RequireQualifiedAccess>]
+module Future =
+
+    /// <summary> Получает внутренний unit -> Computation. </summary>
+    /// <remarks> Может содержать результат Delay из билдера и вычисление, которое должно выполняться асинхронно
+    /// Эта функция не должна вызываться вне асинхронного контекста </remarks>
+    let inline raw (fut: Future<'a>) = fut.Raw
+
+    /// <summary> Создает внутренний Computation. </summary>
+    let inline runRaw (fut: Future<'a>) = fut.Raw ()
+
+    let inline create (__expand_creator: unit -> IComputation<'a>) : Future<'a> = { Future.Raw = __expand_creator }
+
+    let inline ready value =
+        create (fun () -> Computation.ready value)
+
+    let unit =
+        create (fun () -> Computation.unit)
+
+    let inline never<'a> : Future<'a> =
+        create (fun () -> Computation.never<'a>)
+
+    let inline lazy' f =
+        create (fun () -> Computation.lazy' f)
+
+    let inline bind binder fut =
+        create (fun () -> Computation.bind (binder >> runRaw) (runRaw fut) )
+
+    let inline map mapping fut =
+        create (fun () -> Computation.map mapping (runRaw fut))
+
+    let inline apply f fut =
+        create (fun () -> Computation.apply (runRaw f) (runRaw fut))
+
+    let inline merge fut1 fut2 =
+        create (fun () -> Computation.merge (runRaw fut1) (runRaw fut2))
+
+    let inline first fut1 fut2 =
+        create (fun () -> Computation.first (runRaw fut1) (runRaw fut2))
+
+    let inline join fut =
+        create (fun () -> Computation.join (runRaw (map runRaw fut)))
+
+    let yieldWorkflow = create Computation.yieldWorkflow
+
+    let inline ignore fut =
+        create (fun () -> Computation.ignore (runRaw fut))
+

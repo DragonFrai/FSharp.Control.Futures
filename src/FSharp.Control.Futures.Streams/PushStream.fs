@@ -9,13 +9,13 @@ type Notification<'a> =
     | Error of exn
 
 type IPushStreamSink<'a> =
-    abstract Push: Notification<'a> -> Future<unit>
+    abstract Push: Notification<'a> -> IComputationTmp<unit>
 
 type ISubscription =
     abstract Unsubscribe: unit -> unit
 
 type IPushStream<'a> =
-    abstract Subscribe: IPushStreamSink<'a> -> Future<ISubscription>
+    abstract Subscribe: IPushStreamSink<'a> -> IComputationTmp<ISubscription>
 
 
 module PushStream =
@@ -28,7 +28,7 @@ module PushStream =
 
     let map (mapping: 'a -> 'b) (source: IPushStream<'a>) : IPushStream<'b> = unimpl ""
 
-    let subscribe (onNext: 'a -> Future<unit>) (source: IPushStream<'a>) : Future<ISubscription> = unimpl ""
+    let subscribe (onNext: 'a -> IComputationTmp<unit>) (source: IPushStream<'a>) : IComputationTmp<ISubscription> = unimpl ""
 
     ()
 
