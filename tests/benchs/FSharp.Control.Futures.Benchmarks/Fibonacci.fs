@@ -2,6 +2,7 @@ module FSharp.Control.Futures.Benchmarks.Fibonacci
 
 open FSharp.Control.Futures
 open FSharp.Control.Futures.Scheduling
+open Hopac
 
 
 module SerialFun =
@@ -21,7 +22,7 @@ module SerialFutureBuilder =
             return x + y
     }
 
-module ParallelFutureBuilder =
+module MergeFutureBuilder =
     let rec fibMerge n = future {
         if n < 2L then
             return n
@@ -77,4 +78,27 @@ module ParallelAsync =
             and! y = fib (n - 2L)
             return x + y
     }
+
+module SerialJob =
+    let rec fib n = job {
+        if n < 2L then
+            return n
+        else
+            let! x = fib (n - 1L)
+            let! y = fib (n - 2L)
+            return x + y
+    }
+
+module SerialTask =
+    open FSharp.Control.Tasks
+    let rec fib n = task {
+        if n < 2L then
+            return n
+        else
+            let! x = fib (n - 1L)
+            let! y = fib (n - 2L)
+            return x + y
+    }
+
+
 

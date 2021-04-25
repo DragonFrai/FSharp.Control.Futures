@@ -397,23 +397,20 @@ module Computation =
         <| fun () -> do comp.Cancel()
 
 
-[<Struct; NoComparison; NoEquality>]
-type Future<'a> =
-    { Raw: unit -> IComputation<'a> }
-    //member inline this.Raw = this.Raw
+[<Interface>]
+type IFuture<'a> =
+    abstract Run: unit -> IComputation<'a>
+
+type Future<'a> = IFuture<'a>
 
 [<RequireQualifiedAccess>]
 module Future =
 
-    /// <summary> Получает внутренний unit -> Computation. </summary>
-    /// <remarks> Может содержать результат Delay из билдера и вычисление, которое должно выполняться асинхронно
-    /// Эта функция не должна вызываться вне асинхронного контекста </remarks>
-    let inline raw (fut: Future<'a>) = fut.Raw
-
     /// <summary> Создает внутренний Computation. </summary>
-    let inline runRaw (fut: Future<'a>) = fut.Raw ()
+    let inline run (fut: Future<'a>) = fut.Run()
 
-    let inline create (__expand_creator: unit -> IComputation<'a>) : Future<'a> = { Future.Raw = __expand_creator }
+    let inline create (__expand_creator: unit -> IComputation<'a>) : Future<'a> =
+        { new Future<'a> with member _.Run() = __expand_creator () }
 
     /// <summary> Create the Future with ready value</summary>
     /// <param name="value"> Poll body </param>
@@ -439,24 +436,24 @@ module Future =
     /// <summary> Creates the Future, asynchronously applies the result of the passed future to the binder </summary>
     /// <returns> Future, asynchronously applies the result of the passed future to the binder </returns>
     let inline bind binder fut =
-        create (fun () -> Computation.bind (binder >> runRaw) (runRaw fut) )
+        create (fun () -> Computation.bind (binder >> run) (run fut) )
 
     /// <summary> Creates the Future, asynchronously applies mapper to result passed Computation </summary>
     /// <returns> Future, asynchronously applies mapper to result passed Computation </returns>
     let inline map mapping fut =
-        create (fun () -> Computation.map mapping (runRaw fut))
+        create (fun () -> Computation.map mapping (run fut))
 
     /// <summary> Creates the Future, asynchronously applies 'f' function to result passed Computation </summary>
     /// <returns> Future, asynchronously applies 'f' function to result passed Computation </returns>
     let inline apply f fut =
-        create (fun () -> Computation.apply (runRaw f) (runRaw fut))
+        create (fun () -> Computation.apply (run f) (run fut))
 
     /// <summary> Creates the Future, asynchronously merging the results of passed Future </summary>
     /// <remarks> If one of the Computations threw an exception, the same exception will be thrown everywhere,
     /// and the other Future will be canceled </remarks>
     /// <returns> Future, asynchronously merging the results of passed Future </returns>
     let inline merge fut1 fut2 =
-        create (fun () -> Computation.merge (runRaw fut1) (runRaw fut2))
+        create (fun () -> Computation.merge (run fut1) (run fut2))
 
     /// <summary> Creates a Future that will return the result of
     /// the first one that pulled out the result from the passed  </summary>
@@ -464,12 +461,12 @@ module Future =
     /// and the other Future will be canceled </remarks>
     /// <returns> Future, asynchronously merging the results of passed Future </returns>
     let inline first fut1 fut2 =
-        create (fun () -> Computation.first (runRaw fut1) (runRaw fut2))
+        create (fun () -> Computation.first (run fut1) (run fut2))
 
     /// <summary> Creates the Future, asynchronously joining the result of passed Computation </summary>
     /// <returns> Future, asynchronously joining the result of passed Computation </returns>
     let inline join fut =
-        create (fun () -> Computation.join (runRaw (map runRaw fut)))
+        create (fun () -> Computation.join (run (map run fut)))
 
     /// <summary> Creates a Future that returns control flow to the scheduler once </summary>
     /// <returns> Future that returns control flow to the scheduler once </returns>
@@ -478,5 +475,5 @@ module Future =
     /// <summary> Creates a Future that ignore result of the passed Computation </summary>
     /// <returns> Future that ignore result of the passed Computation </returns>
     let inline ignore fut =
-        create (fun () -> Computation.ignore (runRaw fut))
+        create (fun () -> Computation.ignore (run fut))
 

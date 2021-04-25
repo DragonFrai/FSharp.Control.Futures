@@ -8,6 +8,7 @@ open System.Diagnostics
 
 open System.Text
 
+open System.Threading.Tasks
 open FSharp.Control.Futures
 open FSharp.Control.Futures.Scheduling
 open Hopac
@@ -23,14 +24,14 @@ module Fib =
 //        if n <= 1 then  n
 //        else fib(n-1) + fib(n-2)
 //
-//    let rec fibAsync n =
-//        if n < 0 then invalidOp "n < 0"
-//        if n <= 1 then async { return n }
-//        else async {
-//            let! a = fibAsync (n - 1)
-//            let! b = fibAsync (n - 2)
-//            return a + b
-//        }
+    let rec fibAsync n =
+        if n < 0 then invalidOp "n < 0"
+        if n <= 1 then async { return n }
+        else async {
+            let! a = fibAsync (n - 1)
+            let! b = fibAsync (n - 2)
+            return a + b
+        }
 //
 //    open FSharp.Control.Tasks
 //    let rec fibTask n =
@@ -43,14 +44,14 @@ module Fib =
 //                return a + b
 //        }
 //
-//    let rec fibJob n = job {
-//        if n < 2 then
-//            return n
-//        else
-//            let! x = fibJob (n-2)
-//            let! y = fibJob (n-1)
-//            return x + y
-//    }
+    let rec fibJob n = job {
+        if n < 2 then
+            return n
+        else
+            let! x = fibJob (n-2)
+            let! y = fibJob (n-1)
+            return x + y
+    }
 
     let rec fibFuture (n: int) : Future<int> =
         if n < 0 then invalidOp "n < 0"
@@ -133,14 +134,23 @@ module Fib =
         sw.Start()
         for i in 1..20 do fibComputation n |> Computation.runSync |> ignore
         let ms = sw.ElapsedMilliseconds
-        printfn "Total %i ms\n" ms
+        printfn "Total %i ms" ms
 
-        // Job/Future no parallel
-//        printfn "Test Future..."
-//        sw.Restart()
-//        for i in 1..20 do (fibFuture n |> Future.runSync) |> ignore
-//        let ms = sw.ElapsedMilliseconds
-//        printfn "Total %i ms\n" ms
+        // Async
+        printf "Test Async...       "
+        sw.Restart()
+        for i in 1..20 do (fibAsync n |> Async.RunSynchronously) |> ignore
+        let ms = sw.ElapsedMilliseconds
+        printfn "Total %i ms" ms
+
+        // Job
+        printf "Test Job...         "
+        sw.Restart()
+        for i in 1..20 do (fibJob n |> Hopac.run) |> ignore
+        let ms = sw.ElapsedMilliseconds
+        printfn "Total %i ms" ms
+
+        printfn ""
 //
 //        printfn "Test Job..."
 //        sw.Start()
@@ -304,28 +314,24 @@ let main argv =
     Fib.runPrimeTest 30
     Fib.runPrimeTest 30
     Fib.runPrimeTest 30
-
-    printfn "Разогрев окончен. Начало теста... \n\n"
-
     Fib.runPrimeTest 30
-    Fib.runPrimeTest 30
+//
+//    Fib.runPrimeTest 29
+//    Fib.runPrimeTest 29
+//
+//    Fib.runPrimeTest 28
+//    Fib.runPrimeTest 28
 
-    Fib.runPrimeTest 29
-    Fib.runPrimeTest 29
-
-    Fib.runPrimeTest 28
-    Fib.runPrimeTest 28
-
-    Fib.runPrimeTest 27
-    Fib.runPrimeTest 27
-
-    Fib.runPrimeTest 26
-    Fib.runPrimeTest 26
-
-    Fib.runPrimeTest 25
-    Fib.runPrimeTest 25
-
-    Fib.runPrimeTest 20
-    Fib.runPrimeTest 20
+//    Fib.runPrimeTest 27
+//    Fib.runPrimeTest 27
+//
+//    Fib.runPrimeTest 26
+//    Fib.runPrimeTest 26
+//
+//    Fib.runPrimeTest 25
+//    Fib.runPrimeTest 25
+//
+//    Fib.runPrimeTest 20
+//    Fib.runPrimeTest 20
 
     0 // return an integer exit code

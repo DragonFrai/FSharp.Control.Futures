@@ -85,30 +85,30 @@ type FutureBuilder() =
         Future.create (fun () -> computation.Return(x))
 
     member inline _.Bind(x, f) =
-        Future.create (fun () -> computation.Bind(Future.runRaw x, f >> Future.runRaw))
+        Future.create (fun () -> computation.Bind(Future.run x, f >> Future.run))
 
     member inline _.Zero() = Future.unit
 
     member inline _.ReturnFrom(f: Future<'a>): Future<'a> = f
 
     member inline this.Combine(uf: Future<unit>, u2f: unit -> Future<_>) =
-        Future.create (fun () -> computation.Combine(Future.runRaw uf, u2f >> Future.runRaw))
+        Future.create (fun () -> computation.Combine(Future.run uf, u2f >> Future.run))
 
     member inline _.MergeSources(x1, x2) =
-        Future.create (fun () -> computation.MergeSources(Future.runRaw x1, Future.runRaw x2))
+        Future.create (fun () -> computation.MergeSources(Future.run x1, Future.run x2))
 
     member inline _.Delay(f: unit -> Future<'a>) = f
 
-    member inline _.For(source, body) = Future.create (fun () -> computation.For(source, body >> Future.runRaw))
+    member inline _.For(source, body) = Future.create (fun () -> computation.For(source, body >> Future.run))
 
     member inline this.While(cond: unit -> bool, body: unit -> Future<unit>): Future<unit> =
         let whileSeq = seq { while cond () do yield () }
         this.For(whileSeq, body)
 
     member inline _.TryWith(body, handler): Future<'a> =
-        Future.create (fun () -> computation.TryWith(body >> Future.runRaw, handler >> Future.runRaw))
+        Future.create (fun () -> computation.TryWith(body >> Future.run, handler >> Future.run))
 
-    member inline _.Run(u2f): Future<'a> = Future.create (u2f >> Future.runRaw)
+    member inline _.Run(u2f): Future<'a> = Future.create (u2f >> Future.run)
 
 [<AutoOpen>]
 module FutureBuilderImpl =
