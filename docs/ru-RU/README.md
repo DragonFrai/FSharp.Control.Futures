@@ -31,6 +31,7 @@ Futures это экспериментальная F# библиотека аси
 | IStreamer<'a>    | -                               | -             |
 | Stream<'a>       | +<sup name="a1">[1](#f1)</sup>  | +             |
 
-<b id="f1"><sup>1</sup></b> если замыкание внутри Thread-safe
+----
+<a name="f1">1</a>: если замыкание внутри Thread-safe
 
 
