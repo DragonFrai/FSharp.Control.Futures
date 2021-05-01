@@ -59,7 +59,7 @@ module OnceVarImpl =
                 | HasValue value -> ValueSome value
                 | Empty | Waiting _ | Cancelled | CancelledWithValue -> ValueNone
 
-        interface IComputation<'a> with
+        interface IAsyncComputation<'a> with
 
             member _.Poll(context) =
                 lock syncObj <| fun () ->
@@ -94,7 +94,7 @@ module OnceVarImpl =
         /// <summary> Returns the future pending value. </summary>
         /// <remarks> IVar itself is a future, therefore
         /// it is impossible to expect or launch this future in two places at once. </remarks>
-        let inline read (ovar: OnceVar<_>) = ovar :> IComputation<_>
+        let inline read (ovar: OnceVar<_>) = ovar :> IAsyncComputation<_>
 
         /// Immediately gets the current IVar value and returns Some x if set
         let inline tryRead (ovar: OnceVar<_>) = ovar.TryRead()
@@ -125,7 +125,7 @@ type IVar<'a>() =
     let future =
         let inline comp () =
             let mutable _myCtx: LinkedListNode<Context> = Unchecked.defaultof<_>
-            Computation.create
+            AsyncComputation.create
             <| fun ctx ->
                 lock syncObj <| fun () ->
                     match _value with

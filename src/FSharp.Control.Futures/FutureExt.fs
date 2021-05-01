@@ -14,20 +14,20 @@ exception FutureCancelledException
 
 
 [<RequireQualifiedAccess>]
-module Computation =
+module AsyncComputation =
 
-    let catch (source: IComputation<'a>) : IComputation<Result<'a, exn>> =
+    let catch (source: IAsyncComputation<'a>) : IAsyncComputation<Result<'a, exn>> =
         let mutable _source = source
         let mutable _result = Poll.Pending
-        Computation.create
+        AsyncComputation.create
         <| fun context ->
             if Poll.isPending _result then
                 try
-                    Computation.poll context _source |> Poll.onReady ^fun x -> _result <- Poll.Ready (Ok x)
+                    AsyncComputation.poll context _source |> Poll.onReady ^fun x -> _result <- Poll.Ready (Ok x)
                 with
                 | e -> _result <- Poll.Ready (Error e)
             _result
-        <| fun () -> Computation.cancelNullable _source
+        <| fun () -> AsyncComputation.cancelNullable _source
 
     let sleep (dueTime: TimeSpan) =
         let mutable _timer: Timer = Unchecked.defaultof<_>
@@ -43,7 +43,7 @@ module Computation =
         let inline createTimer context =
             new Timer(onWake context, null, dueTime, Timeout.InfiniteTimeSpan)
 
-        Computation.create
+        AsyncComputation.create
         <| fun context ->
             if _timeOut then Poll.Ready ()
             else
@@ -61,7 +61,7 @@ module Computation =
     /// The simplest implementation of the Future scheduler.
     /// Equivalent to `(Scheduler.spawnOn anyScheduler).Join()`,
     /// but without the cost of complex general purpose scheduler synchronization
-    let runSync (f: IComputation<'a>) : 'a =
+    let runSync (f: IAsyncComputation<'a>) : 'a =
         // The simplest implementation of the Future scheduler.
         // Based on a polling cycle (polling -> waiting for awakening -> awakening -> polling -> ...)
         // until the point with the result is reached
@@ -74,9 +74,9 @@ module Computation =
             | Poll.Ready x -> x
             | Poll.Pending ->
                 wh.WaitOne() |> ignore
-                wait (Computation.poll ctx f)
+                wait (AsyncComputation.poll ctx f)
 
-        wait (Computation.poll ctx f)
+        wait (AsyncComputation.poll ctx f)
 
     [<RequireQualifiedAccess>]
     module Seq =
@@ -85,24 +85,24 @@ module Computation =
         /// <remarks> The generated future does not substitute implicit breakpoints,
         /// so on long iterations you should use <code>iterAsync</code> and <code>yieldWorkflow</code> </remarks>
         let iter (seq: 'a seq) (body: 'a -> unit) =
-            Computation.lazy' (fun () -> for x in seq do body x)
+            AsyncComputation.lazy' (fun () -> for x in seq do body x)
 
         /// <summary> Creates a future async iterated over a sequence </summary>
         /// <remarks> The generated future does not substitute implicit breakpoints,
         /// so on long iterations you should use <code>yieldWorkflow</code> </remarks>
-        let iterAsync (source: 'a seq) (body: 'a -> IComputation<unit>) =
+        let iterAsync (source: 'a seq) (body: 'a -> IAsyncComputation<unit>) =
             let enumerator = source.GetEnumerator()
-            let mutable _currentAwaited: IComputation<unit> voption = ValueNone
+            let mutable _currentAwaited: IAsyncComputation<unit> voption = ValueNone
             let mutable _isCancelled = false
 
             // Iterate enumerator until binded future return Ready () on poll
             // return ValueNone if enumeration was completed
             // else return ValueSome x, when x is Future<unit>
-            let rec moveUntilReady (enumerator: IEnumerator<'a>) (binder: 'a -> IComputation<unit>) (context: Context) : IComputation<unit> voption =
+            let rec moveUntilReady (enumerator: IEnumerator<'a>) (binder: 'a -> IAsyncComputation<unit>) (context: Context) : IAsyncComputation<unit> voption =
                 if enumerator.MoveNext()
                 then
                     let waiter = body enumerator.Current
-                    match Computation.poll context waiter with
+                    match AsyncComputation.poll context waiter with
                     | Poll.Ready () -> moveUntilReady enumerator binder context
                     | Poll.Pending -> ValueSome waiter
                 else
@@ -123,16 +123,16 @@ module Computation =
                         pollInner context
                     | Poll.Pending -> Poll.Pending
 
-            Computation.create pollInner (fun () -> _isCancelled <- true)
+            AsyncComputation.create pollInner (fun () -> _isCancelled <- true)
 
 
 module Future =
 
     let inline catch (source: Future<'a>) : Future<Result<'a, exn>> =
-        Future.create (fun () -> Computation.catch (Future.run source))
+        Future.create (fun () -> AsyncComputation.catch (Future.run source))
 
     let inline sleep (dueTime: TimeSpan) =
-        Future.create (fun () -> Computation.sleep dueTime)
+        Future.create (fun () -> AsyncComputation.sleep dueTime)
 
     let inline sleepMs (milliseconds: int) =
         let dueTime = TimeSpan.FromMilliseconds(float milliseconds)
@@ -145,7 +145,7 @@ module Future =
     let runSync (fut: Future<'a>) : 'a =
         // Here you can directly call the Raw representation of the Future,
         // since the current thread already represents the computation context
-        Computation.runSync (Future.run fut)
+        AsyncComputation.runSync (Future.run fut)
 
     [<RequireQualifiedAccess>]
     module Seq =
@@ -154,12 +154,12 @@ module Future =
         /// <remarks> The generated future does not substitute implicit breakpoints,
         /// so on long iterations you should use <code>iterAsync</code> and <code>yieldWorkflow</code> </remarks>
         let inline iter (seq: 'a seq) (body: 'a -> unit) =
-            Future.create (fun () -> Computation.Seq.iter seq body)
+            Future.create (fun () -> AsyncComputation.Seq.iter seq body)
 
         /// <summary> Creates a future async iterated over a sequence </summary>
         /// <remarks> The generated future does not substitute implicit breakpoints,
         /// so on long iterations you should use <code>yieldWorkflow</code> </remarks>
         let inline iterAsync (source: 'a seq) (body: 'a -> Future<unit>) =
-            Future.create (fun () -> Computation.Seq.iterAsync source (body >> Future.run))
+            Future.create (fun () -> AsyncComputation.Seq.iterAsync source (body >> Future.run))
 
 

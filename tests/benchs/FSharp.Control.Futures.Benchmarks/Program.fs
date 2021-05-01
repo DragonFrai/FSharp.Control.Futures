@@ -4,6 +4,7 @@ open System
 
 open System.Threading.Tasks
 open BenchmarkDotNet.Attributes
+open BenchmarkDotNet.Attributes
 open BenchmarkDotNet.Running
 
 open FSharp.Control.Futures
@@ -12,12 +13,18 @@ open FSharp.Control.Futures.Benchmarks.Fibonacci
 open FSharp.Control.Futures.Scheduling
 
 
+[<HtmlExporter>]
+[<CsvExporter>]
+[<CsvMeasurementsExporter>]
+[<PlainExporter>]
+[<RPlotExporter>]
+[<MarkdownExporterAttribute.GitHub>]
 type FibonacciBenchmark() =
 
     member _.Arguments() =
         seq {
-            yield! seq { 0 .. 1 .. 5 }
-            yield! seq { 10 .. 5 .. 25 }
+            yield 0
+            yield! seq { 5 .. 5 .. 15 }
         }
 
     [<Benchmark>]
@@ -27,12 +34,12 @@ type FibonacciBenchmark() =
 
     [<Benchmark>]
     [<ArgumentsSource("Arguments")>]
-    member _.SerialFutureBuilder(n) =
+    member _.SerialFuture(n) =
         SerialFutureBuilder.fib n |> Future.runSync
 
     [<Benchmark>]
     [<ArgumentsSource("Arguments")>]
-    member _.MergeFutureBuilder(n) =
+    member _.MergeFuture(n) =
         MergeFutureBuilder.fibMerge n |> Future.runSync
 
     [<Benchmark>]
@@ -40,14 +47,15 @@ type FibonacciBenchmark() =
     member _.SerialAsync(n) =
         SerialAsync.fib n |> Async.RunSynchronously
 
-    [<Benchmark>]
-    [<ArgumentsSource("Arguments")>]
-    member _.ParallelAsync(n) =
-        ParallelAsync.fib n |> Async.RunSynchronously
+//    [<Benchmark>]
+//    [<ArgumentsSource("Arguments")>]
+//    member _.ParallelAsync(n) =
+//        ParallelAsync.fib n |> Async.RunSynchronously
 
     [<Benchmark>]
     [<ArgumentsSource("Arguments")>]
-    member _.SerialJobBuilder(n) =
+    [<GcServer>]
+    member _.SerialJob(n) =
         SerialJob.fib n |> Hopac.Hopac.run
 
     [<Benchmark>]

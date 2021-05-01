@@ -4,15 +4,13 @@ module FSharp.Control.Futures.Transforms
 open System
 open System.Threading
 open FSharp.Control.Futures
-open FSharp.Control.Futures.Scheduling
-open FSharp.Control.Futures.Sync
 
 
 [<AutoOpen>]
 module FutureAsyncTransforms =
 
     [<RequireQualifiedAccess>]
-    module Computation =
+    module AsyncComputation =
 
         [<RequireQualifiedAccess>]
         type AsyncResult<'a> =
@@ -21,10 +19,10 @@ module FutureAsyncTransforms =
             | Errored of exn
             | Cancelled of OperationCanceledException
 
-        let ofAsync (x: Async<'a>) : IComputation<'a> =
+        let ofAsync (x: Async<'a>) : IAsyncComputation<'a> =
             let mutable result = AsyncResult.Pending
             let mutable started = false
-            Computation.create
+            AsyncComputation.create
             <| fun context ->
                 if not started then
                     started <- true
@@ -43,14 +41,14 @@ module FutureAsyncTransforms =
                 // todo: impl
                 do ()
 
-        let toAsync (fut: IComputation<'a>) : Async<'a> =
+        let toAsync (fut: IAsyncComputation<'a>) : Async<'a> =
             // TODO: notify Async based awaiter about Future cancellation
 
             let wh = new EventWaitHandle(false, EventResetMode.AutoReset)
             let ctx = { new Context() with member _.Wake() = wh.Set() |> ignore }
 
             let rec wait () =
-                let current = Computation.poll ctx fut
+                let current = AsyncComputation.poll ctx fut
                 match current with
                 | Poll.Ready x -> async { return x }
                 | Poll.Pending -> async {
@@ -67,12 +65,12 @@ module FutureAsyncTransforms =
 module FutureTaskTransforms =
 
     [<RequireQualifiedAccess>]
-    module Computation =
+    module AsyncComputation =
 
         open System.Threading.Tasks
 
 
-        let ofTask (task: Task<'a>) : IComputation<'a> =
+        let ofTask (task: Task<'a>) : IAsyncComputation<'a> =
             let ivar = OnceVar.create ()
 
             task.ContinueWith(fun (task: Task<'a>) ->
@@ -84,9 +82,9 @@ module FutureTaskTransforms =
                 OnceVar.write taskResult ivar
             ) |> ignore
 
-            Computation.create
+            AsyncComputation.create
             <| fun context ->
-                let pollResult = Computation.poll context ivar
+                let pollResult = AsyncComputation.poll context ivar
                 match pollResult with
                 | Poll.Ready result ->
                     match result with
@@ -95,18 +93,18 @@ module FutureTaskTransforms =
                 | Poll.Pending -> Poll.Pending
             <| fun () ->
                 // TODO
-                (ivar :> IComputation<_>).Cancel()
+                (ivar :> IAsyncComputation<_>).Cancel()
 
         // TODO: Implement without blocking
-        let toTask (x: IComputation<'a>) : Task<'a> =
+        let toTask (x: IAsyncComputation<'a>) : Task<'a> =
             Task<'a>.Factory.StartNew(
                 fun () ->
-                    x |> Computation.runSync
+                    x |> AsyncComputation.runSync
             )
 
         // TODO: Implement without blocking
-        let toTaskOn (scheduler: TaskScheduler) (x: IComputation<'a>) : Task<'a> =
+        let toTaskOn (scheduler: TaskScheduler) (x: IAsyncComputation<'a>) : Task<'a> =
             TaskFactory<'a>(scheduler).StartNew(
                 fun () ->
-                    x |> Computation.runSync
+                    x |> AsyncComputation.runSync
             )

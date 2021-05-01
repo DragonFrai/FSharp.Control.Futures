@@ -63,7 +63,7 @@ module Fib =
                 return a + b
         }
 
-    let rec fibComputation (n: int) : IComputation<int> =
+    let rec fibComputation (n: int) : IAsyncComputation<int> =
         if n < 0 then invalidOp "n < 0"
         computation {
             if n <= 1 then return n
@@ -132,7 +132,7 @@ module Fib =
 
         printf "Test Computation... "
         sw.Start()
-        for i in 1..20 do fibComputation n |> Computation.runSync |> ignore
+        for i in 1..20 do fibComputation n |> AsyncComputation.runSync |> ignore
         let ms = sw.ElapsedMilliseconds
         printfn "Total %i ms" ms
 

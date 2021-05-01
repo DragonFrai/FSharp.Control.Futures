@@ -15,9 +15,9 @@ module private Internal =
         | Handler of handler: 'handler
         | Cancelled
 
-    let inline tryWith (body: unit -> IComputation<'a>) (handler: exn -> IComputation<'a>) : IComputation<'a> =
+    let inline tryWith (body: unit -> IAsyncComputation<'a>) (handler: exn -> IAsyncComputation<'a>) : IAsyncComputation<'a> =
         let mutable _current = TryWithState.Empty
-        Computation.create
+        AsyncComputation.create
         <| fun ctx ->
             let rec pollCurrent () =
                 match _current with
@@ -26,12 +26,12 @@ module private Internal =
                     pollCurrent ()
                 | TryWithState.Body body ->
                     try
-                        Computation.poll ctx body
+                        AsyncComputation.poll ctx body
                     with exn ->
                         _current <- TryWithState.Handler (handler exn)
                         pollCurrent ()
                 | TryWithState.Handler handler ->
-                    Computation.poll ctx handler
+                    AsyncComputation.poll ctx handler
                 | TryWithState.Cancelled -> raise FutureCancelledException
             pollCurrent ()
         <| fun () ->
@@ -40,43 +40,43 @@ module private Internal =
                 _current <- TryWithState.Cancelled
             | TryWithState.Body body ->
                 _current <- TryWithState.Cancelled
-                Computation.cancelNullable body
+                AsyncComputation.cancelNullable body
             | TryWithState.Handler handler ->
                 _current <- TryWithState.Cancelled
-                Computation.cancelNullable handler
+                AsyncComputation.cancelNullable handler
             | TryWithState.Cancelled -> do ()
 
-type ComputationBuilder() =
+type AsyncComputationBuilder() =
 
-    member inline _.Return(x): IComputation<'a> = Computation.ready x
+    member inline _.Return(x): IAsyncComputation<'a> = AsyncComputation.ready x
 
-    member inline _.Bind(x, f) = Computation.bind f x
+    member inline _.Bind(x: IAsyncComputation<'a>, f: 'a -> IAsyncComputation<'b>) = AsyncComputation.bind f x
 
-    member inline _.Zero(): IComputation<unit> = Computation.unit
+    member inline _.Zero(): IAsyncComputation<unit> = AsyncComputation.unit
 
-    member inline _.ReturnFrom(f: IComputation<'a>): IComputation<'a> = f
+    member inline _.ReturnFrom(f: IAsyncComputation<'a>): IAsyncComputation<'a> = f
 
-    member inline this.Combine(uf: IComputation<unit>, u2f: unit -> IComputation<_>) = this.Bind(uf, u2f)
+    member inline this.Combine(uf: IAsyncComputation<unit>, u2f: unit -> IAsyncComputation<_>) = this.Bind(uf, u2f)
 
-    member inline _.MergeSources(x1, x2) = Computation.merge x1 x2
+    member inline _.MergeSources(x1, x2) = AsyncComputation.merge x1 x2
 
-    member inline _.Delay(f: unit -> IComputation<'a>) = f
+    member inline _.Delay(f: unit -> IAsyncComputation<'a>) = f
 
-    member inline _.For(source, body) = Computation.Seq.iterAsync source body
+    member inline _.For(source, body) = AsyncComputation.Seq.iterAsync source body
 
-    member inline this.While(cond: unit -> bool, body: unit -> IComputation<unit>): IComputation<unit> =
+    member inline this.While(cond: unit -> bool, body: unit -> IAsyncComputation<unit>): IAsyncComputation<unit> =
         let whileSeq = seq { while cond () do yield () }
         this.For(whileSeq, body)
 
-    member _.TryWith(body, handler): IComputation<'a> =
+    member _.TryWith(body, handler): IAsyncComputation<'a> =
         Internal.tryWith body handler
 
-    member inline _.Run(u2f): IComputation<'a> = Computation.delay u2f
+    member inline _.Run(u2f): IAsyncComputation<'a> = AsyncComputation.delay u2f
 
 
 [<AutoOpen>]
 module ComputationBuilderImpl =
-    let computation = ComputationBuilder()
+    let computation = AsyncComputationBuilder()
 
 
 type FutureBuilder() =

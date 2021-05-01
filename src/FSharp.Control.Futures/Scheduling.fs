@@ -7,7 +7,7 @@ open FSharp.Control.Futures
 /// <summary> Introduces the API to the top-level future. </summary>
 /// <remarks> Can be safely canceled </remarks>
 type IJoinHandle<'a> =
-    inherit IComputation<'a>
+    inherit IAsyncComputation<'a>
     abstract member Join: unit -> Result<'a, exn>
 
 /// <summary> Future scheduler. </summary>
@@ -16,7 +16,7 @@ type IScheduler =
     inherit IDisposable
     /// <summary> Run Future on this scheduler </summary>
     /// <returns> Return Future waited result passed Future </returns>
-    abstract Spawn: fut: IComputation<'a> -> IJoinHandle<'a>
+    abstract Spawn: fut: IAsyncComputation<'a> -> IJoinHandle<'a>
 
 
 // -------------------
@@ -27,7 +27,7 @@ module private rec ThreadPoolImpl =
     let private addTaskToThreadPoolQueue (task: ThreadPoolTask<'a>) =
         ThreadPool.QueueUserWorkItem(fun _ -> do task.Run()) |> ignore
 
-    type ThreadPoolTask<'a>(future: IComputation<'a>) as this =
+    type ThreadPoolTask<'a>(future: IAsyncComputation<'a>) as this =
 
         let mutable isComplete = false
         let mutable isRequireWake = false // init with require to update
@@ -56,7 +56,7 @@ module private rec ThreadPoolImpl =
             if isComplete' then ()
             else
             try
-                let x = Computation.poll context future
+                let x = AsyncComputation.poll context future
                 match x with
                 | Poll.Ready x ->
                     waiter.Put(Ok x)
@@ -78,10 +78,10 @@ module private rec ThreadPoolImpl =
         interface IJoinHandle<'a> with
 
             member _.Join() =
-                Computation.runSync waiter
+                AsyncComputation.runSync waiter
 
             member _.Poll(context) =
-                let x = Computation.poll context waiter
+                let x = AsyncComputation.poll context waiter
                 match x with
                 | Poll.Ready x ->
                     match x with
@@ -98,7 +98,7 @@ module private rec ThreadPoolImpl =
 
     type ThreadPoolScheduler() =
         interface IScheduler with
-            member this.Spawn(fut: IComputation<'a>) =
+            member this.Spawn(fut: IAsyncComputation<'a>) =
                 let task = ThreadPoolTask<'a>(fut)
                 task.InitForQueue()
                 addTaskToThreadPoolQueue task
