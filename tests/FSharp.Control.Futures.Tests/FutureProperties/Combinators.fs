@@ -21,7 +21,7 @@ module Gen =
             }
             Arb.fromGen genFunctorInt2String
 
-    type FutureIntProvider = FutureIntProvider of (unit -> IComputationTmp<int>)
+    type FutureIntProvider = FutureIntProvider of (unit -> Future<int>)
     type FutureIntGen() =
         static member FutureInt() =
             let genFutureInt: Gen<FutureIntProvider> = gen {
@@ -46,7 +46,7 @@ module Gen =
 
 module Expect =
     module Future =
-        let equal (actual: IComputationTmp<'a>) (expected: IComputationTmp<'a>) (message: string) : unit =
+        let equal (actual: Future<'a>) (expected: Future<'a>) (message: string) : unit =
             let actualResult = Future.runSync actual
             let expectedResult = Future.runSync expected
             Expect.equal actualResult expectedResult message
@@ -75,9 +75,9 @@ module HaskellNaming =
 [<Tests>]
 let properties = testList "Combinator properties" [
 
-    testProp "fmap f = bind (return . f)" <| fun (Gen.FutureIntProvider (futf: unit -> IComputationTmp<int>)) (Gen.FunctorInt2String (mapping: int -> string)) ->
-        let rFut1: IComputationTmp<string> = Future.bind (mapping >> Future.ready) (futf ())
-        let rFut2: IComputationTmp<string> = Future.map mapping (futf ())
+    testProp "fmap f = bind (return . f)" <| fun (Gen.FutureIntProvider (futf: unit -> Future<int>)) (Gen.FunctorInt2String (mapping: int -> string)) ->
+        let rFut1: Future<string> = Future.bind (mapping >> Future.ready) (futf ())
+        let rFut2: Future<string> = Future.map mapping (futf ())
         futureEquals rFut1 rFut2
 
     testProp "Homomorphism: pure f <*> pure x = pure (f x)" <| fun (x: int) (Gen.FunctorInt2String (f: int -> string)) ->
@@ -85,7 +85,7 @@ let properties = testList "Combinator properties" [
         let r2 = pure' (f x)
         futureEquals r1 r2
 
-    testProp "fmap f x = pure f <*> x" <| fun (Gen.FutureIntProvider (f'x: unit -> IComputationTmp<int>)) (Gen.FunctorInt2String (f: int -> string)) ->
+    testProp "fmap f x = pure f <*> x" <| fun (Gen.FutureIntProvider (f'x: unit -> Future<int>)) (Gen.FunctorInt2String (f: int -> string)) ->
         let x1, x2 = f'x (), f'x ()
         let r1 = fmap f x1
         let r2 = pure' f <*> x2

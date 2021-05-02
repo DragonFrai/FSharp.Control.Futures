@@ -4,7 +4,7 @@ module Utils
 open System.Collections.Generic
 open System.Runtime.CompilerServices
 
-let inline ( ^ ) f x = f x
+let inline internal ( ^ ) f x = f x
 
 let inline nullObj<'a when 'a : not struct> = Unchecked.defaultof<'a>
 let inline isNull<'a when 'a : not struct> (x: 'a) = obj.ReferenceEquals(x, null)

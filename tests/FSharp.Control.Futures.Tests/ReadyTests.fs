@@ -4,23 +4,23 @@ open Expecto
 open FSharp.Control.Futures
 
 
-let readyValueTest = test "Future.ready future returns passed arg" {
+let readyValueTest = test "AsyncComputation.ready future returns passed arg" {
     let x = 12
-    let fut = Future.ready x
+    let fut = AsyncComputation.ready x
 
     let expected = Poll.Ready x
-    let actual1 = Future.Core.poll (mockContext) fut
-    let actual2 = Future.Core.poll (mockContext) fut
+    let actual1 = AsyncComputation.poll (mockContext) fut
+    let actual2 = AsyncComputation.poll (mockContext) fut
 
-    Expect.equal actual1 expected "Future.ready return not passed arg or Pending on first poll"
-    Expect.equal actual2 expected "Future.ready return not passed arg or Pending on second poll"
+    Expect.equal actual1 expected "AsyncComputation.ready return not passed arg or Pending on first poll"
+    Expect.equal actual2 expected "AsyncComputation.ready return not passed arg or Pending on second poll"
 }
 
-let readyWakerTest = test "Future.ready future doesn't call waker" {
-    let fut = Future.ready ()
+let readyWakerTest = test "AsyncComputation.ready future doesn't call waker" {
+    let fut = AsyncComputation.ready ()
 
-    let _ = Future.Core.poll (mockContextWithWake (fun () -> Expect.isTrue false "Future.ready shouldn't call waker on first poll")) fut
-    let _ = Future.Core.poll (mockContextWithWake (fun () -> Expect.isTrue false "Future.ready shouldn't call waker on second poll")) fut
+    let _ = AsyncComputation.poll (mockContextWithWake (fun () -> Expect.isTrue false "AsyncComputation.ready shouldn't call waker on first poll")) fut
+    let _ = AsyncComputation.poll (mockContextWithWake (fun () -> Expect.isTrue false "AsyncComputation.ready shouldn't call waker on second poll")) fut
     ()
 }
 

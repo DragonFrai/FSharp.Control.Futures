@@ -80,6 +80,6 @@ type StreamBuilder() =
 
 [<AutoOpen>]
 module StreamBuilderImpl =
-    let streamer = StreamBuilder()
+    let stream = StreamBuilder()
 
 

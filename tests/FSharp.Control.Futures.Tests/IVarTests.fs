@@ -9,7 +9,7 @@ let ivarPut = test "IVar put and await sync" {
     let ivar = IVar<int>()
 
     ivar.Put(12)
-    let x = ivar |> Future.runSync
+    let x = ivar |> IVar.read |> Future.runSync
 
     Expect.equal x 12 "IVar return illegal value"
     ()

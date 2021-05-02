@@ -4,22 +4,22 @@ open Expecto
 open FSharp.Control.Futures
 
 
-let neverValueTest = test "Future.never future returns Pending" {
-    let fut: IComputationTmp<int> = Future.never
+let neverValueTest = test "AsyncComputation.never future returns Pending" {
+    let fut: IAsyncComputation<int> = AsyncComputation.never
 
     let expected = Poll.Pending
-    let actual1 = Future.Core.poll (mockContext) fut
-    let actual2 = Future.Core.poll (mockContext) fut
+    let actual1 = AsyncComputation.poll (mockContext) fut
+    let actual2 = AsyncComputation.poll (mockContext) fut
 
-    Expect.equal actual1 expected "Future.never return Ready on first poll"
-    Expect.equal actual2 expected "Future.ready return Ready on second poll"
+    Expect.equal actual1 expected "AsyncComputation.never return Ready on first poll"
+    Expect.equal actual2 expected "AsyncComputation.ready return Ready on second poll"
 }
 
-let neverWakerTest = test "Future.never future doesn't call waker" {
-    let fut = Future.ready ()
+let neverWakerTest = test "AsyncComputation.never future doesn't call waker" {
+    let fut = AsyncComputation.ready ()
 
-    let _ = Future.Core.poll (mockContextWithWake (fun () -> Expect.isTrue false "Future.never shouldn't call waker on first poll")) fut
-    let _ = Future.Core.poll (mockContextWithWake (fun () -> Expect.isTrue false "Future.never shouldn't call waker on second poll")) fut
+    let _ = AsyncComputation.poll (mockContextWithWake (fun () -> Expect.isTrue false "AsyncComputation.never shouldn't call waker on first poll")) fut
+    let _ = AsyncComputation.poll (mockContextWithWake (fun () -> Expect.isTrue false "AsyncComputation.never shouldn't call waker on second poll")) fut
     ()
 }
 
