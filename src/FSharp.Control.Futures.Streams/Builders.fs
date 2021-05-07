@@ -59,7 +59,7 @@ type StreamBuilder() =
     member inline this.Bind(x: Future<'a>, f: 'a -> Stream<'b>): Stream<'b> = this.Bind(Stream.singleAsync x, f)
 
     member inline _.Combine(s1: Stream<'a>, u2s: unit -> Stream<'a>): Stream<'a> =
-        Stream.append s1 (Stream.create (u2s >> Stream.run))
+        Stream.append s1 (Stream.create (u2s >> Stream.runStreaming))
 
     member inline this.Combine(uS: Stream<unit>, u2s: unit -> Stream<'a>): Stream<'a> = this.Bind(uS, u2s)
 
@@ -67,7 +67,7 @@ type StreamBuilder() =
 
     member inline _.MergeSources(s1: Stream<'a>, s2: Stream<'b>): Stream<'a * 'b> = Stream.zip s1 s2
 
-    member inline _.Run(u2s: unit -> Stream<'a>): Stream<'a> = Stream.create (u2s >> Stream.run)
+    member inline _.Run(u2s: unit -> Stream<'a>): Stream<'a> = Stream.create (u2s >> Stream.runStreaming)
 
     member inline _.For(source: Stream<'a>, body: 'a -> Stream<unit>) : Stream<unit> = Stream.collect body source
 

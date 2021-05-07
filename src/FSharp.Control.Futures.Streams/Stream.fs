@@ -594,17 +594,17 @@ module AsyncStreamer =
 
 [<Interface>]
 type IStream<'a> =
-    abstract Run: unit -> IAsyncStreamer<'a>
+    abstract RunStreaming: unit -> IAsyncStreamer<'a>
 
 type Stream<'a> = IStream<'a>
 
 module Stream =
 
     let inline create (__expand_f: unit -> IAsyncStreamer<'a>) =
-        { new IStream<'a> with member _.Run() = __expand_f () }
+        { new IStream<'a> with member _.RunStreaming() = __expand_f () }
 
-    let inline run (s: Stream<'a>) =
-        s.Run()
+    let inline runStreaming (s: Stream<'a>) =
+        s.RunStreaming()
 
     // ---------
     // Creation
@@ -640,79 +640,79 @@ module Stream =
     // -----------
 
     let inline map (mapper: 'a -> 'b) (source: Stream<'a>) : Stream<'b> =
-        create (fun () -> AsyncStreamer.map mapper (run source))
+        create (fun () -> AsyncStreamer.map mapper (runStreaming source))
 
     let inline collect (collector: 'a -> Stream<'b>) (source: Stream<'a>) : Stream<'b> =
-        create (fun () -> AsyncStreamer.collect (collector >> run) (run source))
+        create (fun () -> AsyncStreamer.collect (collector >> runStreaming) (runStreaming source))
 
     /// Alias to `Stream.collect`
     let inline bind binder source = collect binder source
 
     let inline iter (action: 'a -> unit) (source: Stream<'a>) : Future<unit> =
-        Future.create (fun () -> AsyncStreamer.iter action (run source))
+        Future.create (fun () -> AsyncStreamer.iter action (runStreaming source))
 
     let inline iterAsync (action: 'a -> Future<unit>) (source: Stream<'a>) : Future<unit> =
-        Future.create (fun () -> AsyncStreamer.iterAsync (action >> Future.run) (run source))
+        Future.create (fun () -> AsyncStreamer.iterAsync (action >> Future.runComputation) (runStreaming source))
 
     let inline fold (folder: 's -> 'a -> 's) (initState: 's) (source: Stream<'a>): Future<'s> =
-        Future.create (fun () -> AsyncStreamer.fold folder initState (run source))
+        Future.create (fun () -> AsyncStreamer.fold folder initState (runStreaming source))
 
     let inline scan (folder: 's -> 'a -> 's) (initState: 's) (source: Stream<'a>) : Stream<'s> =
-        create (fun () -> AsyncStreamer.scan folder initState (run source))
+        create (fun () -> AsyncStreamer.scan folder initState (runStreaming source))
 
     let inline chooseV (chooser: 'a -> 'b voption) (source: Stream<'a>) : Stream<'b> =
-        create (fun () -> AsyncStreamer.chooseV chooser (run source))
+        create (fun () -> AsyncStreamer.chooseV chooser (runStreaming source))
 
     let inline tryPickV (chooser: 'a -> 'b voption) (source: Stream<'a>) : Future<'b voption> =
-        Future.create (fun () -> AsyncStreamer.tryPickV chooser (run source))
+        Future.create (fun () -> AsyncStreamer.tryPickV chooser (runStreaming source))
 
     let inline tryPick (chooser: 'a -> 'b option) (source: Stream<'a>) : Future<'b option> =
-        Future.create (fun () -> AsyncStreamer.tryPick chooser (run source))
+        Future.create (fun () -> AsyncStreamer.tryPick chooser (runStreaming source))
 
     let inline pickV (chooser: 'a -> 'b voption) (source: Stream<'a>) : Future<'b> =
-        Future.create (fun () -> AsyncStreamer.pickV chooser (run source))
+        Future.create (fun () -> AsyncStreamer.pickV chooser (runStreaming source))
 
     let inline join (source: Stream<Stream<'a>>) : Stream<'a> =
-        create (fun () -> AsyncStreamer.join (run (map run source)))
+        create (fun () -> AsyncStreamer.join (runStreaming (map runStreaming source)))
 
     let inline append (source1: Stream<'a>) (source2: Stream<'a>) : Stream<'a> =
-        create (fun () -> AsyncStreamer.append (run source1) (run source2))
+        create (fun () -> AsyncStreamer.append (runStreaming source1) (runStreaming source2))
 
     let inline bufferByCount (bufferSize: int) (source: Stream<'a>) : Stream<'a[]> =
-        create (fun () -> AsyncStreamer.bufferByCount bufferSize (run source))
+        create (fun () -> AsyncStreamer.bufferByCount bufferSize (runStreaming source))
 
     let inline filter (predicate: 'a -> bool) (source: Stream<'a>) : Stream<'a> =
-        create (fun () -> AsyncStreamer.filter predicate (run source))
+        create (fun () -> AsyncStreamer.filter predicate (runStreaming source))
 
     let inline any (predicate: 'a -> bool) (source: Stream<'a>) : Future<bool> =
-        Future.create (fun () -> AsyncStreamer.any predicate (run source))
+        Future.create (fun () -> AsyncStreamer.any predicate (runStreaming source))
 
     let inline all (predicate: 'a -> bool) (source: Stream<'a>) : Future<bool> =
-        Future.create (fun () -> AsyncStreamer.all predicate (run source))
+        Future.create (fun () -> AsyncStreamer.all predicate (runStreaming source))
 
     let inline zip (source1: Stream<'a>) (source2: Stream<'b>) : Stream<'a * 'b> =
-        create (fun () -> AsyncStreamer.zip (run source1) (run source2))
+        create (fun () -> AsyncStreamer.zip (runStreaming source1) (runStreaming source2))
 
     let inline tryHeadV (source: Stream<'a>) : Future<'a voption> =
-        Future.create (fun () -> AsyncStreamer.tryHeadV (run source))
+        Future.create (fun () -> AsyncStreamer.tryHeadV (runStreaming source))
 
     let inline tryHead (source: Stream<'a>) : Future<'a option> =
-        Future.create (fun () -> AsyncStreamer.tryHead (run source))
+        Future.create (fun () -> AsyncStreamer.tryHead (runStreaming source))
 
     let inline head (source: Stream<'a>) : Future<'a> =
-        Future.create (fun () -> AsyncStreamer.head (run source))
+        Future.create (fun () -> AsyncStreamer.head (runStreaming source))
 
     let inline tryLastV (source: Stream<'a>) : Future<'a voption> =
-        Future.create (fun () -> AsyncStreamer.tryLastV (run source))
+        Future.create (fun () -> AsyncStreamer.tryLastV (runStreaming source))
 
     let inline tryLast (source: Stream<'a>) : Future<'a option> =
-        Future.create (fun () -> AsyncStreamer.tryLast (run source))
+        Future.create (fun () -> AsyncStreamer.tryLast (runStreaming source))
 
     let inline last (source: Stream<'a>) : Future<'a> =
-        Future.create (fun () -> AsyncStreamer.last (run source))
+        Future.create (fun () -> AsyncStreamer.last (runStreaming source))
 
     let inline singleAsync (x: Future<'a>) : Stream<'a> =
-        create (fun () -> AsyncStreamer.ofComputation (Future.run x))
+        create (fun () -> AsyncStreamer.ofComputation (Future.runComputation x))
 
     let inline take (count: int) (source: Stream<'a>) : Stream<'a> =
-        create (fun () -> AsyncStreamer.take count (run source))
+        create (fun () -> AsyncStreamer.take count (runStreaming source))

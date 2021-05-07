@@ -375,7 +375,7 @@ module AsyncComputation =
 
 [<Interface>]
 type IFuture<'a> =
-    abstract Run: unit -> IAsyncComputation<'a>
+    abstract RunComputation: unit -> IAsyncComputation<'a>
 
 type Future<'a> = IFuture<'a>
 
@@ -383,10 +383,10 @@ type Future<'a> = IFuture<'a>
 module Future =
 
     /// <summary> Создает внутренний Computation. </summary>
-    let inline run (fut: Future<'a>) = fut.Run()
+    let inline runComputation (fut: Future<'a>) = fut.RunComputation()
 
     let inline create (__expand_creator: unit -> IAsyncComputation<'a>) : Future<'a> =
-        { new Future<'a> with member _.Run() = __expand_creator () }
+        { new Future<'a> with member _.RunComputation() = __expand_creator () }
 
     /// <summary> Create the Future with ready value</summary>
     /// <param name="value"> Poll body </param>
@@ -412,24 +412,24 @@ module Future =
     /// <summary> Creates the Future, asynchronously applies the result of the passed future to the binder </summary>
     /// <returns> Future, asynchronously applies the result of the passed future to the binder </returns>
     let inline bind binder fut =
-        create (fun () -> AsyncComputation.bind (binder >> run) (run fut) )
+        create (fun () -> AsyncComputation.bind (binder >> runComputation) (runComputation fut) )
 
     /// <summary> Creates the Future, asynchronously applies mapper to result passed Computation </summary>
     /// <returns> Future, asynchronously applies mapper to result passed Computation </returns>
     let inline map mapping fut =
-        create (fun () -> AsyncComputation.map mapping (run fut))
+        create (fun () -> AsyncComputation.map mapping (runComputation fut))
 
     /// <summary> Creates the Future, asynchronously applies 'f' function to result passed Computation </summary>
     /// <returns> Future, asynchronously applies 'f' function to result passed Computation </returns>
     let inline apply f fut =
-        create (fun () -> AsyncComputation.apply (run f) (run fut))
+        create (fun () -> AsyncComputation.apply (runComputation f) (runComputation fut))
 
     /// <summary> Creates the Future, asynchronously merging the results of passed Future </summary>
     /// <remarks> If one of the Computations threw an exception, the same exception will be thrown everywhere,
     /// and the other Future will be canceled </remarks>
     /// <returns> Future, asynchronously merging the results of passed Future </returns>
     let inline merge fut1 fut2 =
-        create (fun () -> AsyncComputation.merge (run fut1) (run fut2))
+        create (fun () -> AsyncComputation.merge (runComputation fut1) (runComputation fut2))
 
     /// <summary> Creates a Future that will return the result of
     /// the first one that pulled out the result from the passed  </summary>
@@ -437,12 +437,12 @@ module Future =
     /// and the other Future will be canceled </remarks>
     /// <returns> Future, asynchronously merging the results of passed Future </returns>
     let inline first fut1 fut2 =
-        create (fun () -> AsyncComputation.first (run fut1) (run fut2))
+        create (fun () -> AsyncComputation.first (runComputation fut1) (runComputation fut2))
 
     /// <summary> Creates the Future, asynchronously joining the result of passed Computation </summary>
     /// <returns> Future, asynchronously joining the result of passed Computation </returns>
     let inline join fut =
-        create (fun () -> AsyncComputation.join (run (map run fut)))
+        create (fun () -> AsyncComputation.join (runComputation (map runComputation fut)))
 
     /// <summary> Creates a Future that returns control flow to the scheduler once </summary>
     /// <returns> Future that returns control flow to the scheduler once </returns>
@@ -455,10 +455,10 @@ module Future =
         <| fun () ->
             if Interlocked.CompareExchange(ref isRun, 1, 0) = 1
             then raise FusedFutureRerunException
-            else source.Run()
+            else source.RunComputation()
 
     /// <summary> Creates a Future that ignore result of the passed Computation </summary>
     /// <returns> Future that ignore result of the passed Computation </returns>
     let inline ignore fut =
-        create (fun () -> AsyncComputation.ignore (run fut))
+        create (fun () -> AsyncComputation.ignore (runComputation fut))
 

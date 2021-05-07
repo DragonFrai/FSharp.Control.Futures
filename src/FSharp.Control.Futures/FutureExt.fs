@@ -129,7 +129,7 @@ module AsyncComputation =
 module Future =
 
     let inline catch (source: Future<'a>) : Future<Result<'a, exn>> =
-        Future.create (fun () -> AsyncComputation.catch (Future.run source))
+        Future.create (fun () -> AsyncComputation.catch (Future.runComputation source))
 
     let inline sleep (dueTime: TimeSpan) =
         Future.create (fun () -> AsyncComputation.sleep dueTime)
@@ -145,7 +145,7 @@ module Future =
     let runSync (fut: Future<'a>) : 'a =
         // Here you can directly call the Raw representation of the Future,
         // since the current thread already represents the computation context
-        AsyncComputation.runSync (Future.run fut)
+        AsyncComputation.runSync (Future.runComputation fut)
 
     [<RequireQualifiedAccess>]
     module Seq =
@@ -160,6 +160,6 @@ module Future =
         /// <remarks> The generated future does not substitute implicit breakpoints,
         /// so on long iterations you should use <code>yieldWorkflow</code> </remarks>
         let inline iterAsync (source: 'a seq) (body: 'a -> Future<unit>) =
-            Future.create (fun () -> AsyncComputation.Seq.iterAsync source (body >> Future.run))
+            Future.create (fun () -> AsyncComputation.Seq.iterAsync source (body >> Future.runComputation))
 
 

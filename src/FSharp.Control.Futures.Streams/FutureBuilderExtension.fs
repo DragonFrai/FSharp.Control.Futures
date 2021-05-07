@@ -10,4 +10,4 @@ type AsyncComputationBuilder with
 
 type FutureBuilder with
     member _.For(source: Stream<'a>, action: 'a -> Future<unit>): Future<unit> =
-        Future.create (fun () -> computation.For(Stream.run source, action >> Future.run))
+        Future.create (fun () -> computation.For(Stream.runStreaming source, action >> Future.runComputation))

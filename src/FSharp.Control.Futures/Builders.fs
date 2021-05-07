@@ -50,17 +50,18 @@ type AsyncComputationBuilder() =
 
     member inline _.Return(x): IAsyncComputation<'a> = AsyncComputation.ready x
 
-    member inline _.Bind(x: IAsyncComputation<'a>, f: 'a -> IAsyncComputation<'b>) = AsyncComputation.bind f x
+    member inline _.Bind(ca: IAsyncComputation<'a>, a2cb: 'a -> IAsyncComputation<'b>) = AsyncComputation.bind a2cb ca
 
     member inline _.Zero(): IAsyncComputation<unit> = AsyncComputation.unit
 
-    member inline _.ReturnFrom(f: IAsyncComputation<'a>): IAsyncComputation<'a> = f
+    member inline _.ReturnFrom(c: IAsyncComputation<'a>): IAsyncComputation<'a> = c
 
-    member inline this.Combine(uf: IAsyncComputation<unit>, u2f: unit -> IAsyncComputation<_>) = this.Bind(uf, u2f)
+    member inline this.Combine(cu: IAsyncComputation<unit>, u2c: unit -> IAsyncComputation<'a>) = this.Bind(cu, u2c)
 
-    member inline _.MergeSources(x1, x2) = AsyncComputation.merge x1 x2
+    member inline _.MergeSources(c1: IAsyncComputation<'a>, c2: IAsyncComputation<'b>): IAsyncComputation<'a * 'b> =
+        AsyncComputation.merge c1 c2
 
-    member inline _.Delay(f: unit -> IAsyncComputation<'a>) = f
+    member inline _.Delay(u2c: unit -> IAsyncComputation<'a>) = u2c
 
     member inline _.For(source, body) = AsyncComputation.Seq.iterAsync source body
 
@@ -71,7 +72,7 @@ type AsyncComputationBuilder() =
     member _.TryWith(body, handler): IAsyncComputation<'a> =
         Internal.tryWith body handler
 
-    member inline _.Run(u2f): IAsyncComputation<'a> = AsyncComputation.delay u2f
+    member inline _.Run(u2c: unit -> IAsyncComputation<'a>): unit -> IAsyncComputation<'a> = u2c
 
 
 [<AutoOpen>]
@@ -79,36 +80,37 @@ module ComputationBuilderImpl =
     let computation = AsyncComputationBuilder()
 
 
+
 type FutureBuilder() =
 
     member inline _.Return(x: 'a): Future<'a> =
         Future.create (fun () -> computation.Return(x))
 
-    member inline _.Bind(x, f) =
-        Future.create (fun () -> computation.Bind(Future.run x, f >> Future.run))
+    member inline _.Bind(x: Future<'a>, f: 'a -> Future<'b>) =
+        Future.create (fun () -> computation.Bind(Future.runComputation x, f >> Future.runComputation))
 
-    member inline _.Zero() = Future.unit
+    member inline _.Zero() = Future.create computation.Zero
 
     member inline _.ReturnFrom(f: Future<'a>): Future<'a> = f
 
-    member inline this.Combine(uf: Future<unit>, u2f: unit -> Future<_>) =
-        Future.create (fun () -> computation.Combine(Future.run uf, u2f >> Future.run))
+    member inline this.Combine(uf: Future<unit>, u2f: unit -> Future<'a>) =
+        Future.create (fun () -> computation.Combine(Future.runComputation uf, u2f >> Future.runComputation))
 
-    member inline _.MergeSources(x1, x2) =
-        Future.create (fun () -> computation.MergeSources(Future.run x1, Future.run x2))
+    member inline _.MergeSources(x1: Future<'a>, x2: Future<'b>) =
+        Future.create (fun () -> computation.MergeSources(Future.runComputation x1, Future.runComputation x2))
 
     member inline _.Delay(f: unit -> Future<'a>) = f
 
-    member inline _.For(source, body) = Future.create (fun () -> computation.For(source, body >> Future.run))
+    member inline _.For(source, body) = Future.create (fun () -> computation.For(source, body >> Future.runComputation))
 
     member inline this.While(cond: unit -> bool, body: unit -> Future<unit>): Future<unit> =
         let whileSeq = seq { while cond () do yield () }
         this.For(whileSeq, body)
 
     member inline _.TryWith(body, handler): Future<'a> =
-        Future.create (fun () -> computation.TryWith(body >> Future.run, handler >> Future.run))
+        Future.create (fun () -> computation.TryWith(body >> Future.runComputation, handler >> Future.runComputation))
 
-    member inline _.Run(u2f): Future<'a> = Future.create (u2f >> Future.run)
+    member inline _.Run(u2f): Future<'a> = Future.create (u2f >> Future.runComputation)
 
 [<AutoOpen>]
 module FutureBuilderImpl =
