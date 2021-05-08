@@ -1,16 +1,60 @@
 namespace FSharp.Control.Futures
 
+open System
 open System.ComponentModel
 open System.Threading
 
 // Contains the basic functions for creating and transforming `Computation`.
 // If the function accepts types other than `Computation` or `Context`, then they should be placed somewhere else
 
+// # Types
+
 /// <summary> Current state of a Computation </summary>
 [<Struct; RequireQualifiedAccess>]
 type Poll<'a> =
     | Ready of 'a
     | Pending
+
+
+
+/// # IAsyncComputation poll schema
+/// [ Poll.Pending -> ... -> Poll.Pending ] -> Poll.Ready x1 -> ... -> Poll.Ready xn
+///  x1 == x2 == ... == xn
+type IAsyncComputation<'a> =
+    /// <summary> Poll the state </summary>
+    /// <param name="context"> Current Computation context </param>
+    /// <returns> Current state </returns>
+    [<EditorBrowsable(EditorBrowsableState.Advanced)>]
+    abstract Poll: context: Context -> Poll<'a>
+
+    /// <summary> Cancel asynchronously Computation computation </summary>
+    /// <remarks> Notifies internal asynchronous operations of Computation cancellations. </remarks>
+    [<EditorBrowsable(EditorBrowsableState.Advanced)>]
+    abstract Cancel: unit -> unit
+
+and [<Interface>]
+    IFuture<'a> =
+    abstract RunComputation: unit -> IAsyncComputation<'a>
+and Future<'a> = IFuture<'a>
+
+/// <summary> The context of the running computation.
+/// Allows the computation to signal its ability to move forward (awake) through the Wake method </summary>
+and [<AbstractClass>]
+    Context() =
+    abstract Wake: unit -> unit
+    abstract Scheduler: IScheduler option
+
+and IScheduler =
+    inherit IDisposable
+    abstract Spawn: Future<'a> -> IJoinHandle<'a>
+
+and IJoinHandle<'a> =
+    inherit Future<'a>
+    abstract Cancel: unit -> unit
+    abstract Join: unit -> 'a
+
+
+// # Modules
 
 [<RequireQualifiedAccess>]
 module Poll =
@@ -44,31 +88,6 @@ module Poll =
         match x with
         | Poll.Ready x -> Poll.Ready (f x)
         | Poll.Pending -> Poll.Pending
-
-/// <summary> The context of the running computation.
-/// Allows the computation to signal its ability to move forward (awake) through the Wake method </summary>
-[<AbstractClass>]
-type Context() =
-    abstract Wake: unit -> unit
-
-/// <summary> Low level presentation of Future Scheduler. Spawn IAsyncComputation </summary>
-and ISpawner =
-    abstract Spawn: IAsyncComputation<'a> -> IAsyncComputation<'a>
-
-/// # IAsyncComputation poll schema
-/// [ Poll.Pending -> ...(may be infinite)... -> Poll.Pending ] -> Poll.Ready x1 -> ... -> Poll.Ready xn
-///  x1 == x2 == ... == xn
-and IAsyncComputation<'a> =
-    /// <summary> Poll the state </summary>
-    /// <param name="context"> Current Computation context </param>
-    /// <returns> Current state </returns>
-    [<EditorBrowsable(EditorBrowsableState.Advanced)>]
-    abstract Poll: context: Context -> Poll<'a>
-
-    /// <summary> Cancel asynchronously Computation computation </summary>
-    /// <remarks> Notifies internal asynchronous operations of Computation cancellations. It is useless if Computation is cold.  </remarks>
-    [<EditorBrowsable(EditorBrowsableState.Advanced)>]
-    abstract Cancel: unit -> unit
 
 [<RequireQualifiedAccess>]
 module AsyncComputation =
@@ -373,11 +392,7 @@ module AsyncComputation =
         <| fun () -> do comp.Cancel()
 
 
-[<Interface>]
-type IFuture<'a> =
-    abstract RunComputation: unit -> IAsyncComputation<'a>
 
-type Future<'a> = IFuture<'a>
 
 [<RequireQualifiedAccess>]
 module Future =
