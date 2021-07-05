@@ -17,6 +17,7 @@
 
     <ItemGroup>
         <Compile Include="Utils.fs" />
+        <Compile Include="Core.fs" />
         <Compile Include="Future.fs" />
         <Compile Include="FutureExt.fs" />
         <Compile Include="Builders.fs" />

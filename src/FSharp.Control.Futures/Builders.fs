@@ -1,6 +1,6 @@
 namespace FSharp.Control.Futures
 
-open System
+open FSharp.Control.Futures.Core
 
 // -------------------
 // FutureBuilder

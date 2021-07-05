@@ -4,6 +4,8 @@ module FSharp.Control.Futures.Transforms
 open System
 open System.Threading
 open FSharp.Control.Futures
+open FSharp.Control.Futures.Core
+open FSharp.Control.Futures.Core.Utils
 
 
 [<AutoOpen>]

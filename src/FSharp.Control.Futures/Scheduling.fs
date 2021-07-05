@@ -3,21 +3,14 @@ namespace FSharp.Control.Futures.Scheduling
 open System
 open System.Threading
 open FSharp.Control.Futures
+open FSharp.Control.Futures.Core
 
 /// <summary> Introduces the API to the top-level future. </summary>
 /// <remarks> Can be safely canceled </remarks>
-type IJoinHandle<'a> =
-    inherit IAsyncComputation<'a>
-    abstract member Join: unit -> Result<'a, exn>
+type IJoinHandle<'a> = Core.IJoinHandle<'a>
 
 /// <summary> Future scheduler. </summary>
-type IScheduler =
-    // The scheduler may contain an internal thread pool and other system resources that should be cleaned up
-    inherit IDisposable
-    /// <summary> Run Future on this scheduler </summary>
-    /// <returns> Return Future waited result passed Future </returns>
-    abstract Spawn: fut: IAsyncComputation<'a> -> IJoinHandle<'a>
-
+type IScheduler = Core.IScheduler
 
 // -------------------
 // ThreadPollScheduler
@@ -26,6 +19,9 @@ module private rec ThreadPoolImpl =
 
     let private addTaskToThreadPoolQueue (task: ThreadPoolTask<'a>) =
         ThreadPool.QueueUserWorkItem(fun _ -> do task.Run()) |> ignore
+
+    type TaskComputation<'a> =
+
 
     type ThreadPoolTask<'a>(future: IAsyncComputation<'a>) as this =
 
@@ -78,7 +74,9 @@ module private rec ThreadPoolImpl =
         interface IJoinHandle<'a> with
 
             member _.Join() =
-                AsyncComputation.runSync waiter
+                match (AsyncComputation.runSync waiter) with
+                | Ok x -> x
+                | Error err -> raise err
 
             member _.Poll(context) =
                 let x = AsyncComputation.poll context waiter
