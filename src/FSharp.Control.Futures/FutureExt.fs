@@ -17,6 +17,9 @@ module Future =
     let inline catch (source: Future<'a>) : Future<Result<'a, exn>> =
         Future.create (fun () -> AsyncComputation.catch (Future.runComputation source))
 
+    let inline raise (source: Future<Result<'a, exn>>) =
+        source |> Future.map (function Ok x -> x | Error ex -> raise ex)
+
     let inline sleep (dueTime: TimeSpan) =
         Future.create (fun () -> AsyncComputation.sleep dueTime)
 

@@ -1,114 +1,115 @@
 namespace FSharp.Control.Futures.Scheduling
 
-open System
 open System.Threading
 open FSharp.Control.Futures
 open FSharp.Control.Futures.Core
+open FSharp.Control.Futures.Sync
 
-/// <summary> Introduces the API to the top-level future. </summary>
-/// <remarks> Can be safely canceled </remarks>
-type IJoinHandle<'a> = Core.IJoinHandle<'a>
-
-/// <summary> Future scheduler. </summary>
-type IScheduler = Core.IScheduler
 
 // -------------------
 // ThreadPollScheduler
-// -------------------
-module private rec ThreadPoolImpl =
 
-    let private addTaskToThreadPoolQueue (task: ThreadPoolTask<'a>) =
-        ThreadPool.QueueUserWorkItem(fun _ -> do task.Run()) |> ignore
+module internal rec RunnerScheduler =
 
-    type TaskComputation<'a> =
+    // Бит сигнализирующий о наличии пробуждения
+    let IsWakedBit: uint64 = (1uL <<< 1)
+    // Бит сигнализирующий о запуске через раннер
+    let IsRunBit: uint64 = (1uL <<< 2)
+    // Бит окончания выполнения
+    let IsCompleteBit: uint64 = (1uL <<< 3)
 
+    type ITaskRunner =
+        abstract RunTask: RunnerTask<'a> -> unit
+        abstract Scheduler: IScheduler option
 
-    type ThreadPoolTask<'a>(future: IAsyncComputation<'a>) as this =
+    type RunnerTask<'a>(comp: IAsyncComputation<'a>, runner: ITaskRunner) as this =
 
-        let mutable isComplete = false
-        let mutable isRequireWake = false // init with require to update
-        let mutable isInQueue = false
+        let mutable ivar = IVar<'a>()
+        let mutable state = 0uL
 
-        let waiter: OnceVar<Result<'a, exn>> = OnceVar.create ()
-
-        let sync = obj()
+        let changeState (f: uint64 -> uint64) : uint64 =
+            let mutable prevState = 0uL
+            let inline tryUpdate () =
+                let currentState = state
+                let toSet = f currentState
+                prevState <- Interlocked.CompareExchange(&state, toSet, currentState)
+                prevState <> currentState
+            while tryUpdate () do ()
+            prevState
 
         let context =
             { new Context() with
                 member _.Wake() =
-                    lock sync <| fun () ->
-                        isRequireWake <- true
-                        if not isInQueue then
-                            addTaskToThreadPoolQueue this
-                            isInQueue <- true
+                    // Запускает таску через раннер, если она еще не запущена и не выполнена и устанавливает бит пробуждения
+                    let prevState = changeState (fun x -> x ||| IsWakedBit ||| IsRunBit)
+                    let alreadyRun = (prevState &&& IsRunBit) <> 0uL
+                    let complete = (prevState &&& IsCompleteBit) <> 0uL
+                    let shouldRun = ((not alreadyRun) && (not complete))
+                    if shouldRun then runner.RunTask(this)
             }
 
+        // Метод обработки таски. Засчет флагов не должен вызываться одновременно более 1 раза
         member this.Run() =
-            let isComplete' =
-                lock sync <| fun () ->
-                    isRequireWake <- false
-                    isComplete
+            // Сбрасывает бит запроса обновления, сигнализируя о опросе
+            let mutable prevState = changeState (fun x -> x &&& (~~~IsWakedBit))
 
-            if isComplete' then ()
-            else
+            let mutable isComplete = false
             try
-                let x = AsyncComputation.poll context future
+                let x = AsyncComputation.poll context comp
                 match x with
                 | Poll.Ready x ->
-                    waiter.Put(Ok x)
-                    lock sync ^fun () ->
-                        isComplete <- true
+                    IVar.write x ivar
+                    isComplete <- true
+                    prevState <- changeState (fun x -> x ||| IsCompleteBit)
                 | Poll.Pending -> ()
             with e ->
-                waiter.Put(Error e)
+                IVar.writeException e ivar
 
-            lock sync <| fun () ->
-                if isRequireWake && not isComplete
-                then addTaskToThreadPoolQueue this
-                else isInQueue <- false
+            let isWaked = (prevState &&& IsWakedBit) <> 0uL
+            if isWaked && not isComplete
+            then runner.RunTask(this)
+            else changeState (fun x -> x &&& (~~~IsRunBit)) |> ignore
 
-        member _.InitForQueue() =
-            isInQueue <- true
-            isRequireWake <- true
+        member this.InitialRun() =
+            changeState (fun x -> x ||| IsRunBit ||| IsWakedBit) |> ignore
+            runner.RunTask(this)
 
         interface IJoinHandle<'a> with
 
-            member _.Join() =
-                match (AsyncComputation.runSync waiter) with
-                | Ok x -> x
-                | Error err -> raise err
+            member _.RunComputation() =
+                ivar |> Future.runComputation
 
-            member _.Poll(context) =
-                let x = AsyncComputation.poll context waiter
-                match x with
-                | Poll.Ready x ->
-                    match x with
-                    | Ok x -> Poll.Ready x
-                    | Error e -> raise e
-                | Poll.Pending -> Poll.Pending
+            member _.Join() =
+                ivar |> Future.runSync
 
             member _.Cancel() =
-                lock sync <| fun () ->
-                    waiter.Put(Error FutureCancelledException)
-                    isComplete <- true
-                future.Cancel()
+                ivar |> IVar.writeException FutureCancelledException
 
 
-    type ThreadPoolScheduler() =
+    type GlobalThreadPoolTaskRunner() =
+        interface ITaskRunner with
+            member _.RunTask(task) =
+                ThreadPool.QueueUserWorkItem(fun _ -> do task.Run()) |> ignore
+            member _.Scheduler = Some globalThreadPoolScheduler
+
+    type GlobalThreadPoolScheduler() =
         interface IScheduler with
             member this.Spawn(fut: IAsyncComputation<'a>) =
-                let task = ThreadPoolTask<'a>(fut)
-                task.InitForQueue()
-                addTaskToThreadPoolQueue task
+                let task = RunnerTask<'a>(fut, globalThreadPoolTaskRunner)
+                task.InitialRun()
                 task :> IJoinHandle<'a>
+
+            member this.Spawn(fut: Future<'a>) = (this :> IScheduler).Spawn(fut.RunComputation())
 
             member _.Dispose() = ()
 
+    let globalThreadPoolTaskRunner = GlobalThreadPoolTaskRunner()
+    let globalThreadPoolScheduler: IScheduler = upcast new GlobalThreadPoolScheduler()
 
 
 [<RequireQualifiedAccess>]
 module Schedulers =
-    let threadPool: IScheduler = upcast new ThreadPoolImpl.ThreadPoolScheduler()
+    let threadPool: IScheduler = RunnerScheduler.globalThreadPoolScheduler
 
 
 [<RequireQualifiedAccess>]
@@ -116,7 +117,7 @@ module Scheduler =
 
     /// <summary> Run Future on passed scheduler </summary>
     /// <returns> Return Future waited result passed Future </returns>
-    let spawnOn (scheduler: IScheduler) fut = scheduler.Spawn(fut)
+    let spawnOn (scheduler: IScheduler) (fut: Future<'a>) = scheduler.Spawn(fut)
     /// <summary> Run Future on thread pool scheduler </summary>
     /// <returns> Return Future waited result passed Future </returns>
     let spawnOnThreadPool fut = spawnOn Schedulers.threadPool fut

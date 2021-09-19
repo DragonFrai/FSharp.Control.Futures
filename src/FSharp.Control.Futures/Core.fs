@@ -530,7 +530,7 @@ module AsyncComputation =
     //#endregion
 
 module Future =
-        /// <summary> Создает внутренний Computation. </summary>
+    /// <summary> Создает внутренний Computation. </summary>
     let inline runComputation (fut: Future<'a>) = fut.RunComputation()
 
     let inline create (__expand_creator: unit -> IAsyncComputation<'a>) : Future<'a> =
@@ -552,52 +552,16 @@ module Utils =
         val Inner : 'a
         new(inner: 'a) = { Inner = inner }
 
-    // --------------------------------------
-    // InPlaceList
-    // --------------------------------------
-
-
-    [<Struct>]
-    type InPlaceList<'a> =
-        | Empty
-        | Single of single: 'a
-        | Many of many: 'a list
-
-    module InPlaceList =
-        let inline create () = Empty
-
-        let inline add (x: 'a) (list: byref<InPlaceList<'a>>) =
-            match list with
-            | Empty -> list <- Single x
-            | Single c -> list <- Many [c; x]
-            | Many l -> list <- Many (l @ [x])
-
-        let inline iter (action: 'a -> unit) (list: inref<InPlaceList<'a>>) =
-            match list with
-            | Empty -> ()
-            | Single x -> action x
-            | Many l -> List.iter action l
-
-        let inline clear (list: byref<InPlaceList<'a>>) =
-            list <- Empty
-
-        let inline take (list: byref<InPlaceList<'a>>) : InPlaceList<'a> =
-            let copy = list
-            list <- Empty
-            copy
-
-    // --------------------------------------
-    // InPlaceList END
-    // --------------------------------------
-
-    // --------------
+    //---------------
     // IntrusiveList
-    // --------------
 
     [<AllowNullLiteral>]
     type IIntrusiveNode<'a> when 'a :> IIntrusiveNode<'a> =
         abstract Next: 'a with get, set
 
+    /// Односвязный список, элементы которого являются его же узлами.
+    /// Может быть полезен для исключения дополнительных аллокаций услов на бодобии услов LinkedList.
+    /// Например, список ожидающих Context или ожидающих значение 'w: IAsyncComputation
     [<Struct>]
     type IntrusiveList<'a> when 'a :> IIntrusiveNode<'a> and 'a : not struct =
         val mutable internal startNode: 'a
@@ -641,18 +605,9 @@ module Utils =
                 else collect (c @ [node]) node.Next
             collect [] root
 
-
-
-
-
-
-    // --------------
     // IntrusiveList
-    // --------------
-
-    // --------------------------------------
+    //---------------
     // OnceVar
-    // --------------------------------------
 
     exception OnceVarDoubleWriteException
 
@@ -677,7 +632,7 @@ module Utils =
         let mutable state = Empty
 
         /// <returns> false on double write </returns>
-        member inline this.TryWrite(x: 'a) =
+        member this.TryWrite(x: 'a) =
             // has state mutation
             let mutable lockTaken = false
             try
@@ -700,10 +655,10 @@ module Utils =
             finally
                 if lockTaken then sLock.Exit()
 
-        member inline this.Write(x: 'a) =
+        member this.Write(x: 'a) =
             if not (this.TryWrite(x)) then raise OnceVarDoubleWriteException
 
-        member inline this.TryRead() =
+        member this.TryRead() =
             // has NOT state mutation
             let mutable lockTaken = false
             try
@@ -714,7 +669,7 @@ module Utils =
             finally
                 if lockTaken then sLock.Exit()
 
-        member inline _.TryPoll(context) =
+        member _.TryPoll(context) =
             // has state mutation
             let mutable lockTaken = false
             try
@@ -752,21 +707,21 @@ module Utils =
 
     module OnceVar =
         /// Create empty IVar instance
-        let inline create () = OnceVar()
+        let create () = OnceVar()
 
         /// Put a value and if it is already set raise exception
-        let inline write (x: 'a) (ovar: OnceVar<'a>) = ovar.Write(x)
+        let write (x: 'a) (ovar: OnceVar<'a>) = ovar.Write(x)
 
         /// Tries to put a value and if it is already set returns an false
-        let inline tryWrite (x: 'a) (ovar: OnceVar<'a>) = ovar.TryWrite(x)
+        let tryWrite (x: 'a) (ovar: OnceVar<'a>) = ovar.TryWrite(x)
 
         /// <summary> Returns the future pending value. </summary>
         /// <remarks> IVar itself is a future, therefore
         /// it is impossible to expect or launch this future in two places at once. </remarks>
-        let inline read (ovar: OnceVar<'a>) = ovar :> IAsyncComputation<'a>
+        let read (ovar: OnceVar<'a>) = ovar :> IAsyncComputation<'a>
 
         /// Immediately gets the current IVar value and returns Some x if set
-        let inline tryRead (ovar: OnceVar<_>) = ovar.TryRead()
+        let tryRead (ovar: OnceVar<_>) = ovar.TryRead()
 
     // --------------------------------------
     // OnceVar END

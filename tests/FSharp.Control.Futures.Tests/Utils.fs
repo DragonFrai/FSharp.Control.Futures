@@ -2,7 +2,7 @@
 module Utils
 
 open System.Collections.Concurrent
-open FSharp.Control.Futures
+open FSharp.Control.Futures.Core
 
 type OrderChecker() =
     let points = ConcurrentBag<int>()

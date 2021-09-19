@@ -25,6 +25,9 @@ module Future =
     let inline never<'a> : Future<'a> =
         create (fun () -> AsyncComputation.never<'a>)
 
+    let inline ready (x: 'a) : Future<'a> =
+        create (fun () -> AsyncComputation.ready x)
+
     /// <summary> Creates the Future lazy evaluator for the passed function </summary>
     /// <returns> Future lazy evaluator for the passed function </returns>
     let inline lazy' f =
@@ -73,9 +76,9 @@ module Future =
     /// <summary> Creates a Future that can be run only once </summary>
     /// <returns> Fused future </returns>
     let inline fuse (source: Future<'a>) : Future<'a> =
-        let isRun = 0 // 1 = true; 0 = false
+        let mutable isRun = 0 // 1 = true; 0 = false
         create (fun () ->
-            if Interlocked.CompareExchange(ref isRun, 1, 0) = 0
+            if Interlocked.CompareExchange(&isRun, 1, 0) = 0
             then source.RunComputation()
             else raise FusedFutureRerunException)
 
