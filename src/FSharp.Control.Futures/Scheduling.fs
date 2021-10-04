@@ -77,8 +77,8 @@ module internal rec RunnerScheduler =
 
         interface IJoinHandle<'a> with
 
-            member _.RunComputation() =
-                ivar |> Future.runComputation
+            member _.StartComputation() =
+                ivar |> Future.startComputation
 
             member _.Join() =
                 ivar |> Future.runSync
@@ -100,7 +100,7 @@ module internal rec RunnerScheduler =
                 task.InitialRun()
                 task :> IJoinHandle<'a>
 
-            member this.Spawn(fut: Future<'a>) = (this :> IScheduler).Spawn(fut.RunComputation())
+            member this.Spawn(fut: Future<'a>) = (this :> IScheduler).Spawn(fut.StartComputation())
 
             member _.Dispose() = ()
 

@@ -87,30 +87,30 @@ type FutureBuilder() =
         Future.create (fun () -> computation.Return(x))
 
     member inline _.Bind(x: Future<'a>, f: 'a -> Future<'b>) =
-        Future.create (fun () -> computation.Bind(Future.runComputation x, f >> Future.runComputation))
+        Future.create (fun () -> computation.Bind(Future.startComputation x, f >> Future.startComputation))
 
     member inline _.Zero() = Future.create computation.Zero
 
     member inline _.ReturnFrom(f: Future<'a>): Future<'a> = f
 
     member inline this.Combine(uf: Future<unit>, u2f: unit -> Future<'a>) =
-        Future.create (fun () -> computation.Combine(Future.runComputation uf, u2f >> Future.runComputation))
+        Future.create (fun () -> computation.Combine(Future.startComputation uf, u2f >> Future.startComputation))
 
     member inline _.MergeSources(x1: Future<'a>, x2: Future<'b>) =
-        Future.create (fun () -> computation.MergeSources(Future.runComputation x1, Future.runComputation x2))
+        Future.create (fun () -> computation.MergeSources(Future.startComputation x1, Future.startComputation x2))
 
     member inline _.Delay(f: unit -> Future<'a>) = f
 
-    member inline _.For(source, body) = Future.create (fun () -> computation.For(source, body >> Future.runComputation))
+    member inline _.For(source, body) = Future.create (fun () -> computation.For(source, body >> Future.startComputation))
 
     member inline this.While(cond: unit -> bool, body: unit -> Future<unit>): Future<unit> =
         let whileSeq = seq { while cond () do yield () }
         this.For(whileSeq, body)
 
     member inline _.TryWith(body, handler): Future<'a> =
-        Future.create (fun () -> computation.TryWith(body >> Future.runComputation, handler >> Future.runComputation))
+        Future.create (fun () -> computation.TryWith(body >> Future.startComputation, handler >> Future.startComputation))
 
-    member inline _.Run(u2f): Future<'a> = Future.create (u2f >> Future.runComputation)
+    member inline _.Run(u2f): Future<'a> = Future.create (u2f >> Future.startComputation)
 
 [<AutoOpen>]
 module FutureBuilderImpl =

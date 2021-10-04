@@ -7,7 +7,7 @@ open FSharp.Control.Futures.Core
 
 let readyValueTest = test "AsyncComputation.ready future returns passed arg" {
     let x = 12
-    let fut = Future.ready x |> Future.runComputation
+    let fut = Future.ready x |> Future.startComputation
 
     let expected = Poll.Ready x
     let actual1 = AsyncComputation.poll mockContext fut

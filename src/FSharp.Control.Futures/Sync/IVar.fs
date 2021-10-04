@@ -89,7 +89,7 @@ type IVar<'a>() =
     member inline this.Read() : Future<'a> = upcast this
 
     interface Future<'a> with
-        member this.RunComputation() =
+        member this.StartComputation() =
             upcast IVarComputation(this)
 
 // IAsyncComputation version of IVar

@@ -94,7 +94,7 @@ and [<Interface>]
     /// <remarks> The call to Future.RunComputation is part of the asynchronous computation.
     /// And it should be call in an asynchronous context. </remarks>
     // [<EditorBrowsable(EditorBrowsableState.Advanced)>]
-    abstract RunComputation: unit -> IAsyncComputation<'a>
+    abstract StartComputation: unit -> IAsyncComputation<'a>
 and Future<'a> = IFuture<'a>
 
 /// Exception is thrown when re-polling after cancellation (assuming IAsyncComputation is tracking such an invalid call)
@@ -533,10 +533,10 @@ module AsyncComputation =
 
 module Future =
     /// <summary> Создает внутренний Computation. </summary>
-    let inline runComputation (fut: Future<'a>) = fut.RunComputation()
+    let inline startComputation (fut: Future<'a>) = fut.StartComputation()
 
     let inline create (__expand_creator: unit -> IAsyncComputation<'a>) : Future<'a> =
-        { new Future<'a> with member _.RunComputation() = __expand_creator () }
+        { new Future<'a> with member _.StartComputation() = __expand_creator () }
 
     /// <summary> Create the Future with ready value</summary>
     /// <param name="value"> Poll body </param>
