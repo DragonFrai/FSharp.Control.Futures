@@ -9,7 +9,7 @@ open FSharp.Control.Futures
 type IVarWriteError =
     | DoubleWrite
 
-exception IVarDoubleWriteErrorException
+exception IVarDoubleWriteException
 
 
 // TODO?: Add Cancelled variant?
@@ -69,7 +69,7 @@ type IVar<'a>() =
 
     member this.Write(x: 'a) =
         lock syncObj <| fun () -> this.TryWriteInnerNoSync(Ok x)
-        |> function Error (_: IVarWriteError) -> raise IVarDoubleWriteErrorException | _ -> ()
+        |> function Error (_: IVarWriteError) -> raise IVarDoubleWriteException | _ -> ()
 
     member this.TryWriteException(ex: exn) =
         lock syncObj <| fun () ->
@@ -77,7 +77,7 @@ type IVar<'a>() =
 
     member this.WriteException(ex: exn) =
         lock syncObj <| fun () -> this.TryWriteInnerNoSync(Error ex)
-        |> function Error (_: IVarWriteError) -> raise IVarDoubleWriteErrorException | _ -> ()
+        |> function Error (_: IVarWriteError) -> raise IVarDoubleWriteException | _ -> ()
 
     member this.TryRead() =
         lock syncObj <| fun () ->
