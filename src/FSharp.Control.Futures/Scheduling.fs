@@ -38,7 +38,7 @@ module internal rec RunnerScheduler =
             prevState
 
         let context =
-            { new Context() with
+            { new IContext with
                 member _.Wake() =
                     // Запускает таску через раннер, если она еще не запущена и не выполнена и устанавливает бит пробуждения
                     let prevState = changeState (fun x -> x ||| IsWakedBit ||| IsRunBit)
@@ -46,6 +46,7 @@ module internal rec RunnerScheduler =
                     let complete = (prevState &&& IsCompleteBit) <> 0uL
                     let shouldRun = ((not alreadyRun) && (not complete))
                     if shouldRun then runner.RunTask(this)
+                override _.Scheduler = runner.Scheduler
             }
 
         // Метод обработки таски. Засчет флагов не должен вызываться одновременно более 1 раза

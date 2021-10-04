@@ -47,7 +47,11 @@ module FutureAsyncTransforms =
             // TODO: notify Async based awaiter about Future cancellation
 
             let wh = new EventWaitHandle(false, EventResetMode.AutoReset)
-            let ctx = { new Context() with member _.Wake() = wh.Set() |> ignore }
+            let ctx =
+                { new IContext with
+                    member _.Wake() = wh.Set() |> ignore
+                    member _.Scheduler = None
+                }
 
             let rec wait () =
                 let current = AsyncComputation.poll ctx fut

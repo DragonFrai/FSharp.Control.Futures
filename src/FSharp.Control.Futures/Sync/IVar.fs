@@ -95,7 +95,7 @@ type IVar<'a>() =
 and [<Sealed>] internal IVarComputation<'a>(ivar: IVar<'a>) =
     // selfNode notNull when _context notNull
     // Current waiter context
-    let mutable _context: Context = nullObj
+    let mutable _context: IContext = nullObj
     // Node for cancelling
     let mutable _selfNode: LinkedListNode<IVarComputation<'a>> = nullObj
 

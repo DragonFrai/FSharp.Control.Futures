@@ -59,7 +59,7 @@ type IAsyncComputation<'a> =
     /// <param name="context"> Current Computation context </param>
     /// <returns> Current state </returns>
     //[<EditorBrowsable(EditorBrowsableState.Advanced)>]
-    abstract Poll: context: Context -> Poll<'a>
+    abstract Poll: context: IContext -> Poll<'a>
 
     /// <summary> Cancel asynchronously Computation computation </summary>
     /// <remarks> Notifies internal asynchronous operations of Computation cancellations. </remarks>
@@ -68,13 +68,11 @@ type IAsyncComputation<'a> =
 
 /// <summary> The context of the running computation.
 /// Allows the computation to signal its ability to move forward (awake) through the Wake method </summary>
-and [<AbstractClass; AllowNullLiteral>]
-    Context() =
+and IContext =
     /// <summary> Wake up assigned Future </summary>
     abstract Wake: unit -> unit
     /// Current scheduler
     abstract Scheduler: IScheduler option
-    default _.Scheduler: IScheduler option = None
 
 /// <summary> Scheduler Future. Allows the Future to run for execution
 /// (for example, on its own or shared thread pool or on the current thread).  </summary>
@@ -116,7 +114,7 @@ module AsyncComputation =
     /// <param name="poll"> Poll body </param>
     /// <param name="cancel"> Poll body </param>
     /// <returns> Computation implementations with passed members </returns>
-    let inline create ([<InlineIfLambda>] poll: Context -> Poll<'a>) ([<InlineIfLambda>] cancel: unit -> unit) : IAsyncComputation<'a> =
+    let inline create ([<InlineIfLambda>] poll: IContext -> Poll<'a>) ([<InlineIfLambda>] cancel: unit -> unit) : IAsyncComputation<'a> =
         { new IAsyncComputation<'a> with
             member this.Poll(context) = poll context
             member this.Cancel() = cancel () }
@@ -126,7 +124,7 @@ module AsyncComputation =
     /// <param name="poll"> Poll body </param>
     /// <param name="cancel"> Poll body </param>
     /// <returns> Computation implementations with passed members </returns>
-    let inline createMemo ([<InlineIfLambda>] poll: Context -> Poll<'a>) ([<InlineIfLambda>] cancel: unit -> unit) : IAsyncComputation<'a> =
+    let inline createMemo ([<InlineIfLambda>] poll: IContext -> Poll<'a>) ([<InlineIfLambda>] cancel: unit -> unit) : IAsyncComputation<'a> =
         let mutable hasResult = false
         let mutable result: 'a = Unchecked.defaultof<_>
         create
@@ -439,7 +437,7 @@ module AsyncComputation =
             // Iterate enumerator until binding future return Ready () on poll
             // return ValueNone if enumeration was completed
             // else return ValueSome x, when x is Future<unit>
-            let rec moveUntilReady (enumerator: IEnumerator<'a>) (binder: 'a -> IAsyncComputation<unit>) (context: Context) : IAsyncComputation<unit> voption =
+            let rec moveUntilReady (enumerator: IEnumerator<'a>) (binder: 'a -> IAsyncComputation<unit>) (context: IContext) : IAsyncComputation<unit> voption =
                 if enumerator.MoveNext()
                 then
                     let waiter = body enumerator.Current
@@ -449,7 +447,7 @@ module AsyncComputation =
                 else
                     ValueNone
 
-            let rec pollInner (context: Context) : Poll<unit> =
+            let rec pollInner (context: IContext) : Poll<unit> =
                 if _isCancelled then raise FutureCancelledException
                 match _currentAwaited with
                 | ValueNone ->
@@ -472,7 +470,7 @@ module AsyncComputation =
         let mutable _timer: Timer = Unchecked.defaultof<_>
         let mutable _timeOut = false
 
-        let inline onWake (context: Context) _ =
+        let inline onWake (context: IContext) _ =
             let timer' = _timer
             _timer <- Unchecked.defaultof<_>
             _timeOut <- true
@@ -505,7 +503,11 @@ module AsyncComputation =
         // Based on a polling cycle (polling -> waiting for awakening -> awakening -> polling -> ...)
         // until the point with the result is reached
         use wh = new EventWaitHandle(false, EventResetMode.AutoReset)
-        let ctx = { new Context() with member _.Wake() = wh.Set() |> ignore }
+        let ctx =
+            { new IContext with
+                member _.Wake() = wh.Set() |> ignore
+                member _.Scheduler = None
+            }
 
         let rec pollWhilePending () =
             match (poll ctx comp) with
@@ -618,7 +620,7 @@ module Utils =
         // Re-polling after cancellation is UB by standard,
         // so it is possible to get rid of the cancellation handling in the future.
         | Empty // --> Waiting, HasValue, Cancelled
-        | Waiting of ctx: Context // --> HasValue, Cancelled
+        | Waiting of ctx: IContext // --> HasValue, Cancelled
         | HasValue of value: 'a // exn on write; --> CancelledWithValue
         | Cancelled // exn on poll; --> CancelledWithValue
         | CancelledWithValue of cancelledValue: 'a // exn on poll; exn on write; STABLE
