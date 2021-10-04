@@ -491,7 +491,7 @@ module AsyncComputation =
             do ()
 
     let sleepMs (milliseconds: int) =
-        let dueTime = TimeSpan.FromMilliseconds(float milliseconds)
+        let dueTime = TimeSpan(0, 0, 0, 0, milliseconds)
         sleep dueTime
 
     /// Spawn a Future on current thread and synchronously waits for its Ready
