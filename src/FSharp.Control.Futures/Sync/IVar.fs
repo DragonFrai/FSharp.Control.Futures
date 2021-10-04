@@ -5,8 +5,9 @@ open FSharp.Control.Futures.Core
 open FSharp.Control.Futures
 
 
-[<Struct; StructuralComparison; StructuralEquality>]
-type IVarDoubleWriteError = struct end
+[<Struct; RequireQualifiedAccess>]
+type IVarWriteError =
+    | DoubleWrite
 
 exception IVarDoubleWriteErrorException
 
@@ -51,7 +52,7 @@ type IVar<'a>() =
         _waiters.Remove(node)
 
     // return Error if put of the value failed (IVarDoublePutException)
-    member inline private _.TryWriteInnerNoSync(x: Result<'a, exn>) : Result<unit, IVarDoubleWriteError> =
+    member inline private _.TryWriteInnerNoSync(x: Result<'a, exn>) : Result<unit, IVarWriteError> =
         match _value with
         | Value.Blank ->
             _value <- match x with Ok x -> Value.Written x | Error ex -> Value.WrittenException ex
@@ -60,7 +61,7 @@ type IVar<'a>() =
                 _waiters <- nullObj
             Ok ()
         | Value.Written _ | Value.WrittenException _ ->
-            Error (IVarDoubleWriteError())
+            Error IVarWriteError.DoubleWrite
 
     member this.TryWrite(x: 'a) =
         lock syncObj <| fun () ->
@@ -68,7 +69,7 @@ type IVar<'a>() =
 
     member this.Write(x: 'a) =
         lock syncObj <| fun () -> this.TryWriteInnerNoSync(Ok x)
-        |> function Error (_: IVarDoubleWriteError) -> raise IVarDoubleWriteErrorException | _ -> ()
+        |> function Error (_: IVarWriteError) -> raise IVarDoubleWriteErrorException | _ -> ()
 
     member this.TryWriteException(ex: exn) =
         lock syncObj <| fun () ->
@@ -76,7 +77,7 @@ type IVar<'a>() =
 
     member this.WriteException(ex: exn) =
         lock syncObj <| fun () -> this.TryWriteInnerNoSync(Error ex)
-        |> function Error (_: IVarDoubleWriteError) -> raise IVarDoubleWriteErrorException | _ -> ()
+        |> function Error (_: IVarWriteError) -> raise IVarDoubleWriteErrorException | _ -> ()
 
     member this.TryRead() =
         lock syncObj <| fun () ->
