@@ -106,27 +106,27 @@ exception FutureCancelledException
 module AsyncComputation =
 
     //#region Core
-    let inline cancelNullable (comp: IAsyncComputation<'a>) =
+    let inline cancelIfNotNull (comp: IAsyncComputation<'a>) =
         if isNotNull comp then comp.Cancel()
 
     let inline cancel (comp: IAsyncComputation<'a>) =
         comp.Cancel()
 
     /// <summary> Create a Computation with members from passed functions </summary>
-    /// <param name="__expand_poll"> Poll body </param>
-    /// <param name="__expand_cancel"> Poll body </param>
+    /// <param name="poll"> Poll body </param>
+    /// <param name="cancel"> Poll body </param>
     /// <returns> Computation implementations with passed members </returns>
-    let inline create (__expand_poll: Context -> Poll<'a>) (__expand_cancel: unit -> unit) : IAsyncComputation<'a> =
+    let inline create ([<InlineIfLambda>] poll: Context -> Poll<'a>) ([<InlineIfLambda>] cancel: unit -> unit) : IAsyncComputation<'a> =
         { new IAsyncComputation<'a> with
-            member this.Poll(context) = __expand_poll context
-            member this.Cancel() = __expand_cancel () }
+            member this.Poll(context) = poll context
+            member this.Cancel() = cancel () }
 
     /// <summary> Create a Computation memo the first <code>Ready x</code> value
     /// with members from passed functions </summary>
-    /// <param name="__expand_poll"> Poll body </param>
-    /// <param name="__expand_cancel"> Poll body </param>
+    /// <param name="poll"> Poll body </param>
+    /// <param name="cancel"> Poll body </param>
     /// <returns> Computation implementations with passed members </returns>
-    let inline createMemo (__expand_poll: Context -> Poll<'a>) (__expand_cancel: unit -> unit) : IAsyncComputation<'a> =
+    let inline createMemo ([<InlineIfLambda>] poll: Context -> Poll<'a>) ([<InlineIfLambda>] cancel: unit -> unit) : IAsyncComputation<'a> =
         let mutable hasResult = false
         let mutable result: 'a = Unchecked.defaultof<_>
         create
@@ -134,14 +134,14 @@ module AsyncComputation =
             if hasResult then
                 Poll.Ready result
             else
-                let p = __expand_poll ctx
+                let p = poll ctx
                 match p with
                 | Poll.Pending -> Poll.Pending
                 | Poll.Ready x ->
                     result <- x
                     hasResult <- true
                     Poll.Ready x
-        <| __expand_cancel
+        <| cancel
 
     let inline poll context (comp: IAsyncComputation<'a>) = comp.Poll(context)
 
@@ -156,7 +156,7 @@ module AsyncComputation =
 
     /// <summary> Create the Computation returned <code>Ready ()</code> when polled</summary>
     /// <returns> Computation returned <code>Ready ()value)</code> when polled </returns>
-    let unit: IAsyncComputation<unit> =
+    let readyUnit: IAsyncComputation<unit> =
         create
         <| fun _ -> Poll.Ready ()
         <| fun () -> do ()
@@ -165,7 +165,7 @@ module AsyncComputation =
     /// <returns> always pending Computation </returns>
     let never<'a> : IAsyncComputation<'a> =
         create
-        <| fun _ -> Poll<'a>.Pending
+        <| fun _ -> Poll.Pending
         <| fun () -> do ()
 
     /// <summary> Creates the Computation lazy evaluator for the passed function </summary>
@@ -192,8 +192,8 @@ module AsyncComputation =
             else
                 poll context _compB
         <| fun () ->
-            cancelNullable _compA
-            cancelNullable _compB
+            cancelIfNotNull _compA
+            cancelIfNotNull _compB
 
     /// <summary> Creates the Computation, asynchronously applies mapper to result passed Computation </summary>
     /// <returns> Computation, asynchronously applies mapper to result passed Computation </returns>
@@ -212,7 +212,7 @@ module AsyncComputation =
                     _value <- r
                     _comp <- Unchecked.defaultof<_>
                     Poll.Ready r
-        <| fun () -> cancelNullable _comp
+        <| fun () -> cancelIfNotNull _comp
 
     /// <summary> Creates the Computation, asynchronously merging the results of passed Computations </summary>
     /// <remarks> If one of the Computations threw an exception, the same exception will be thrown everywhere,
@@ -241,7 +241,7 @@ module AsyncComputation =
                     |> Poll.onReady (fun x -> _comp1 <- nullObj; _r1 <- x)
                 with
                 | exn ->
-                    cancelNullable _comp2
+                    cancelIfNotNull _comp2
                     writeExnState exn
                     raise exn
 
@@ -251,7 +251,7 @@ module AsyncComputation =
                     |> Poll.onReady (fun x -> _comp2 <- nullObj; _r2 <- x)
                 with
                 | exn ->
-                    cancelNullable _comp1
+                    cancelIfNotNull _comp1
                     writeExnState exn
                     raise exn
 
@@ -260,8 +260,8 @@ module AsyncComputation =
             else Poll.Pending
 
         <| fun () ->
-            cancelNullable _comp1
-            cancelNullable _comp2
+            cancelIfNotNull _comp1
+            cancelIfNotNull _comp2
 
     /// <summary> Creates a Computations that will return the result of
     /// the first one that pulled out the result from the passed  </summary>
@@ -275,7 +275,7 @@ module AsyncComputation =
         let mutable _r = Unchecked.defaultof<_>
 
         let inline onExn toCancel exn =
-            cancelNullable toCancel
+            cancelIfNotNull toCancel
             _exn <- exn
             _comp1 <- nullObj
             _comp2 <- nullObj
@@ -308,8 +308,8 @@ module AsyncComputation =
                         | Poll.Ready x -> writeResultAndReady _comp1 x
                         | Poll.Pending -> Poll.Pending
         <| fun () ->
-            cancelNullable _comp1
-            cancelNullable _comp2
+            cancelIfNotNull _comp1
+            cancelIfNotNull _comp2
 
     /// <summary> Creates the Computation, asynchronously applies 'f' function to result passed Computation </summary>
     /// <returns> Computation, asynchronously applies 'f' function to result passed Computation </returns>
@@ -337,8 +337,8 @@ module AsyncComputation =
             else
                 Poll.Pending
         <| fun () ->
-            cancelNullable _fnFut
-            cancelNullable _sourceFut
+            cancelIfNotNull _fnFut
+            cancelIfNotNull _sourceFut
 
     /// <summary> Creates the Computation, asynchronously joining the result of passed Computation </summary>
     /// <returns> Computation, asynchronously joining the result of passed Computation </returns>
@@ -360,8 +360,8 @@ module AsyncComputation =
                     poll context inner
                 | Poll.Pending -> Poll.Pending
         <| fun () ->
-            cancelNullable _source
-            cancelNullable _inner
+            cancelIfNotNull _source
+            cancelIfNotNull _inner
 
     /// <summary> Create a Computation delaying invocation and computation of the Computation of the passed creator </summary>
     /// <returns> Computation delaying invocation and computation of the Computation of the passed creator </returns>
@@ -379,7 +379,7 @@ module AsyncComputation =
                 _inner <- inner
                 poll context inner
         <| fun () ->
-            cancelNullable _inner
+            cancelIfNotNull _inner
 
     /// <summary> Creates a Computation that returns control flow to the scheduler once </summary>
     /// <returns> Computation that returns control flow to the scheduler once </returns>
@@ -417,7 +417,7 @@ module AsyncComputation =
                 with
                 | e -> _result <- Poll.Ready (Error e)
             _result
-        <| fun () -> cancelNullable _source
+        <| fun () -> cancelIfNotNull _source
 
     [<RequireQualifiedAccess>]
     module Seq =

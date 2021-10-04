@@ -18,7 +18,7 @@ module Future =
     /// <summary> Create the Future returned <code>Ready ()</code> when polled</summary>
     /// <returns> Future returned <code>Ready ()value)</code> when polled </returns>
     let unit =
-        create (fun () -> AsyncComputation.unit)
+        create (fun () -> AsyncComputation.readyUnit)
 
     /// <summary> Creates always pending Future </summary>
     /// <returns> always pending Future </returns>

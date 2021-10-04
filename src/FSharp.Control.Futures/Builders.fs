@@ -40,10 +40,10 @@ module private Internal =
                 _current <- TryWithState.Cancelled
             | TryWithState.Body body ->
                 _current <- TryWithState.Cancelled
-                AsyncComputation.cancelNullable body
+                AsyncComputation.cancelIfNotNull body
             | TryWithState.Handler handler ->
                 _current <- TryWithState.Cancelled
-                AsyncComputation.cancelNullable handler
+                AsyncComputation.cancelIfNotNull handler
             | TryWithState.Cancelled -> do ()
 
 type AsyncComputationBuilder() =
@@ -52,7 +52,7 @@ type AsyncComputationBuilder() =
 
     member inline _.Bind(ca: IAsyncComputation<'a>, a2cb: 'a -> IAsyncComputation<'b>) = AsyncComputation.bind a2cb ca
 
-    member inline _.Zero(): IAsyncComputation<unit> = AsyncComputation.unit
+    member inline _.Zero(): IAsyncComputation<unit> = AsyncComputation.readyUnit
 
     member inline _.ReturnFrom(c: IAsyncComputation<'a>): IAsyncComputation<'a> = c
 

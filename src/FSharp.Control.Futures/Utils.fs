@@ -10,3 +10,8 @@ let inline isNotNull<'a when 'a : not struct> (x: 'a) = not (isNull x)
 
 // let (|IsNull|IsNotNull|) x = match x with null -> IsNull | _ -> IsNotNull x
 // let (|IsNullRef|IsNotNullRef|) x = match x with _ when obj.ReferenceEquals(x, null) -> IsNullRef | _ -> IsNotNullRef x
+
+// TODO: Change to std F# 6 InlineIfLambda
+[<System.AttributeUsage(System.AttributeTargets.Parameter)>]
+type InlineIfLambdaAttribute() =
+    inherit System.Attribute()
