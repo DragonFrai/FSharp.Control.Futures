@@ -1,6 +1,7 @@
 namespace FSharp.Control.Futures.Streams.Channels
 
 open System
+open FSharp.Control.Futures.Core
 open FSharp.Control.Futures
 open FSharp.Control.Futures.Streams
 
@@ -19,7 +20,7 @@ type private WatchState<'a> =
     /// Value is ready
     | Value of value: 'a // -> Empty / ClosedWithValue
     /// Exists waiter of value
-    | Waiting of context: Context // -> Value / Closed
+    | Waiting of context: IContext // -> Value / Closed
     /// Only when Disposed
     | ClosedWithValue of cValue: 'a // -> Closed
     | Closed

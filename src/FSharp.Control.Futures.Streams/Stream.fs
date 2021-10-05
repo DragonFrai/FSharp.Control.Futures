@@ -1,6 +1,7 @@
 namespace FSharp.Control.Futures.Streams
 
 open System.ComponentModel
+open FSharp.Control.Futures.Core
 open FSharp.Control.Futures
 
 
@@ -44,7 +45,7 @@ module StreamPoll =
 type IAsyncStreamer<'a> =
 
     [<EditorBrowsable(EditorBrowsableState.Advanced)>]
-    abstract PollNext: Context -> StreamPoll<'a>
+    abstract PollNext: IContext -> StreamPoll<'a>
 
     [<EditorBrowsable(EditorBrowsableState.Advanced)>]
     abstract Cancel: unit -> unit
@@ -55,7 +56,7 @@ exception StreamCompletedException
 [<RequireQualifiedAccess>]
 module AsyncStreamer =
 
-    let inline create (__expand_pollNext: Context -> StreamPoll<'a>) (__expand_cancel: unit -> unit) =
+    let inline create (__expand_pollNext: IContext -> StreamPoll<'a>) (__expand_cancel: unit -> unit) =
         { new IAsyncStreamer<_> with
             member _.PollNext(ctx) = __expand_pollNext ctx
             member _.Cancel() = __expand_cancel () }
@@ -66,7 +67,7 @@ module AsyncStreamer =
     let inline cancelNullable (stream: IAsyncStreamer<'a>) =
         if not (obj.ReferenceEquals(stream, null)) then stream.Cancel()
 
-    let inline pollNext (context: Context) (stream: IAsyncStreamer<'a>) = stream.PollNext(context)
+    let inline pollNext (context: IContext) (stream: IAsyncStreamer<'a>) = stream.PollNext(context)
 
     // -----------
     // Creation
@@ -546,7 +547,7 @@ module AsyncStreamer =
                     _fut <- Unchecked.defaultof<_>
                     StreamPoll.Next x
         <| fun () ->
-            AsyncComputation.cancelNullable _fut
+            AsyncComputation.cancelIfNotNull _fut
 
     let inline singleAsync x = ofComputation x
 
@@ -652,7 +653,7 @@ module Stream =
         Future.create (fun () -> AsyncStreamer.iter action (runStreaming source))
 
     let inline iterAsync (action: 'a -> Future<unit>) (source: Stream<'a>) : Future<unit> =
-        Future.create (fun () -> AsyncStreamer.iterAsync (action >> Future.runComputation) (runStreaming source))
+        Future.create (fun () -> AsyncStreamer.iterAsync (action >> Future.startComputation) (runStreaming source))
 
     let inline fold (folder: 's -> 'a -> 's) (initState: 's) (source: Stream<'a>): Future<'s> =
         Future.create (fun () -> AsyncStreamer.fold folder initState (runStreaming source))
@@ -712,7 +713,7 @@ module Stream =
         Future.create (fun () -> AsyncStreamer.last (runStreaming source))
 
     let inline singleAsync (x: Future<'a>) : Stream<'a> =
-        create (fun () -> AsyncStreamer.ofComputation (Future.runComputation x))
+        create (fun () -> AsyncStreamer.ofComputation (Future.startComputation x))
 
     let inline take (count: int) (source: Stream<'a>) : Stream<'a> =
         create (fun () -> AsyncStreamer.take count (runStreaming source))

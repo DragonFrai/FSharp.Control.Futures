@@ -2,6 +2,7 @@ namespace FSharp.Control.Futures.Streams.Channels
 
 open System
 open System.Collections.Generic
+open FSharp.Control.Futures.Core
 open FSharp.Control.Futures
 open FSharp.Control.Futures.Streams
 
@@ -10,7 +11,7 @@ type BridgeChannel<'a>() =
     let mutable isDisposed = false
     let mutable isCancelled = false
     let mutable msgQueue: Queue<'a> = Queue()
-    let mutable context: Context voption = ValueNone
+    let mutable context: IContext voption = ValueNone
     let syncLock = obj()
 
     member inline internal _.TryDequeue() = msgQueue.TryDequeue()
