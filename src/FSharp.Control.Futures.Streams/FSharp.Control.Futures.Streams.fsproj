@@ -7,10 +7,7 @@
         <PackageTags>F# async future asyncseq</PackageTags>
         <PackageId>FSharp.Control.Futures.Streams</PackageId>
         <Title>FSharp.Control.Futures.Streams</Title>
-        <Description>
-            A base extension to the FSharp.Control.Futures library that adds a stream of asynchronous values,
-            similar to IAsyncEnumerator, but closely related to how Future works.
-        </Description>
+        <Description>A base extension to the FSharp.Control.Futures library that adds a stream of asynchronous values, similar to IAsyncEnumerator, but closely related to how Future works.</Description>
         <Authors>DragonFrai, Prunkles</Authors>
         <PackageProjectUrl>https://github.com/DragonFrai/FSharp.Control.Futures</PackageProjectUrl>
         <PackageLicenseExpression>MIT</PackageLicenseExpression>
@@ -32,7 +29,6 @@
 
     <ItemGroup>
         <ProjectReference Include="..\FSharp.Control.Futures\FSharp.Control.Futures.fsproj" />
-<!--        <PackageReference Include="FSharp.Control.Futures" Version="0.3.3-alpha.1" />-->
     </ItemGroup>
 
     <ItemGroup>
