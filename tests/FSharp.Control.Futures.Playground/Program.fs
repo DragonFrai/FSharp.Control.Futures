@@ -1,18 +1,18 @@
 ﻿module FSharp.Control.Futures.Sandbox.Program
 
 open System
-open System
 open System.Diagnostics
-
-//open FSharp.Control.Tasks.V2
-
 open System.Text
-
 open System.Threading.Tasks
-open FSharp.Control.Futures
-open FSharp.Control.Futures.Scheduling
+
+// open FSharp.Control.Tasks.V2
 open Hopac
 open Hopac.Infixes
+
+open FSharp.Control.Futures.Core
+open FSharp.Control.Futures
+open FSharp.Control.Futures.Scheduling
+
 
 let inline ( ^ ) f x = f x
 
