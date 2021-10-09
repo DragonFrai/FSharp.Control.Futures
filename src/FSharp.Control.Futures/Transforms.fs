@@ -24,6 +24,7 @@ module FutureAsyncTransforms =
         let ofAsync (x: Async<'a>) : IAsyncComputation<'a> =
             let mutable result = AsyncResult.Pending
             let mutable started = false
+            let cts = new CancellationTokenSource()
             AsyncComputation.create
             <| fun context ->
                 if not started then
@@ -32,7 +33,8 @@ module FutureAsyncTransforms =
                         x,
                         (fun r -> result <- AsyncResult.Completed r; context.Wake()),
                         (fun e -> result <- AsyncResult.Errored e; context.Wake()),
-                        (fun ec -> result <- AsyncResult.Cancelled ec; context.Wake())
+                        (fun ec -> result <- AsyncResult.Cancelled ec; context.Wake()),
+                        cts.Token
                     )
                 match result with
                 | AsyncResult.Pending -> Poll.Pending
@@ -40,8 +42,7 @@ module FutureAsyncTransforms =
                 | AsyncResult.Cancelled ec -> raise ec //Poll.Ready ^ MaybeCancel.Cancelled ec
                 | AsyncResult.Errored e -> raise e
             <| fun () ->
-                // todo: impl
-                do ()
+                cts.Cancel()
 
         let toAsync (fut: IAsyncComputation<'a>) : Async<'a> =
             // TODO: notify Async based awaiter about Future cancellation
