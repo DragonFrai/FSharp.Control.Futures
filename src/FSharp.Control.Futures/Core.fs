@@ -71,24 +71,24 @@ module Poll =
 
     let inline isPending x =
         match x with
-        | Poll.Ready _ -> false
-        | _ -> true
+        | Poll.Pending -> true
+        | _ -> false
 
-    let inline onReady (f: 'a -> unit) (x: Poll<'a>) : unit =
-        match x with
-        | Poll.Ready x -> f x
-        | _ -> ()
+    // let inline onReady (f: 'a -> unit) (x: Poll<'a>) : unit =
+    //     match x with
+    //     | Poll.Ready x -> f x
+    //     | _ -> ()
 
-    let inline bind (binder: 'a -> Poll<'b>) (x: Poll<'a>): Poll<'b> =
-        match x with
-        | Poll.Ready x -> binder x
-        | _ -> Poll.Pending
+    // let inline bind (binder: 'a -> Poll<'b>) (x: Poll<'a>): Poll<'b> =
+    //     match x with
+    //     | Poll.Ready x -> binder x
+    //     | _ -> Poll.Pending
 
-    let inline bindPending (binder: unit -> Poll<'a>) (x: Poll<'a>): Poll<'a> =
-        match x with
-        | Poll.Ready x -> Poll.Ready x
-        | Poll.Transit f -> Poll.Transit f
-        | Poll.Pending -> binder ()
+    // let inline bindPending (binder: unit -> Poll<'a>) (x: Poll<'a>): Poll<'a> =
+    //     match x with
+    //     | Poll.Ready x -> Poll.Ready x
+    //     | Poll.Transit f -> Poll.Transit f
+    //     | Poll.Pending -> binder ()
 
     // let inline map (f: 'a -> 'b) (x: Poll<'a>) : Poll<'b> =
     //     match x with
@@ -139,27 +139,27 @@ module AsyncComputation =
                 pollTransiting f
         pollTransiting fut
 
-    /// <summary> Create a Computation memo the first <code>Ready x</code> value
-    /// with members from passed functions </summary>
-    /// <param name="poll"> Poll body </param>
-    /// <param name="cancel"> Poll body </param>
-    /// <returns> Computation implementations with passed members </returns>
-    let inline createMemo ([<InlineIfLambda>] poll: IContext -> Poll<'a>) ([<InlineIfLambda>] cancel: unit -> unit) : IAsyncComputation<'a> =
-        let mutable hasResult = false
-        let mutable result: 'a = Unchecked.defaultof<_>
-        create
-        <| fun ctx ->
-            if hasResult then
-                Poll.Ready result
-            else
-                let p = poll ctx
-                match p with
-                | Poll.Pending -> Poll.Pending
-                | Poll.Ready x ->
-                    result <- x
-                    hasResult <- true
-                    Poll.Ready x
-        <| cancel
+    // /// <summary> Create a Computation memo the first <code>Ready x</code> value
+    // /// with members from passed functions </summary>
+    // /// <param name="poll"> Poll body </param>
+    // /// <param name="cancel"> Poll body </param>
+    // /// <returns> Computation implementations with passed members </returns>
+    // let inline createMemo ([<InlineIfLambda>] poll: IContext -> Poll<'a>) ([<InlineIfLambda>] cancel: unit -> unit) : IAsyncComputation<'a> =
+    //     let mutable hasResult = false
+    //     let mutable result: 'a = Unchecked.defaultof<_>
+    //     create
+    //     <| fun ctx ->
+    //         if hasResult then
+    //             Poll.Ready result
+    //         else
+    //             let p = poll ctx
+    //             match p with
+    //             | Poll.Pending -> Poll.Pending
+    //             | Poll.Ready x ->
+    //                 result <- x
+    //                 hasResult <- true
+    //                 Poll.Ready x
+    //     <| cancel
 
     /// <summary> Create the Computation with ready value</summary>
     /// <param name="value"> Poll body </param>
@@ -167,82 +167,49 @@ module AsyncComputation =
     let ready (value: 'a) : IAsyncComputation<'a> =
         create
         <| fun _ -> Poll.Ready value
-        <| fun () -> do ()
+        <| fun () -> ()
 
     /// <summary> Create the Computation returned <code>Ready ()</code> when polled</summary>
     /// <returns> Computation returned <code>Ready ()value)</code> when polled </returns>
     let readyUnit: IAsyncComputation<unit> =
         create
         <| fun _ -> Poll.Ready ()
-        <| fun () -> do ()
+        <| fun () -> ()
 
     /// <summary> Creates always pending Computation </summary>
     /// <returns> always pending Computation </returns>
     let never<'a> : IAsyncComputation<'a> =
         create
         <| fun _ -> Poll.Pending
-        <| fun () -> do ()
+        <| fun () -> ()
 
     /// <summary> Creates the Computation lazy evaluator for the passed function </summary>
     /// <returns> Computation lazy evaluator for the passed function </returns>
     let lazy' (f: unit -> 'a) : IAsyncComputation<'a> =
-        createMemo
-        <| fun _ -> Poll.Ready (f ())
-        <| fun () -> do ()
+        create
+        <| fun _ ->
+            let x = f ()
+            Poll.Ready x
+        <| fun () -> ()
 
     /// <summary> Creates the Computation, asynchronously applies the result of the passed compute to the binder </summary>
     /// <returns> Computation, asynchronously applies the result of the passed compute to the binder </returns>
     let bind (binder: 'a -> IAsyncComputation<'b>) (source: IAsyncComputation<'a>) : IAsyncComputation<'b> =
-        let mutable _compA = source // poll when not null
-        // let mutable _compB = nullObj
+        let mutable fut = source
         create
         <| fun context ->
-            // if isNull _compB then
-            //     match poll context _compA with
-            //     | Poll.Ready x ->
-            //         _compA <- Unchecked.defaultof<_>
-            //         _compB <- binder x
-            //         poll context _compB
-            //     | Poll.Pending -> Poll.Pending
-            // else
-            //     poll context _compB
-
-            pollTransiting _compA context
+            pollTransiting fut context
             <| fun x ->
-                let compB = binder x
-                Poll.Transit compB
+                let futB = binder x
+                Poll.Transit futB
             <| fun () -> Poll.Pending
-            <| fun f -> _compA <- f
-
-            // let rec pollTransiting () =
-            //     let p = poll context _compA
-            //     match p with
-            //     | Poll.Ready x ->
-            //         _compA <- Unchecked.defaultof<_>
-            //         let compB = binder x
-            //         Poll.Transit compB
-            //     | Poll.Pending -> Poll.Pending
-            //     | Poll.Transit f ->
-            //         _compA <- f
-            //         pollTransiting ()
-            // pollTransiting ()
-
+            <| fun f -> fut <- f
         <| fun () ->
-            cancelIfNotNull _compA
+            cancelIfNotNull fut
 
     /// <summary> Creates the Computation, asynchronously applies mapper to result passed Computation </summary>
     /// <returns> Computation, asynchronously applies mapper to result passed Computation </returns>
     let map (mapping: 'a -> 'b) (source: IAsyncComputation<'a>) : IAsyncComputation<'b> =
-        // let mutable _comp = source
-        // create
-        // <| fun ctx ->
-        //     match _comp.Poll(ctx) with
-        //     | Poll.Pending -> Poll.Pending
-        //     | Poll.Ready x ->
-        //         let r = mapping x
-        //         _comp <- Unchecked.defaultof<_>
-        //         Poll.Ready r
-        // <| fun () -> cancelIfNotNull _comp
         let mutable fut = source
         create
         <| fun ctx ->
@@ -259,50 +226,6 @@ module AsyncComputation =
     /// and the other Computations will be canceled </remarks>
     /// <returns> Computation, asynchronously merging the results of passed Computation </returns>
     let merge (comp1: IAsyncComputation<'a>) (comp2: IAsyncComputation<'b>) : IAsyncComputation<'a * 'b> =
-        // let mutable _exn = nullObj
-        // let mutable _comp1 = comp1 // if null -- has _r1
-        // let mutable _comp2 = comp2 // if null -- has _r2
-        // let mutable _r1 = Unchecked.defaultof<_>
-        // let mutable _r2 = Unchecked.defaultof<_>
-        //
-        // let inline writeExnState exn =
-        //     _exn <- exn
-        //     _comp1 <- nullObj
-        //     _comp2 <- nullObj
-        //     _r1 <- Unchecked.defaultof<_>
-        //     _r2 <- Unchecked.defaultof<_>
-        //
-        // create
-        // <| fun ctx ->
-        //     if isNotNull _exn then raise _exn // if has exception
-        //     if isNotNull _comp1 then
-        //         try
-        //             poll ctx _comp1
-        //             |> Poll.onReady (fun x -> _comp1 <- nullObj; _r1 <- x)
-        //         with
-        //         | exn ->
-        //             cancelIfNotNull _comp2
-        //             writeExnState exn
-        //             raise exn
-        //
-        //     if isNotNull _comp2 then
-        //         try
-        //             poll ctx _comp2
-        //             |> Poll.onReady (fun x -> _comp2 <- nullObj; _r2 <- x)
-        //         with
-        //         | exn ->
-        //             cancelIfNotNull _comp1
-        //             writeExnState exn
-        //             raise exn
-        //
-        //     if (isNull _comp1) && (isNull _comp2)
-        //     then Poll.Ready (_r1, _r2)
-        //     else Poll.Pending
-        //
-        // <| fun () ->
-        //     cancelIfNotNull _comp1
-        //     cancelIfNotNull _comp2
-
         let mutable fut1 = comp1 // if not null then r1 is undefined
         let mutable fut2 = comp2 // if not null then r2 is undefined
         let mutable r1 = Unchecked.defaultof<'a>
@@ -352,90 +275,95 @@ module AsyncComputation =
     /// and the other Computations will be canceled </remarks>
     /// <returns> Computation, asynchronously merging the results of passed Computation </returns>
     let first (comp1: IAsyncComputation<'a>) (comp2: IAsyncComputation<'a>) : IAsyncComputation<'a> =
-        let mutable _exn = nullObj
-        let mutable _comp1 = comp1 // if null -- has _r
-        let mutable _comp2 = comp2 // if null -- has _r
-        let mutable _r = Unchecked.defaultof<_>
+        let mutable fut1 = comp1
+        let mutable fut2 = comp2
 
-        let inline onExn toCancel exn =
-            cancelIfNotNull toCancel
-            _exn <- exn
-            _comp1 <- nullObj
-            _comp2 <- nullObj
-            _r <- Unchecked.defaultof<_>
-            raise exn
-
-        let inline writeResultAndReady (toCancel: IAsyncComputation<'a>) result =
-            toCancel.Cancel()
-            _comp1 <- nullObj
-            _comp2 <- nullObj
-            _r <- result
+        let inline complete result =
+            fut1 <- Unchecked.defaultof<_>
+            fut2 <- Unchecked.defaultof<_>
             Poll.Ready result
+
+        let inline raiseDisposing ex =
+            fut1 <- Unchecked.defaultof<_>
+            fut2 <- Unchecked.defaultof<_>
+            raise ex
 
         create
         <| fun ctx ->
-            if isNotNull _exn then raise _exn // if has exception
-            if isNull _comp1 then
-                Poll.Ready _r
-            else
-                let pollR =
-                    try poll ctx _comp1
-                    with exn -> onExn _comp2 exn
-                match pollR with
-                | Poll.Ready x -> writeResultAndReady _comp2 x
-                | Poll.Pending ->
-                    let pollR =
-                        try poll ctx _comp2
-                        with exn -> onExn _comp1 exn
-                    match pollR with
-                        | Poll.Ready x -> writeResultAndReady _comp1 x
-                        | Poll.Pending -> Poll.Pending
+            try
+                pollTransiting fut1 ctx
+                <| fun x ->
+                    fut2.Cancel()
+                    complete x
+                <| fun () ->
+                    try
+                        pollTransiting fut2 ctx
+                        <| fun x ->
+                            fut1.Cancel()
+                            complete x
+                        <| fun () -> Poll.Pending
+                        <| fun f -> fut2 <- f
+                    with ex ->
+                        fut1.Cancel()
+                        raiseDisposing ex
+                <| fun f -> fut1 <- f
+            with ex ->
+                fut2.Cancel()
+                raiseDisposing ex
         <| fun () ->
-            cancelIfNotNull _comp1
-            cancelIfNotNull _comp2
+            cancelIfNotNull fut1
+            cancelIfNotNull fut2
 
     /// <summary> Creates the Computation, asynchronously applies 'f' function to result passed Computation </summary>
     /// <returns> Computation, asynchronously applies 'f' function to result passed Computation </returns>
-    let apply (f: IAsyncComputation<'a -> 'b>) (comp: IAsyncComputation<'a>) : IAsyncComputation<'b> =
-        // let mutable _fnFut = f // null when fn was got
-        // let mutable _sourceFut = comp // null when 'a was got
-        // let mutable _fn = Unchecked.defaultof<_>
-        // let mutable _value = Unchecked.defaultof<_>
-        // // Memoize the result so as not to call Apply twice
-        // createMemo
-        // <| fun context ->
-        //     if isNotNull _fnFut then
-        //         poll context _fnFut
-        //         |> (Poll.onReady <| fun x ->
-        //             _fnFut <- nullObj
-        //             _fn <- x)
-        //     if isNotNull _sourceFut then
-        //         poll context _sourceFut
-        //         |> (Poll.onReady <| fun x ->
-        //             _sourceFut <- nullObj
-        //             _value <- x)
-        //     if (isNull _fnFut) && (isNull _sourceFut) then
-        //         Poll.Ready (_fn _value)
-        //     else
-        //         Poll.Pending
-        // <| fun () ->
-        //     cancelIfNotNull _fnFut
-        //     cancelIfNotNull _sourceFut
+    let apply (funFut: IAsyncComputation<'a -> 'b>) (comp: IAsyncComputation<'a>) : IAsyncComputation<'b> =
+        let mutable fut = comp // if not null then r1 is undefined
+        let mutable funFut = funFut // if not null then r2 is undefined
+        let mutable r1 = Unchecked.defaultof<'a>
+        let mutable f2 = Unchecked.defaultof<'a -> 'b>
 
-        // let mutable fut = comp
-        // let mutable funcFut = f
-        // create
-        // <| fun ctx ->
-        //     pollTransiting
-        //     ()
-        // <| fun () ->
-        //     ()
-        failwith "TODO"
+        let inline complete1 r = fut <- Unchecked.defaultof<_>; r1 <- r
+        let inline complete2 r = funFut <- Unchecked.defaultof<_>; f2 <- r
+        let inline isNotComplete (fut: IAsyncComputation<_>) = isNotNull fut
+        let inline isBothComplete () = isNull fut && isNull funFut
+        let inline raiseDisposing ex =
+            fut <- Unchecked.defaultof<_>; r1 <- Unchecked.defaultof<_>
+            funFut <- Unchecked.defaultof<_>; f2 <- Unchecked.defaultof<_>
+            raise ex
 
-    type SelfTransitFuture<'a>() =
+        create
+        <| fun ctx ->
+            if isNotComplete fut then
+                try
+                    pollTransiting fut ctx
+                    <| fun r -> complete1 r
+                    <| fun () -> ()
+                    <| fun f -> fut <- f
+                with ex ->
+                    cancelIfNotNull funFut
+                    raiseDisposing ex
+            if isNotComplete funFut then
+                try
+                    pollTransiting funFut ctx
+                    <| fun r -> complete2 r
+                    <| fun () -> ()
+                    <| fun f -> funFut <- f
+                with ex ->
+                    cancelIfNotNull fut
+                    raiseDisposing ex
+            if isBothComplete () then
+                let r = f2 r1
+                Poll.Transit (ready r)
+            else
+                Poll.Pending
+        <| fun () ->
+            cancelIfNotNull fut
+            cancelIfNotNull fut
+
+    type private SelfTransitFuture<'a>() =
         let mutable isCancelled = false
         interface IAsyncComputation<'a> with
-            member this.Poll(ctx) =
+            member this.Poll(_ctx) =
                 if isCancelled then
                     raise FutureCancelledException
                 else
@@ -448,25 +376,6 @@ module AsyncComputation =
     /// <summary> Creates the Computation, asynchronously joining the result of passed Computation </summary>
     /// <returns> Computation, asynchronously joining the result of passed Computation </returns>
     let join (comp: IAsyncComputation<IAsyncComputation<'a>>) : IAsyncComputation<'a> =
-        // _inner == null до дожидания _source
-        // _inner != null после дожидания _source
-        // let mutable _source = comp //
-        // let mutable _inner = nullObj //
-        // create
-        // <| fun context ->
-        //     if isNotNull _inner then
-        //         poll context _inner
-        //     else
-        //         let sourcePoll = poll context _source
-        //         match sourcePoll with
-        //         | Poll.Ready inner ->
-        //             _inner <- inner
-        //             _source <- Unchecked.defaultof<_>
-        //             poll context inner
-        //         | Poll.Pending -> Poll.Pending
-        // <| fun () ->
-        //     cancelIfNotNull _source
-        //     cancelIfNotNull _inner
         let mutable fut = comp
         create
         <| fun ctx ->
@@ -481,22 +390,8 @@ module AsyncComputation =
     /// <summary> Create a Computation delaying invocation and computation of the Computation of the passed creator </summary>
     /// <returns> Computation delaying invocation and computation of the Computation of the passed creator </returns>
     let delay (creator: unit -> IAsyncComputation<'a>) : IAsyncComputation<'a> =
-        // Фьюча с задержкой её инстанцирования.
-        // Когда _inner == null, то фьюча еще не инициализирована
-        //
-        // let mutable _inner: IAsyncComputation<'a> = Unchecked.defaultof<_>
-        // create
-        // <| fun context ->
-        //     if isNotNull _inner
-        //     then poll context _inner
-        //     else
-        //         let inner = creator ()
-        //         _inner <- inner
-        //         poll context inner
-        // <| fun () ->
-        //     cancelIfNotNull _inner
         create
-        <| fun ctx ->
+        <| fun _ctx ->
             let fut = creator ()
             Poll.Transit fut
         <| fun () -> ()
@@ -504,16 +399,6 @@ module AsyncComputation =
     /// <summary> Creates a Computation that returns control flow to the scheduler once </summary>
     /// <returns> Computation that returns control flow to the scheduler once </returns>
     let yieldWorkflow () =
-        // let mutable isYielded = false
-        // create
-        // <| fun context ->
-        //     if isYielded then
-        //         Poll.Ready ()
-        //     else
-        //         isYielded <- true
-        //         context.Wake()
-        //         Poll.Pending
-        // <| fun () -> do ()
         let mutable isYielded = false
         create
         <| fun ctx ->
@@ -537,17 +422,19 @@ module AsyncComputation =
     //#endregion
 
     //#region STD integration
+
     let catch (source: IAsyncComputation<'a>) : IAsyncComputation<Result<'a, exn>> =
         let mutable _source = source
-        let mutable _result = Poll.Pending
         create
         <| fun context ->
-            if Poll.isPending _result then
-                try
-                    poll context _source |> Poll.onReady ^fun x -> _result <- Poll.Ready (Ok x)
-                with
-                | e -> _result <- Poll.Ready (Error e)
-            _result
+            try
+                pollTransiting _source context
+                <| fun x ->
+                    Poll.Ready (Ok x)
+                <| fun () -> Poll.Pending
+                <| fun f -> _source <- f
+            with e ->
+                Poll.Ready (Error e)
         <| fun () -> cancelIfNotNull _source
 
     [<RequireQualifiedAccess>]
@@ -662,11 +549,13 @@ module AsyncComputation =
     /// <summary> Creates a Computation that ignore result of the passed Computation </summary>
     /// <returns> Computation that ignore result of the passed Computation </returns>
     let ignore comp =
+        let mutable fut = comp
         create
-        <| fun context ->
-            match poll context comp with
-            | Poll.Ready _ -> Poll.Ready ()
-            | Poll.Pending -> Poll.Pending
+        <| fun ctx ->
+            pollTransiting fut ctx
+            <| fun _ -> Poll.Ready ()
+            <| fun () -> Poll.Pending
+            <| fun f -> fut <- f
         <| fun () -> do comp.Cancel()
     //#endregion
 
