@@ -54,17 +54,23 @@ module FutureAsyncTransforms =
                     member _.Scheduler = None
                 }
 
+            let mutable fut = fut
+
             let rec wait () =
-                let current = AsyncComputation.poll ctx fut
-                match current with
-                | Poll.Ready x -> async { return x }
-                | Poll.Pending -> async {
-                    let _whr = Async.AwaitWaitHandle(wh)
-                    return! wait ()
-                }
+                AsyncComputation.Helpers.PollTransiting(&fut, ctx
+                , onReady=fun x -> async { return x }
+                , onPending=fun () ->
+                    async {
+                        let! _whr = Async.AwaitWaitHandle(wh)
+                        return! wait ()
+                    }
+                )
 
             async {
-                return! wait ()
+                let! disp = Async.OnCancel(fun () -> fut.Cancel())
+                let! r = wait ()
+                disp.Dispose()
+                return r
             }
 
 module FutureApmTransforms =
@@ -102,14 +108,15 @@ module FutureApmTransforms =
             let beginMethod (callback: AsyncCallback) (state: obj) : IAsyncResult =
                 let asyncResult = new FutureAsyncResult<'a>(state)
 
+                let mutable fut = fut
                 let startPollOnContext (ctx: IContext) =
                     startPoll (fun () ->
-                        let p = AsyncComputation.poll ctx fut // may be blocking, but it's ok
-                        match p with
-                        | Poll.Ready result ->
+                        AsyncComputation.Helpers.pollTransiting fut ctx
+                        <| fun result ->
                             asyncResult.SetComplete(result)
                             if isNotNull callback then callback.Invoke(asyncResult)
-                        | Poll.Pending -> ()
+                        <| fun () -> ()
+                        <| fun f -> fut <- f
                     )
 
                 let ctx =
@@ -153,19 +160,8 @@ module FutureTaskTransforms =
                 OnceVar.write taskResult ivar
             ) |> ignore
 
-            AsyncComputation.create
-            <| fun context ->
-                let pollResult = AsyncComputation.poll context ivar
-                match pollResult with
-                | Poll.Ready result ->
-                    match result with
-                    | Ok x -> Poll.Ready x
-                    | Error ex -> raise ex
-                | Poll.Pending -> Poll.Pending
-            <| fun () ->
-                // TODO
-                (ivar :> IAsyncComputation<_>).Cancel()
-
+            ivar
+            |> AsyncComputation.map (function Ok x -> x | Error ex -> raise ex)
 
         let toTaskOn (scheduler: TaskScheduler) (fut: IAsyncComputation<'a>) : Task<'a> =
             let pollingTaskFactory = TaskFactory(scheduler)
