@@ -6,7 +6,7 @@
         <Description>
             A project for quick tests and checks.
         </Description>
-        <ServerGarbageCollection>true</ServerGarbageCollection>
+<!--        <ServerGarbageCollection>true</ServerGarbageCollection>-->
     </PropertyGroup>
 
     <ItemGroup>
