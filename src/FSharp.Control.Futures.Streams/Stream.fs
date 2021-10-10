@@ -198,9 +198,9 @@ module AsyncStreamer =
     /// Alias to `PullStream.collect`
     let inline bind binder source = collect binder source
 
-    let iter (action: 'a -> unit) (source: IAsyncStreamer<'a>) : IAsyncComputation<unit> =
+    let iter (action: 'a -> unit) (source: IAsyncStreamer<'a>) : IFuture<unit> =
         let mutable _source = source
-        AsyncComputation.create
+        Future.create
         <| fun context ->
             let mutable _result = ValueNone
             while _result.IsNone do
@@ -213,9 +213,9 @@ module AsyncStreamer =
             _source.Cancel()
             _source <- Unchecked.defaultof<_>
 
-    let iterAsync (action: 'a -> IAsyncComputation<unit>) (source: IAsyncStreamer<'a>) : IAsyncComputation<unit> =
-        let mutable _currFut: IAsyncComputation<unit> voption = ValueNone
-        AsyncComputation.create
+    let iterAsync (action: 'a -> IFuture<unit>) (source: IAsyncStreamer<'a>) : IFuture<unit> =
+        let mutable _currFut: IFuture<unit> voption = ValueNone
+        Future.create
         <| fun context ->
             let rec loop () =
                 match _currFut with
@@ -244,9 +244,9 @@ module AsyncStreamer =
                 _currFut <- ValueNone
             | ValueNone -> ()
 
-    let fold (folder: 's -> 'a -> 's) (initState: 's) (source: IAsyncStreamer<'a>): IAsyncComputation<'s> =
+    let fold (folder: 's -> 'a -> 's) (initState: 's) (source: IAsyncStreamer<'a>): IFuture<'s> =
         let mutable _currState = initState
-        AsyncComputation.create
+        Future.create
         <| fun context ->
             let rec loop () =
                 let sPoll = source.PollNext(context)
@@ -298,10 +298,10 @@ module AsyncStreamer =
         <| fun () ->
             source.Cancel()
 
-    let tryPickV (chooser: 'a -> 'b voption) (source: IAsyncStreamer<'a>) : IAsyncComputation<'b voption> =
+    let tryPickV (chooser: 'a -> 'b voption) (source: IAsyncStreamer<'a>) : IFuture<'b voption> =
         let mutable _source = source
         let mutable _result: 'b voption = ValueNone
-        AsyncComputation.create
+        Future.create
         <| fun context ->
             if _result.IsSome then
                 Poll.Ready _result
@@ -321,12 +321,12 @@ module AsyncStreamer =
         <| fun () ->
             source.Cancel()
 
-    let tryPick (chooser: 'a -> 'b option) (source: IAsyncStreamer<'a>) : IAsyncComputation<'b option> =
-        tryPickV (chooser >> Option.toValueOption) source |> AsyncComputation.map Option.ofValueOption
+    let tryPick (chooser: 'a -> 'b option) (source: IAsyncStreamer<'a>) : IFuture<'b option> =
+        tryPickV (chooser >> Option.toValueOption) source |> Future.map Option.ofValueOption
 
-    let pickV (chooser: 'a -> 'b voption) (source: IAsyncStreamer<'a>) : IAsyncComputation<'b> =
+    let pickV (chooser: 'a -> 'b voption) (source: IAsyncStreamer<'a>) : IFuture<'b> =
         tryPickV chooser source
-        |> AsyncComputation.map ^function
+        |> Future.map ^function
             | ValueSome r -> r
             | ValueNone -> raise (System.Collections.Generic.KeyNotFoundException())
 
@@ -405,9 +405,9 @@ module AsyncStreamer =
         <| fun () ->
             source.Cancel()
 
-    let any (predicate: 'a -> bool) (source: IAsyncStreamer<'a>) : IAsyncComputation<bool> =
+    let any (predicate: 'a -> bool) (source: IAsyncStreamer<'a>) : IFuture<bool> =
         let mutable result: bool voption = ValueNone
-        AsyncComputation.create
+        Future.create
         <| fun context ->
             let rec loop () =
                 match result with
@@ -429,9 +429,9 @@ module AsyncStreamer =
             loop ()
         <| source.Cancel
 
-    let all (predicate: 'a -> bool) (source: IAsyncStreamer<'a>) : IAsyncComputation<bool> =
+    let all (predicate: 'a -> bool) (source: IAsyncStreamer<'a>) : IFuture<bool> =
         let mutable result: bool voption = ValueNone
-        AsyncComputation.create
+        Future.create
         <| fun context ->
             let rec loop () =
                 match result with
@@ -489,8 +489,8 @@ module AsyncStreamer =
             source1.Cancel()
             source2.Cancel()
 
-    let tryHeadV (source: IAsyncStreamer<'a>) : IAsyncComputation<'a voption> =
-        AsyncComputation.createMemo
+    let tryHeadV (source: IAsyncStreamer<'a>) : IFuture<'a voption> =
+        Future.createMemo
         <| fun context ->
             match source.PollNext(context) with
             | StreamPoll.Pending -> Poll.Pending
@@ -498,19 +498,19 @@ module AsyncStreamer =
             | StreamPoll.Next x -> Poll.Ready (ValueSome x)
         <| source.Cancel
 
-    let tryHead (source: IAsyncStreamer<'a>) : IAsyncComputation<'a option> =
-        tryHeadV source |> AsyncComputation.map (function ValueSome x -> Some x | ValueNone -> None)
+    let tryHead (source: IAsyncStreamer<'a>) : IFuture<'a option> =
+        tryHeadV source |> Future.map (function ValueSome x -> Some x | ValueNone -> None)
 
-    let head (source: IAsyncStreamer<'a>) : IAsyncComputation<'a> =
+    let head (source: IAsyncStreamer<'a>) : IFuture<'a> =
         tryHeadV source
-        |> AsyncComputation.map (function
+        |> Future.map (function
             | ValueSome x -> x
             | ValueNone -> invalidArg (nameof source) "The input stream was empty."
         )
 
-    let tryLastV (source: IAsyncStreamer<'a>) : IAsyncComputation<'a voption> =
+    let tryLastV (source: IAsyncStreamer<'a>) : IFuture<'a voption> =
         let mutable last = ValueNone
-        AsyncComputation.createMemo
+        Future.createMemo
         <| fun context ->
             let rec loop () =
                 match source.PollNext(context) with
@@ -523,17 +523,17 @@ module AsyncStreamer =
         <| fun () ->
             source.Cancel()
 
-    let tryLast (source: IAsyncStreamer<'a>) : IAsyncComputation<'a option> =
-        tryLastV source |> AsyncComputation.map (function ValueSome x -> Some x | ValueNone -> None)
+    let tryLast (source: IAsyncStreamer<'a>) : IFuture<'a option> =
+        tryLastV source |> Future.map (function ValueSome x -> Some x | ValueNone -> None)
 
-    let last (source: IAsyncStreamer<'a>) : IAsyncComputation<'a> =
+    let last (source: IAsyncStreamer<'a>) : IFuture<'a> =
         tryLastV source
-        |> AsyncComputation.map (function
+        |> Future.map (function
             | ValueSome x -> x
             | ValueNone -> invalidArg (nameof source) "The input stream was empty."
         )
 
-    let ofComputation (fut: IAsyncComputation<'a>) : IAsyncStreamer<'a> =
+    let ofComputation (fut: IFuture<'a>) : IAsyncStreamer<'a> =
         let mutable _fut = fut // fut == null, when completed
         create
         <| fun context ->
@@ -547,7 +547,7 @@ module AsyncStreamer =
                     _fut <- Unchecked.defaultof<_>
                     StreamPoll.Next x
         <| fun () ->
-            AsyncComputation.cancelIfNotNull _fut
+            Future.cancelIfNotNull _fut
 
     let inline singleAsync x = ofComputation x
 
@@ -650,13 +650,13 @@ module Stream =
     let inline bind binder source = collect binder source
 
     let inline iter (action: 'a -> unit) (source: Stream<'a>) : Future<unit> =
-        Future.create (fun () -> AsyncStreamer.iter action (runStreaming source))
+        Future_OLD.create (fun () -> AsyncStreamer.iter action (runStreaming source))
 
     let inline iterAsync (action: 'a -> Future<unit>) (source: Stream<'a>) : Future<unit> =
-        Future.create (fun () -> AsyncStreamer.iterAsync (action >> Future.startComputation) (runStreaming source))
+        Future_OLD.create (fun () -> AsyncStreamer.iterAsync (action >> Future.startComputation) (runStreaming source))
 
     let inline fold (folder: 's -> 'a -> 's) (initState: 's) (source: Stream<'a>): Future<'s> =
-        Future.create (fun () -> AsyncStreamer.fold folder initState (runStreaming source))
+        Future_OLD.create (fun () -> AsyncStreamer.fold folder initState (runStreaming source))
 
     let inline scan (folder: 's -> 'a -> 's) (initState: 's) (source: Stream<'a>) : Stream<'s> =
         create (fun () -> AsyncStreamer.scan folder initState (runStreaming source))
@@ -665,13 +665,13 @@ module Stream =
         create (fun () -> AsyncStreamer.chooseV chooser (runStreaming source))
 
     let inline tryPickV (chooser: 'a -> 'b voption) (source: Stream<'a>) : Future<'b voption> =
-        Future.create (fun () -> AsyncStreamer.tryPickV chooser (runStreaming source))
+        Future_OLD.create (fun () -> AsyncStreamer.tryPickV chooser (runStreaming source))
 
     let inline tryPick (chooser: 'a -> 'b option) (source: Stream<'a>) : Future<'b option> =
-        Future.create (fun () -> AsyncStreamer.tryPick chooser (runStreaming source))
+        Future_OLD.create (fun () -> AsyncStreamer.tryPick chooser (runStreaming source))
 
     let inline pickV (chooser: 'a -> 'b voption) (source: Stream<'a>) : Future<'b> =
-        Future.create (fun () -> AsyncStreamer.pickV chooser (runStreaming source))
+        Future_OLD.create (fun () -> AsyncStreamer.pickV chooser (runStreaming source))
 
     let inline join (source: Stream<Stream<'a>>) : Stream<'a> =
         create (fun () -> AsyncStreamer.join (runStreaming (map runStreaming source)))
@@ -686,34 +686,34 @@ module Stream =
         create (fun () -> AsyncStreamer.filter predicate (runStreaming source))
 
     let inline any (predicate: 'a -> bool) (source: Stream<'a>) : Future<bool> =
-        Future.create (fun () -> AsyncStreamer.any predicate (runStreaming source))
+        Future_OLD.create (fun () -> AsyncStreamer.any predicate (runStreaming source))
 
     let inline all (predicate: 'a -> bool) (source: Stream<'a>) : Future<bool> =
-        Future.create (fun () -> AsyncStreamer.all predicate (runStreaming source))
+        Future_OLD.create (fun () -> AsyncStreamer.all predicate (runStreaming source))
 
     let inline zip (source1: Stream<'a>) (source2: Stream<'b>) : Stream<'a * 'b> =
         create (fun () -> AsyncStreamer.zip (runStreaming source1) (runStreaming source2))
 
     let inline tryHeadV (source: Stream<'a>) : Future<'a voption> =
-        Future.create (fun () -> AsyncStreamer.tryHeadV (runStreaming source))
+        Future_OLD.create (fun () -> AsyncStreamer.tryHeadV (runStreaming source))
 
     let inline tryHead (source: Stream<'a>) : Future<'a option> =
-        Future.create (fun () -> AsyncStreamer.tryHead (runStreaming source))
+        Future_OLD.create (fun () -> AsyncStreamer.tryHead (runStreaming source))
 
     let inline head (source: Stream<'a>) : Future<'a> =
-        Future.create (fun () -> AsyncStreamer.head (runStreaming source))
+        Future_OLD.create (fun () -> AsyncStreamer.head (runStreaming source))
 
     let inline tryLastV (source: Stream<'a>) : Future<'a voption> =
-        Future.create (fun () -> AsyncStreamer.tryLastV (runStreaming source))
+        Future_OLD.create (fun () -> AsyncStreamer.tryLastV (runStreaming source))
 
     let inline tryLast (source: Stream<'a>) : Future<'a option> =
-        Future.create (fun () -> AsyncStreamer.tryLast (runStreaming source))
+        Future_OLD.create (fun () -> AsyncStreamer.tryLast (runStreaming source))
 
     let inline last (source: Stream<'a>) : Future<'a> =
-        Future.create (fun () -> AsyncStreamer.last (runStreaming source))
+        Future_OLD.create (fun () -> AsyncStreamer.last (runStreaming source))
 
     let inline singleAsync (x: Future<'a>) : Stream<'a> =
-        create (fun () -> AsyncStreamer.ofComputation (Future.startComputation x))
+        create (fun () -> AsyncStreamer.ofComputation (Future_OLD.startComputation x))
 
     let inline take (count: int) (source: Stream<'a>) : Stream<'a> =
         create (fun () -> AsyncStreamer.take count (runStreaming source))

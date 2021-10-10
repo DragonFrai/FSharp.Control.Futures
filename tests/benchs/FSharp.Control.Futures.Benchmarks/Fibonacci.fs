@@ -13,7 +13,7 @@ module SerialFun =
             fib (n - 1L) + fib (n - 2L)
 
 module SerialFutureBuilder =
-    let rec fib n = future {
+    let rec fib n = future_OLD {
         if n < 2L then
             return n
         else
@@ -23,7 +23,7 @@ module SerialFutureBuilder =
     }
 
 module MergeFutureBuilder =
-    let rec fibMerge n = future {
+    let rec fibMerge n = future_OLD {
         if n < 2L then
             return n
         else

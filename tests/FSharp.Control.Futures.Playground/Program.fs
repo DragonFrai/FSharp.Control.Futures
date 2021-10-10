@@ -3,9 +3,10 @@
 open System
 open System.Diagnostics
 open System.Text
+open System.Threading
 open System.Threading.Tasks
 
-// open FSharp.Control.Tasks.V2
+open FSharp.Control.Tasks
 open Hopac
 open Hopac.Infixes
 
@@ -58,18 +59,11 @@ module Fib =
         future {
             if n <= 1 then return n
             else
+                do! Future.yieldWorkflow ()
                 let! a = fibFuture (n - 1)
+                do! Future.yieldWorkflow ()
                 let! b = fibFuture (n - 2)
-                return a + b
-        }
-
-    let rec fibComputation (n: int) : IAsyncComputation<int> =
-        if n < 0 then invalidOp "n < 0"
-        computation {
-            if n <= 1 then return n
-            else
-                let! a = fibComputation (n - 1)
-                let! b = fibComputation (n - 2)
+                do! Future.yieldWorkflow ()
                 return a + b
         }
 
@@ -117,6 +111,31 @@ module Fib =
 //        let fut = lazy(fibInner n)
 //        Future.Core.create ^fun w -> Future.Core.poll w fut.Value
 
+    let deepFutureComputation n =
+        let rec loop n =
+            match n with
+            | 0 -> future { return n }
+            | n ->
+                future {
+                    let! f1 = Future.ready 2
+                    do! Future.yieldWorkflow ()
+                    let! f2 = loop (n - 1)
+                    do! Future.yieldWorkflow ()
+                    let! f3 = Future.ready 3
+                    return f1 + f2 + f3
+                }
+        loop n
+
+    let testDeep n =
+        printfn $"Test with n = {n}"
+        let sw = Stopwatch()
+
+        printfn "Test deep computation..."
+        sw.Restart()
+        for i in 1..20 do deepFutureComputation n |> Future.runSync |> ignore
+        printfn $"Total {sw.ElapsedMilliseconds} ms"
+
+
     let runPrimeTest n =
         let sw = Stopwatch()
 
@@ -124,31 +143,31 @@ module Fib =
 
         printfn "Test with n = %d" n
 
-        printf "Test Future...      "
-        sw.Start()
+        // printf "Test Future...      "
+        // sw.Restart()
+        // for i in 1..20 do fibFuture n |> Future.runSync |> ignore
+        // let ms = sw.ElapsedMilliseconds
+        // printfn "Total %i ms" ms
+
+        printf "Test Computation... "
+        sw.Restart()
         for i in 1..20 do fibFuture n |> Future.runSync |> ignore
         let ms = sw.ElapsedMilliseconds
         printfn "Total %i ms" ms
 
-        printf "Test Computation... "
-        sw.Start()
-        for i in 1..20 do fibComputation n |> AsyncComputation.runSync |> ignore
-        let ms = sw.ElapsedMilliseconds
-        printfn "Total %i ms" ms
-
-        // Async
-        printf "Test Async...       "
-        sw.Restart()
-        for i in 1..20 do (fibAsync n |> Async.RunSynchronously) |> ignore
-        let ms = sw.ElapsedMilliseconds
-        printfn "Total %i ms" ms
-
-        // Job
-        printf "Test Job...         "
-        sw.Restart()
-        for i in 1..20 do (fibJob n |> Hopac.run) |> ignore
-        let ms = sw.ElapsedMilliseconds
-        printfn "Total %i ms" ms
+        // // Async
+        // printf "Test Async...       "
+        // sw.Restart()
+        // for i in 1..20 do (fibAsync n |> Async.RunSynchronously) |> ignore
+        // let ms = sw.ElapsedMilliseconds
+        // printfn "Total %i ms" ms
+        //
+        // // Job
+        // printf "Test Job...         "
+        // sw.Restart()
+        // for i in 1..20 do (fibJob n |> Hopac.run) |> ignore
+        // let ms = sw.ElapsedMilliseconds
+        // printfn "Total %i ms" ms
 
         printfn ""
 //
@@ -173,148 +192,107 @@ module Fib =
 //        printfn "Total %i ms\n" ms
 
 
-//
-//let main1 () =
-//    //    Fib.runPrimeTest ()
-//
-//    let source = Stream.ofSeq [1; 2; 3]
 
-//    let fut2 = future {
-//        let ch = Bridge.create ()
-//        let! _ = future {
-//            for x in ch do
-//                printfn "%i" x
-//        }
-//        and! _ = future {
-//            for i in (Seq.init 100 id)  do
-//                Sender.send i ch
-//                do! Future.sleepMs 100
-//            do ch.Dispose()
-//        }
-//        ()
-//    }
+open FSharp.Control.Futures.Transforms.FutureTaskTransforms
 
-//    printfn "run future"
-//    fut2 |> Future.runSync
-//
-//    System.Threading.Thread.Sleep(500)
-//    ()
+let testTasks () =
 
-//
-//
-//let main2 () =
-//
-//    let xs =
-//        stream {
-//            yield 0
-//            yield! [ 1; 2 ]
-//            do! Future.sleepMs 5000
-//            yield 3
-//            let! x = Future.ready 4
-//            yield x
-//        }
-//
-//    xs
-//    |> Streams.Stream.iter (printfn "%A")
-//    |> Future.runSync
-//
-//    ()
-//
-//
-//let main0 () =
-//
-//    let myScheduler = Schedulers.threadPool
-//
-//    let fut = future {
-//        let ch = Bridge.create ()
-//
-//        let! () =
-//            future {
-//                for x in ch do
-//                    printfn "%i" x
-//            } |> Scheduler.spawnOn myScheduler
-//
-//        and! () = future {
-//            let! () =
-//                future {
-//                    for i in 100..199  do
-//                        Sender.send i ch
-//                        do! Future.sleepMs 100
-//                } |> Scheduler.spawnOn myScheduler
-//            and! () =
-//                future {
-//                    for i in 200..299 do
-//                        Sender.send i ch
-//                        do! Future.sleepMs 100
-//                } |> Scheduler.spawnOn myScheduler
-//            do ch.Dispose()
-//        }
-//
-//        ()
-//    }
-//
-//    let () = Future.runSync fut
-//    ()
-//
-//
-//module File =
+    let fut1 = Future.ready "a"
+    // let task1 =
+    // task {
+    //     0
+    // }
+    let sw = Stopwatch()
+    sw.Start()
+    let t =
+        ThreadPool.SetMaxThreads(10, 10) |> ignore
+        task {
+            printfn $"[{sw.Elapsed}]"
+            let! r = Future.ready 1 |> Future.toTask
+            printfn $"[{sw.Elapsed}] r: {r}"
+            let! _ = Task.WhenAll([
+                for i in 0 .. 10_000 - 1 ->
+                    Future.sleepMs 10_000 |> Future.toTask
+            ])
+            printfn $"[{sw.Elapsed}]"
+        }
+    t.GetAwaiter().GetResult()
 
-    open System.IO
-
-//    let readAllText (path: string) : Future<string> =
-//        future {
-//            let task = File.ReadAllTextAsync(path)
-//            return! Future.ofTask task
-//        }
-//
-//    let readStream (bufferSize: int) (path: string) : IStream<byte> =
-//        stream {
-//            let fileStream = File.OpenRead(path)
-//            let count = bufferSize
-//            let buffer = Array.zeroCreate count
-//            let rec loop () = stream {
-//                let! c = fileStream.ReadAsync(buffer, 0, count) |> Future.ofTask
-//                if c > 0 then
-//                    yield! Streams.Stream.ofSeq buffer.[0..c-1]
-//                    yield! loop ()
-//                else
-//                    ()
-//            }
-//            yield! loop ()
-//        }
-
-//let getRandomBytes () = stream {
-//    let bufferSize = 32
-//    let bytes = File.readStream bufferSize "/dev/urandom"
-//    yield! bytes
-//}
-
-//let getRandomInts () = stream {
-//        let ints =
-//            getRandomBytes ()
-//            |> Stream.bufferByCount sizeof<int>
-//            |> Stream.map ^fun bytes -> BitConverter.ToInt32(ReadOnlySpan(bytes))
-//        yield! ints
-//    }
-
-
-//module rec Funcs =
-//    let aLoop iter = async {
-//        do ()
-//        return! bLoop (iter + 1)
-//    }
-//    let bLoop iter = async {
-//        do ()
-//        return! aLoop (iter + 1)
-//    }
+    ()
 
 [<EntryPoint>]
 let main argv =
 
-    Fib.runPrimeTest 30
-    Fib.runPrimeTest 30
-    Fib.runPrimeTest 30
-    Fib.runPrimeTest 30
+    // let r =
+    //     future {
+    //         let! () = Future.ready ()
+    //         while true do
+    //             printfn "a"
+    //             let! x = Future.ready 0
+    //             printf $"{x}"
+    //         let! () = Future.ready ()
+    //         return 0
+    //     }
+
+    // let f =
+    //     future {
+    //         let! a = future {
+    //             let! x = Future.ready 1
+    //             do! Future.sleepMs 100
+    //             return x + 2
+    //         }
+    //         let! b = Future.ready true
+    //         do! Future.sleepMs 100
+    //         let! c = future {
+    //             do! Future.sleepMs 100
+    //             let! y = Future.ready "b"
+    //             let! z = future {
+    //                 let! c = Future.ready "c"
+    //                 do! Future.sleepMs 100
+    //                 return c + "c"
+    //             }
+    //             return y + z
+    //         }
+    //         do! Future.sleepMs 100
+    //         return string a + string b + c
+    //     }
+    //
+    // let r = Future.runSync f
+    // printfn $"r: {r}"
+
+    // testTasks ()
+
+    let n = 2000
+    Fib.testDeep n
+    Fib.testDeep n
+
+    // computation {
+    //     while true do
+    //         do! AsyncComputation.yieldWorkflow ()
+    // }
+    // |> AsyncComputation.runSync
+
+    // let n = 22
+    // Fib.runPrimeTest n
+    // Fib.runPrimeTest n
+
+    // let fut =
+    //     computation {
+    //         while true do
+    //             do! AsyncComputation.yieldWorkflow ()
+    //     }
+    //
+    // (task {
+    //     do! Task.Delay(20 * 1000)
+    //     do fut.Cancel()
+    // })
+    //
+    // let r = AsyncComputation.runSync fut
+    // printfn $"r: {r}"
+
+
+    // Fib.runPrimeTest n
+    // Fib.runPrimeTest n
 //
 //    Fib.runPrimeTest 29
 //    Fib.runPrimeTest 29

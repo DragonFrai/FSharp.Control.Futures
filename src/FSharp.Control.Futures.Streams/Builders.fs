@@ -10,7 +10,7 @@ type AsyncStreamerBuilder() =
 
     member inline _.YieldFrom(x: IAsyncStreamer<'a>): IAsyncStreamer<'a> = x
 
-    member inline _.YieldFrom(x: IAsyncComputation<'a>): IAsyncStreamer<'a> = AsyncStreamer.ofComputation x
+    member inline _.YieldFrom(x: IFuture<'a>): IAsyncStreamer<'a> = AsyncStreamer.ofComputation x
 
     member inline _.YieldFrom(xs: 'a seq): IAsyncStreamer<'a> = AsyncStreamer.ofSeq xs
 
@@ -18,7 +18,7 @@ type AsyncStreamerBuilder() =
 
     member inline _.Bind(x: IAsyncStreamer<'a>, f: 'a -> IAsyncStreamer<'b>): IAsyncStreamer<'b> = AsyncStreamer.collect f x
 
-    member inline this.Bind(x: IAsyncComputation<'a>, f: 'a -> IAsyncStreamer<'b>): IAsyncStreamer<'b> = this.Bind(AsyncStreamer.ofComputation x, f)
+    member inline this.Bind(x: IFuture<'a>, f: 'a -> IAsyncStreamer<'b>): IAsyncStreamer<'b> = this.Bind(AsyncStreamer.ofComputation x, f)
 
     member inline _.Combine(s1: IAsyncStreamer<'a>, u2S2: unit -> IAsyncStreamer<'a>): IAsyncStreamer<'a> = AsyncStreamer.append s1 (AsyncStreamer.delay u2S2)
 

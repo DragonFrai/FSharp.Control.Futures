@@ -11,12 +11,12 @@ type [<Struct; RequireQualifiedAccess>]
     Poll<'a> =
     | Ready of readyValue: 'a
     | Pending
-    | Transit of transitComputation: IAsyncComputation<'a>
+    | Transit of transitComputation: IFuture<'a>
 
 /// # IAsyncComputation poll schema
 /// [ Poll.Pending -> ... -> Poll.Pending ] -> Poll.Ready x1 -> ... -> Poll.Ready xn
 ///  x1 == x2 == ... == xn
-and IAsyncComputation<'a> =
+and IFuture<'a> =
     /// <summary> Poll the state </summary>
     /// <param name="context"> Current Computation context </param>
     /// <returns> Current state </returns>
@@ -27,6 +27,8 @@ and IAsyncComputation<'a> =
     /// <remarks> Notifies internal asynchronous operations of Computation cancellations. </remarks>
     //[<EditorBrowsable(EditorBrowsableState.Advanced)>]
     abstract Cancel: unit -> unit
+
+and Future<'a> = IFuture<'a>
 
 /// <summary> The context of the running computation.
 /// Allows the computation to signal its ability to move forward (awake) through the Wake method </summary>
@@ -42,22 +44,21 @@ and IScheduler =
     inherit IDisposable
     /// IScheduler.Spawn принимает Future, так как вызов Future.RunComputation является частью асинхронного вычисления.
     abstract Spawn: Future<'a> -> IJoinHandle<'a>
-    abstract Spawn: IAsyncComputation<'a> -> IJoinHandle<'a>
 
 /// <summary> Allows to cancel and wait (asynchronously or synchronously) for a spawned Future. </summary>
 and IJoinHandle<'a> =
-    inherit Future<'a>
     abstract Cancel: unit -> unit
     abstract Join: unit -> 'a
+    abstract Await: unit -> Future<'a>
 
-and [<Interface>]
-    IFuture<'a> =
-    /// <summary> starts execution of the current Future and returns its "tail" as IAsyncComputation. </summary>
-    /// <remarks> The call to Future.RunComputation is part of the asynchronous computation.
-    /// And it should be call in an asynchronous context. </remarks>
-    // [<EditorBrowsable(EditorBrowsableState.Advanced)>]
-    abstract StartComputation: unit -> IAsyncComputation<'a>
-and Future<'a> = IFuture<'a>
+// and [<Interface>]
+//     Future_OLD<'a> =
+//     /// <summary> starts execution of the current Future and returns its "tail" as IAsyncComputation. </summary>
+//     /// <remarks> The call to Future.RunComputation is part of the asynchronous computation.
+//     /// And it should be call in an asynchronous context. </remarks>
+//     // [<EditorBrowsable(EditorBrowsableState.Advanced)>]
+//     abstract StartComputation: unit -> Future<'a>
+// and Future_OLD<'a> = Future_OLD<'a>
 
 /// Exception is thrown when re-polling after cancellation (assuming IAsyncComputation is tracking such an invalid call)
 exception FutureCancelledException
@@ -103,25 +104,25 @@ module Poll =
 
 
 [<RequireQualifiedAccess>]
-module AsyncComputation =
+module Future =
 
     //#region Core
-    let inline cancelIfNotNull (comp: IAsyncComputation<'a>) =
+    let inline cancelIfNotNull (comp: Future<'a>) =
         if isNotNull comp then comp.Cancel()
 
-    let inline cancel (comp: IAsyncComputation<'a>) =
+    let inline cancel (comp: Future<'a>) =
         comp.Cancel()
 
     /// <summary> Create a Computation with members from passed functions </summary>
     /// <param name="poll"> Poll body </param>
     /// <param name="cancel"> Poll body </param>
     /// <returns> Computation implementations with passed members </returns>
-    let inline create ([<InlineIfLambda>] poll: IContext -> Poll<'a>) ([<InlineIfLambda>] cancel: unit -> unit) : IAsyncComputation<'a> =
-        { new IAsyncComputation<'a> with
+    let inline create ([<InlineIfLambda>] poll: IContext -> Poll<'a>) ([<InlineIfLambda>] cancel: unit -> unit) : Future<'a> =
+        { new Future<'a> with
             member this.Poll(context) = poll context
             member this.Cancel() = cancel () }
 
-    let inline poll context (comp: IAsyncComputation<'a>) = comp.Poll(context)
+    let inline poll context (comp: Future<'a>) = comp.Poll(context)
 
     [<AutoOpen>]
     type Helpers =
@@ -154,10 +155,10 @@ module AsyncComputation =
     [<AutoOpen>]
     module Helpers =
         let inline pollTransiting
-            (fut: IAsyncComputation<'a>) (ctx: IContext)
+            (fut: Future<'a>) (ctx: IContext)
             ([<InlineIfLambda>] onReady: 'a -> 'b)
             ([<InlineIfLambda>] onPending: unit -> 'b)
-            ([<InlineIfLambda>] onTransitAction: IAsyncComputation<'a> -> unit)
+            ([<InlineIfLambda>] onTransitAction: Future<'a> -> unit)
             : 'b =
             let rec pollTransiting fut =
                 let p = poll ctx fut
@@ -172,28 +173,28 @@ module AsyncComputation =
     /// <summary> Create the Computation with ready value</summary>
     /// <param name="value"> Poll body </param>
     /// <returns> Computation returned <code>Ready value</code> when polled </returns>
-    let ready (value: 'a) : IAsyncComputation<'a> =
+    let ready (value: 'a) : Future<'a> =
         create
         <| fun _ -> Poll.Ready value
         <| fun () -> ()
 
     /// <summary> Create the Computation returned <code>Ready ()</code> when polled</summary>
     /// <returns> Computation returned <code>Ready ()value)</code> when polled </returns>
-    let readyUnit: IAsyncComputation<unit> =
+    let readyUnit: Future<unit> =
         create
         <| fun _ -> Poll.Ready ()
         <| fun () -> ()
 
     /// <summary> Creates always pending Computation </summary>
     /// <returns> always pending Computation </returns>
-    let never<'a> : IAsyncComputation<'a> =
+    let never<'a> : Future<'a> =
         create
         <| fun _ -> Poll.Pending
         <| fun () -> ()
 
     /// <summary> Creates the Computation lazy evaluator for the passed function </summary>
     /// <returns> Computation lazy evaluator for the passed function </returns>
-    let lazy' (f: unit -> 'a) : IAsyncComputation<'a> =
+    let lazy' (f: unit -> 'a) : Future<'a> =
         create
         <| fun _ ->
             let x = f ()
@@ -201,9 +202,9 @@ module AsyncComputation =
         <| fun () -> ()
 
     [<Sealed>]
-    type BindFuture<'a, 'b>(binder: 'a -> IAsyncComputation<'b>, source: IAsyncComputation<'a>) =
+    type BindFuture<'a, 'b>(binder: 'a -> Future<'b>, source: Future<'a>) =
         let mutable fut = source
-        interface IAsyncComputation<'b> with
+        interface Future<'b> with
             member this.Poll(ctx) =
                 PollTransiting(&fut, ctx
                 , onReady=fun x ->
@@ -217,12 +218,12 @@ module AsyncComputation =
 
     /// <summary> Creates the Computation, asynchronously applies the result of the passed compute to the binder </summary>
     /// <returns> Computation, asynchronously applies the result of the passed compute to the binder </returns>
-    let bind (binder: 'a -> IAsyncComputation<'b>) (source: IAsyncComputation<'a>) : IAsyncComputation<'b> =
+    let bind (binder: 'a -> Future<'b>) (source: Future<'a>) : Future<'b> =
         upcast BindFuture(binder, source)
 
-    type MapFuture<'a, 'b>(mapping: 'a -> 'b, source: IAsyncComputation<'a>) =
+    type MapFuture<'a, 'b>(mapping: 'a -> 'b, source: Future<'a>) =
         let mutable fut = source
-        interface IAsyncComputation<'b> with
+        interface Future<'b> with
             member this.Poll(context) =
                 PollTransiting(&fut, context
                 , onReady=fun x ->
@@ -234,20 +235,20 @@ module AsyncComputation =
 
     /// <summary> Creates the Computation, asynchronously applies mapper to result passed Computation </summary>
     /// <returns> Computation, asynchronously applies mapper to result passed Computation </returns>
-    let map (mapping: 'a -> 'b) (source: IAsyncComputation<'a>) : IAsyncComputation<'b> =
+    let map (mapping: 'a -> 'b) (source: Future<'a>) : Future<'b> =
         upcast MapFuture(mapping, source)
 
-    type MergeFuture<'a, 'b>(fut1: IAsyncComputation<'a>, fut2: IAsyncComputation<'b>) =
+    type MergeFuture<'a, 'b>(fut1: Future<'a>, fut2: Future<'b>) =
         let mutable fut1 = fut1 // if not null then r1 is undefined
         let mutable fut2 = fut2 // if not null then r2 is undefined
         let mutable r1 = Unchecked.defaultof<'a>
         let mutable r2 = Unchecked.defaultof<'b>
 
-        interface IAsyncComputation<'a * 'b> with
+        interface Future<'a * 'b> with
             member this.Poll(ctx) =
                 let inline complete1 r = fut1 <- Unchecked.defaultof<_>; r1 <- r
                 let inline complete2 r = fut2 <- Unchecked.defaultof<_>; r2 <- r
-                let inline isNotComplete (fut: IAsyncComputation<_>) = isNotNull fut
+                let inline isNotComplete (fut: Future<_>) = isNotNull fut
                 let inline isBothComplete () = isNull fut1 && isNull fut2
                 let inline raiseDisposing ex =
                     fut1 <- Unchecked.defaultof<_>; r1 <- Unchecked.defaultof<_>
@@ -284,7 +285,7 @@ module AsyncComputation =
     /// <remarks> If one of the Computations threw an exception, the same exception will be thrown everywhere,
     /// and the other Computations will be canceled </remarks>
     /// <returns> Computation, asynchronously merging the results of passed Computation </returns>
-    let merge (comp1: IAsyncComputation<'a>) (comp2: IAsyncComputation<'b>) : IAsyncComputation<'a * 'b> =
+    let merge (comp1: Future<'a>) (comp2: Future<'b>) : Future<'a * 'b> =
         upcast MergeFuture(comp1, comp2)
 
     /// <summary> Creates a Computations that will return the result of
@@ -292,7 +293,7 @@ module AsyncComputation =
     /// <remarks> If one of the Computations threw an exception, the same exception will be thrown everywhere,
     /// and the other Computations will be canceled </remarks>
     /// <returns> Computation, asynchronously merging the results of passed Computation </returns>
-    let first (comp1: IAsyncComputation<'a>) (comp2: IAsyncComputation<'a>) : IAsyncComputation<'a> =
+    let first (comp1: Future<'a>) (comp2: Future<'a>) : Future<'a> =
         let mutable fut1 = comp1
         let mutable fut2 = comp2
 
@@ -334,7 +335,7 @@ module AsyncComputation =
 
     /// <summary> Creates the Computation, asynchronously applies 'f' function to result passed Computation </summary>
     /// <returns> Computation, asynchronously applies 'f' function to result passed Computation </returns>
-    let apply (funFut: IAsyncComputation<'a -> 'b>) (comp: IAsyncComputation<'a>) : IAsyncComputation<'b> =
+    let apply (funFut: Future<'a -> 'b>) (comp: Future<'a>) : Future<'b> =
         let mutable fut = comp // if not null then r1 is undefined
         let mutable funFut = funFut // if not null then r2 is undefined
         let mutable r1 = Unchecked.defaultof<'a>
@@ -342,7 +343,7 @@ module AsyncComputation =
 
         let inline complete1 r = fut <- Unchecked.defaultof<_>; r1 <- r
         let inline complete2 r = funFut <- Unchecked.defaultof<_>; f2 <- r
-        let inline isNotComplete (fut: IAsyncComputation<_>) = isNotNull fut
+        let inline isNotComplete (fut: Future<_>) = isNotNull fut
         let inline isBothComplete () = isNull fut && isNull funFut
         let inline raiseDisposing ex =
             fut <- Unchecked.defaultof<_>; r1 <- Unchecked.defaultof<_>
@@ -378,9 +379,9 @@ module AsyncComputation =
             cancelIfNotNull fut
             cancelIfNotNull fut
 
-    type JoinFuture<'a>(source: IAsyncComputation<IAsyncComputation<'a>>) =
+    type JoinFuture<'a>(source: Future<Future<'a>>) =
         let mutable fut = source
-        interface IAsyncComputation<'a> with
+        interface Future<'a> with
             member this.Poll(ctx) =
                 pollTransiting fut ctx
                 <| fun innerFut ->
@@ -391,12 +392,12 @@ module AsyncComputation =
 
     /// <summary> Creates the Computation, asynchronously joining the result of passed Computation </summary>
     /// <returns> Computation, asynchronously joining the result of passed Computation </returns>
-    let join (comp: IAsyncComputation<IAsyncComputation<'a>>) : IAsyncComputation<'a> =
+    let join (comp: Future<Future<'a>>) : Future<'a> =
         upcast JoinFuture(comp)
 
     /// <summary> Create a Computation delaying invocation and computation of the Computation of the passed creator </summary>
     /// <returns> Computation delaying invocation and computation of the Computation of the passed creator </returns>
-    let delay (creator: unit -> IAsyncComputation<'a>) : IAsyncComputation<'a> =
+    let delay (creator: unit -> Future<'a>) : Future<'a> =
         create
         <| fun _ctx ->
             let fut = creator ()
@@ -405,7 +406,7 @@ module AsyncComputation =
 
     type YieldWorkflowFuture() =
         let mutable isYielded = false
-        interface IAsyncComputation<unit> with
+        interface Future<unit> with
             member this.Poll(context) =
                 if isYielded then
                     Poll.Transit (ready ())
@@ -417,13 +418,13 @@ module AsyncComputation =
 
     /// <summary> Creates a Computation that returns control flow to the scheduler once </summary>
     /// <returns> Computation that returns control flow to the scheduler once </returns>
-    let yieldWorkflow () : IAsyncComputation<unit> =
+    let yieldWorkflow () : Future<unit> =
         upcast YieldWorkflowFuture()
 
 
     /// <summary> Creates a IAsyncComputation that raise exception on poll after cancel. Useful for debug. </summary>
     /// <returns> Fused IAsyncComputation </returns>
-    let inline cancellationFuse (source: IAsyncComputation<'a>) : IAsyncComputation<'a> =
+    let inline cancellationFuse (source: Future<'a>) : Future<'a> =
         let mutable isCancelled = false
         create
         <| fun ctx -> if not isCancelled then poll ctx source else raise FutureCancelledException
@@ -433,7 +434,7 @@ module AsyncComputation =
 
     //#region STD integration
 
-    let catch (source: IAsyncComputation<'a>) : IAsyncComputation<Result<'a, exn>> =
+    let catch (source: Future<'a>) : Future<Result<'a, exn>> =
         let mutable _source = source
         create
         <| fun context ->
@@ -459,7 +460,7 @@ module AsyncComputation =
         /// <summary> Creates a future async iterated over a sequence </summary>
         /// <remarks> The generated future does not substitute implicit breakpoints,
         /// so on long iterations you should use <code>yieldWorkflow</code> </remarks>
-        let iterAsync (source: 'a seq) (body: 'a -> IAsyncComputation<unit>) =
+        let iterAsync (source: 'a seq) (body: 'a -> Future<unit>) =
             let rec iterAsyncEnumerator body (enumerator: IEnumerator<'a>) =
                 if enumerator.MoveNext() then
                     bind (fun () -> iterAsyncEnumerator body enumerator) (body enumerator.Current)
@@ -495,14 +496,14 @@ module AsyncComputation =
             do ()
 
     let sleepMs (milliseconds: int) =
-        let dueTime = TimeSpan(0, 0, 0, 0, milliseconds)
+        let dueTime = TimeSpan(days=0, hours=0, minutes=0, seconds=0, milliseconds=milliseconds)
         sleep dueTime
 
     /// Spawn a Future on current thread and synchronously waits for its Ready
     /// The simplest implementation of the Future scheduler.
     /// Equivalent to `(Scheduler.spawnOn anyScheduler).Join()`,
     /// but without the cost of complex general purpose scheduler synchronization
-    let runSync (comp: IAsyncComputation<'a>) : 'a =
+    let runSync (comp: Future<'a>) : 'a =
         // The simplest implementation of the Future scheduler.
         // Based on a polling cycle (polling -> waiting for awakening -> awakening -> polling -> ...)
         // until the point with the result is reached
@@ -543,18 +544,18 @@ module AsyncComputation =
         <| fun () -> do comp.Cancel()
     //#endregion
 
-module Future =
-    /// <summary> Создает внутренний Computation. </summary>
-    let inline startComputation (fut: Future<'a>) = fut.StartComputation()
-
-    let inline create (__expand_creator: unit -> IAsyncComputation<'a>) : Future<'a> =
-        { new Future<'a> with member _.StartComputation() = __expand_creator () }
-
-    /// <summary> Create the Future with ready value</summary>
-    /// <param name="value"> Poll body </param>
-    /// <returns> Future returned <code>Ready value</code> when polled </returns>
-    let inline ready value =
-        create (fun () -> AsyncComputation.ready value)
+// module Future_OLD =
+//     /// <summary> Создает внутренний Computation. </summary>
+//     let inline startComputation (fut: Future_OLD<'a>) = fut.StartComputation()
+//
+//     let inline create (__expand_creator: unit -> Future<'a>) : Future_OLD<'a> =
+//         { new Future_OLD<'a> with member _.StartComputation() = __expand_creator () }
+//
+//     /// <summary> Create the Future with ready value</summary>
+//     /// <param name="value"> Poll body </param>
+//     /// <returns> Future returned <code>Ready value</code> when polled </returns>
+//     let inline ready value =
+//         create (fun () -> AsyncComputation.ready value)
 
 
 module Utils =
@@ -699,7 +700,7 @@ module Utils =
             finally
                 if lockTaken then sLock.Exit()
 
-        interface IAsyncComputation<'a> with
+        interface Future<'a> with
             [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
             member x.Poll(context) =
                 let r = x.TryPoll(context)
@@ -732,7 +733,7 @@ module Utils =
         /// <summary> Returns the future pending value. </summary>
         /// <remarks> IVar itself is a future, therefore
         /// it is impossible to expect or launch this future in two places at once. </remarks>
-        let read (ovar: OnceVar<'a>) = ovar :> IAsyncComputation<'a>
+        let read (ovar: OnceVar<'a>) = ovar :> Future<'a>
 
         /// Immediately gets the current IVar value and returns Some x if set
         let tryRead (ovar: OnceVar<_>) = ovar.TryRead()

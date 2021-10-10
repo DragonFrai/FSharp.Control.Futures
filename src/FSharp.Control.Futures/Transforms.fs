@@ -12,7 +12,7 @@ open FSharp.Control.Futures.Core.Utils
 module FutureAsyncTransforms =
 
     [<RequireQualifiedAccess>]
-    module AsyncComputation =
+    module Future =
 
         [<RequireQualifiedAccess>]
         type AsyncResult<'a> =
@@ -21,11 +21,11 @@ module FutureAsyncTransforms =
             | Errored of exn
             | Cancelled of OperationCanceledException
 
-        let ofAsync (x: Async<'a>) : IAsyncComputation<'a> =
+        let ofAsync (x: Async<'a>) : Future<'a> =
             let mutable result = AsyncResult.Pending
             let mutable started = false
             let cts = new CancellationTokenSource()
-            AsyncComputation.create
+            Future.create
             <| fun context ->
                 if not started then
                     started <- true
@@ -44,7 +44,7 @@ module FutureAsyncTransforms =
             <| fun () ->
                 cts.Cancel()
 
-        let toAsync (fut: IAsyncComputation<'a>) : Async<'a> =
+        let toAsync (fut: Future<'a>) : Async<'a> =
             // TODO: notify Async based awaiter about Future cancellation
 
             let wh = new EventWaitHandle(false, EventResetMode.AutoReset)
@@ -57,7 +57,7 @@ module FutureAsyncTransforms =
             let mutable fut = fut
 
             let rec wait () =
-                AsyncComputation.Helpers.PollTransiting(&fut, ctx
+                Future.Helpers.PollTransiting(&fut, ctx
                 , onReady=fun x -> async { return x }
                 , onPending=fun () ->
                     async {
@@ -75,7 +75,7 @@ module FutureAsyncTransforms =
 
 module FutureApmTransforms =
     [<RequireQualifiedAccess>]
-    module AsyncComputation =
+    module Future =
 
         type private FutureAsyncResult<'a>(state: obj) =
             let asyncWaitHandle = new EventWaitHandle(false, EventResetMode.ManualReset)
@@ -102,7 +102,7 @@ module FutureApmTransforms =
                 asyncWaitHandle.Dispose()
             interface IDisposable with member this.Dispose() = this.Dispose()
 
-        let toBeginEnd (startPoll: (unit -> unit) -> unit) (fut: IAsyncComputation<'a>)
+        let toBeginEnd (startPoll: (unit -> unit) -> unit) (fut: Future<'a>)
             : {| Begin: AsyncCallback -> obj -> IAsyncResult
                  End: IAsyncResult -> 'a |} =
             let beginMethod (callback: AsyncCallback) (state: obj) : IAsyncResult =
@@ -111,7 +111,7 @@ module FutureApmTransforms =
                 let mutable fut = fut
                 let startPollOnContext (ctx: IContext) =
                     startPoll (fun () ->
-                        AsyncComputation.Helpers.pollTransiting fut ctx
+                        Future.Helpers.pollTransiting fut ctx
                         <| fun result ->
                             asyncResult.SetComplete(result)
                             if isNotNull callback then callback.Invoke(asyncResult)
@@ -143,12 +143,12 @@ module FutureApmTransforms =
 module FutureTaskTransforms =
 
     [<RequireQualifiedAccess>]
-    module AsyncComputation =
+    module Future =
 
         open System.Threading.Tasks
         open FutureApmTransforms
 
-        let ofTask (task: Task<'a>) : IAsyncComputation<'a> =
+        let ofTask (task: Task<'a>) : Future<'a> =
             let ivar = OnceVar.create ()
 
             task.ContinueWith(fun (task: Task<'a>) ->
@@ -161,17 +161,17 @@ module FutureTaskTransforms =
             ) |> ignore
 
             ivar
-            |> AsyncComputation.map (function Ok x -> x | Error ex -> raise ex)
+            |> Future.map (function Ok x -> x | Error ex -> raise ex)
 
-        let toTaskOn (scheduler: TaskScheduler) (fut: IAsyncComputation<'a>) : Task<'a> =
+        let toTaskOn (scheduler: TaskScheduler) (fut: Future<'a>) : Task<'a> =
             let pollingTaskFactory = TaskFactory(scheduler)
             let startPoll poll = pollingTaskFactory.StartNew(fun () -> poll ()) |> ignore
-            let beginEnd = AsyncComputation.toBeginEnd startPoll fut
+            let beginEnd = Future.toBeginEnd startPoll fut
             let beginMethod = beginEnd.Begin
             let endMethod = beginEnd.End
             let factory = TaskFactory<'a>(scheduler)
             factory.FromAsync(beginMethod, endMethod, null)
 
-        let toTask (fut: IAsyncComputation<'a>) : Task<'a> =
+        let toTask (fut: Future<'a>) : Task<'a> =
             let scheduler = Task.Factory.Scheduler
             toTaskOn scheduler fut

@@ -22,10 +22,12 @@ module internal rec RunnerScheduler =
         abstract RunTask: RunnerTask<'a> -> unit
         abstract Scheduler: IScheduler option
 
-    type RunnerTask<'a>(comp: IAsyncComputation<'a>, runner: ITaskRunner) as this =
+    type RunnerTask<'a>(fut: Future<'a>, runner: ITaskRunner) as this =
 
         let mutable ivar = IVar<'a>()
         let mutable state = 0uL
+
+        let mutable fut = fut
 
         let changeState (f: uint64 -> uint64) : uint64 =
             let mutable prevState = 0uL
@@ -56,13 +58,13 @@ module internal rec RunnerScheduler =
 
             let mutable isComplete = false
             try
-                let x = AsyncComputation.poll context comp
-                match x with
-                | Poll.Ready x ->
+                Future.Helpers.PollTransiting(&fut, context
+                , onReady=fun x ->
                     IVar.write x ivar
                     isComplete <- true
                     prevState <- changeState (fun x -> x ||| IsCompleteBit)
-                | Poll.Pending -> ()
+                , onPending=fun () -> ()
+                )
             with e ->
                 IVar.writeException e ivar
 
@@ -77,11 +79,11 @@ module internal rec RunnerScheduler =
 
         interface IJoinHandle<'a> with
 
-            member _.StartComputation() =
-                ivar |> Future.startComputation
+            member _.Await() =
+                ivar.Read()
 
             member _.Join() =
-                ivar |> Future.runSync
+                ivar.Read() |> Future.runSync
 
             member _.Cancel() =
                 ivar |> IVar.writeException FutureCancelledException
@@ -95,12 +97,10 @@ module internal rec RunnerScheduler =
 
     type GlobalThreadPoolScheduler() =
         interface IScheduler with
-            member this.Spawn(fut: IAsyncComputation<'a>) =
+            member this.Spawn(fut: Future<'a>) =
                 let task = RunnerTask<'a>(fut, globalThreadPoolTaskRunner)
                 task.InitialRun()
                 task :> IJoinHandle<'a>
-
-            member this.Spawn(fut: Future<'a>) = (this :> IScheduler).Spawn(fut.StartComputation())
 
             member _.Dispose() = ()
 

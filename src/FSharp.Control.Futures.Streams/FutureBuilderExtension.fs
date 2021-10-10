@@ -5,10 +5,10 @@ open FSharp.Control.Futures.Core
 open FSharp.Control.Futures
 
 
-type AsyncComputationBuilder with
-    member _.For(source: IAsyncStreamer<'a>, action: 'a -> IAsyncComputation<unit>): IAsyncComputation<unit> =
+type FutureBuilder with
+    member _.For(source: IAsyncStreamer<'a>, action: 'a -> IFuture<unit>): IFuture<unit> =
         AsyncStreamer.iterAsync action source
 
-type FutureBuilder with
+type FutureBuilder_OLD with
     member _.For(source: Stream<'a>, action: 'a -> Future<unit>): Future<unit> =
-        Future.create (fun () -> computation.For(Stream.runStreaming source, action >> Future.startComputation))
+        Future_OLD.create (fun () -> computation.For(Stream.runStreaming source, action >> Future.startComputation))

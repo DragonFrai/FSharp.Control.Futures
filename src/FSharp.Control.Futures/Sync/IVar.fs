@@ -86,11 +86,9 @@ type IVar<'a>() =
             | Value.Written x -> Some x
             | Value.WrittenException e -> raise e
 
-    member inline this.Read() : Future<'a> = upcast this
+    member this.Read() : Future<'a> =
+        upcast IVarComputation(this)
 
-    interface Future<'a> with
-        member this.StartComputation() =
-            upcast IVarComputation(this)
 
 // IAsyncComputation version of IVar
 and [<Sealed>] internal IVarComputation<'a>(ivar: IVar<'a>) =
@@ -106,7 +104,7 @@ and [<Sealed>] internal IVarComputation<'a>(ivar: IVar<'a>) =
         _context <- nullObj
         _selfNode <- nullObj
 
-    interface IAsyncComputation<'a> with
+    interface Future<'a> with
         member this.Poll(ctx) =
             lock ivar.SyncObj <| fun () ->
                 match ivar.Value with
