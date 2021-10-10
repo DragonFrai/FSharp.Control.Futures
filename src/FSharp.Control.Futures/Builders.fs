@@ -72,7 +72,7 @@ type AsyncComputationBuilder() =
     member _.TryWith(body, handler): IAsyncComputation<'a> =
         Internal.tryWith body handler
 
-    member inline _.Run(u2c: unit -> IAsyncComputation<'a>): IAsyncComputation<'a> = u2c ()
+    member inline _.Run(u2c: unit -> IAsyncComputation<'a>): IAsyncComputation<'a> = AsyncComputation.delay u2c
 
 
 [<AutoOpen>]
