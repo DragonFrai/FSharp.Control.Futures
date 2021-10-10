@@ -17,34 +17,36 @@ module private Internal =
 
     let inline tryWith (body: unit -> Future<'a>) (handler: exn -> Future<'a>) : Future<'a> =
         let mutable _current = TryWithState.Empty
-        Future.create
-        <| fun ctx ->
-            let rec pollCurrent () =
+        { new Future<_> with
+            member _.Poll(ctx) =
+                let rec pollCurrent () =
+                    match _current with
+                    | TryWithState.Empty ->
+                        _current <- TryWithState.Body (body ())
+                        pollCurrent ()
+                    | TryWithState.Body body ->
+                        try
+                            Future.poll ctx body
+                        with exn ->
+                            _current <- TryWithState.Handler (handler exn)
+                            pollCurrent ()
+                    | TryWithState.Handler handler ->
+                        Future.poll ctx handler
+                    | TryWithState.Cancelled -> raise FutureCancelledException
+                pollCurrent ()
+
+            member _.Cancel() =
                 match _current with
                 | TryWithState.Empty ->
-                    _current <- TryWithState.Body (body ())
-                    pollCurrent ()
+                    _current <- TryWithState.Cancelled
                 | TryWithState.Body body ->
-                    try
-                        Future.poll ctx body
-                    with exn ->
-                        _current <- TryWithState.Handler (handler exn)
-                        pollCurrent ()
+                    _current <- TryWithState.Cancelled
+                    Future.cancelIfNotNull body
                 | TryWithState.Handler handler ->
-                    Future.poll ctx handler
-                | TryWithState.Cancelled -> raise FutureCancelledException
-            pollCurrent ()
-        <| fun () ->
-            match _current with
-            | TryWithState.Empty ->
-                _current <- TryWithState.Cancelled
-            | TryWithState.Body body ->
-                _current <- TryWithState.Cancelled
-                Future.cancelIfNotNull body
-            | TryWithState.Handler handler ->
-                _current <- TryWithState.Cancelled
-                Future.cancelIfNotNull handler
-            | TryWithState.Cancelled -> do ()
+                    _current <- TryWithState.Cancelled
+                    Future.cancelIfNotNull handler
+                | TryWithState.Cancelled -> do ()
+        }
 
 type FutureBuilder() =
 

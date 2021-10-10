@@ -64,46 +64,6 @@ and IJoinHandle<'a> =
 exception FutureCancelledException
 
 [<RequireQualifiedAccess>]
-module Poll =
-    let inline isReady x =
-        match x with
-        | Poll.Ready _ -> true
-        | _ -> false
-
-    let inline isPending x =
-        match x with
-        | Poll.Pending -> true
-        | _ -> false
-
-    // let inline onReady (f: 'a -> unit) (x: Poll<'a>) : unit =
-    //     match x with
-    //     | Poll.Ready x -> f x
-    //     | _ -> ()
-
-    // let inline bind (binder: 'a -> Poll<'b>) (x: Poll<'a>): Poll<'b> =
-    //     match x with
-    //     | Poll.Ready x -> binder x
-    //     | _ -> Poll.Pending
-
-    // let inline bindPending (binder: unit -> Poll<'a>) (x: Poll<'a>): Poll<'a> =
-    //     match x with
-    //     | Poll.Ready x -> Poll.Ready x
-    //     | Poll.Transit f -> Poll.Transit f
-    //     | Poll.Pending -> binder ()
-
-    // let inline map (f: 'a -> 'b) (x: Poll<'a>) : Poll<'b> =
-    //     match x with
-    //     | Poll.Ready x -> Poll.Ready (f x)
-    //     | Poll.Pending -> Poll.Pending
-    //     | Poll.Transit f -> Poll.Transit f
-
-    // let inline join (p: Poll<Poll<'a>>) =
-    //     match p with
-    //     | Poll.Ready p -> p
-    //     | Poll.Pending -> Poll.Pending
-
-
-[<RequireQualifiedAccess>]
 module Future =
 
     //#region Core
@@ -113,14 +73,14 @@ module Future =
     let inline cancel (comp: Future<'a>) =
         comp.Cancel()
 
-    /// <summary> Create a Computation with members from passed functions </summary>
-    /// <param name="poll"> Poll body </param>
-    /// <param name="cancel"> Poll body </param>
-    /// <returns> Computation implementations with passed members </returns>
-    let inline create ([<InlineIfLambda>] poll: IContext -> Poll<'a>) ([<InlineIfLambda>] cancel: unit -> unit) : Future<'a> =
-        { new Future<'a> with
-            member this.Poll(context) = poll context
-            member this.Cancel() = cancel () }
+    // /// <summary> Create a Computation with members from passed functions </summary>
+    // /// <param name="poll"> Poll body </param>
+    // /// <param name="cancel"> Poll body </param>
+    // /// <returns> Computation implementations with passed members </returns>
+    // let inline create ([<InlineIfLambda>] poll: IContext -> Poll<'a>) ([<InlineIfLambda>] cancel: unit -> unit) : Future<'a> =
+    //     { new Future<'a> with
+    //         member this.Poll(context) = poll context
+    //         member this.Cancel() = cancel () }
 
     let inline poll context (comp: Future<'a>) = comp.Poll(context)
 
@@ -174,32 +134,32 @@ module Future =
     /// <param name="value"> Poll body </param>
     /// <returns> Computation returned <code>Ready value</code> when polled </returns>
     let ready (value: 'a) : Future<'a> =
-        create
-        <| fun _ -> Poll.Ready value
-        <| fun () -> ()
+        { new Future<'a> with
+            member _.Poll(_ctx) = Poll.Ready value
+            member _.Cancel() = () }
 
     /// <summary> Create the Computation returned <code>Ready ()</code> when polled</summary>
     /// <returns> Computation returned <code>Ready ()value)</code> when polled </returns>
     let readyUnit: Future<unit> =
-        create
-        <| fun _ -> Poll.Ready ()
-        <| fun () -> ()
+        { new Future<unit> with
+            member _.Poll(_ctx) = Poll.Ready ()
+            member _.Cancel() = () }
 
     /// <summary> Creates always pending Computation </summary>
     /// <returns> always pending Computation </returns>
     let never<'a> : Future<'a> =
-        create
-        <| fun _ -> Poll.Pending
-        <| fun () -> ()
+        { new Future<'a> with
+            member _.Poll(_ctx) = Poll.Pending
+            member _.Cancel() = () }
 
     /// <summary> Creates the Computation lazy evaluator for the passed function </summary>
     /// <returns> Computation lazy evaluator for the passed function </returns>
     let lazy' (f: unit -> 'a) : Future<'a> =
-        create
-        <| fun _ ->
-            let x = f ()
-            Poll.Ready x
-        <| fun () -> ()
+        { new Future<'a> with
+            member _.Poll(_ctx) =
+                let x = f ()
+                Poll.Ready x
+            member _.Cancel() = () }
 
     [<Sealed>]
     type BindFuture<'a, 'b>(binder: 'a -> Future<'b>, source: Future<'a>) =
@@ -288,96 +248,101 @@ module Future =
     let merge (comp1: Future<'a>) (comp2: Future<'b>) : Future<'a * 'b> =
         upcast MergeFuture(comp1, comp2)
 
+    type FirstFuture<'a>(fut1: Future<'a>, fut2: Future<'a>) =
+        let mutable fut1 = fut1
+        let mutable fut2 = fut2
+        interface Future<'a> with
+            member _.Poll(ctx) =
+                let inline complete result =
+                    fut1 <- Unchecked.defaultof<_>
+                    fut2 <- Unchecked.defaultof<_>
+                    Poll.Ready result
+                let inline raiseDisposing ex =
+                    fut1 <- Unchecked.defaultof<_>
+                    fut2 <- Unchecked.defaultof<_>
+                    raise ex
+
+                try
+                    pollTransiting fut1 ctx
+                    <| fun x ->
+                        fut2.Cancel()
+                        complete x
+                    <| fun () ->
+                        try
+                            pollTransiting fut2 ctx
+                            <| fun x ->
+                                fut1.Cancel()
+                                complete x
+                            <| fun () -> Poll.Pending
+                            <| fun f -> fut2 <- f
+                        with ex ->
+                            fut1.Cancel()
+                            raiseDisposing ex
+                    <| fun f -> fut1 <- f
+                with ex ->
+                    fut2.Cancel()
+                    raiseDisposing ex
+
+            member _.Cancel() =
+                cancelIfNotNull fut1
+                cancelIfNotNull fut2
+
     /// <summary> Creates a Computations that will return the result of
     /// the first one that pulled out the result from the passed  </summary>
     /// <remarks> If one of the Computations threw an exception, the same exception will be thrown everywhere,
     /// and the other Computations will be canceled </remarks>
     /// <returns> Computation, asynchronously merging the results of passed Computation </returns>
-    let first (comp1: Future<'a>) (comp2: Future<'a>) : Future<'a> =
-        let mutable fut1 = comp1
-        let mutable fut2 = comp2
+    let first (fut1: Future<'a>) (fut2: Future<'a>) : Future<'a> =
+        upcast FirstFuture(fut1, fut2)
 
-        let inline complete result =
-            fut1 <- Unchecked.defaultof<_>
-            fut2 <- Unchecked.defaultof<_>
-            Poll.Ready result
+    type ApplyFuture<'a, 'b>(futFun: Future<'a -> 'b>, fut: Future<'a>) =
+        let mutable fut = fut // if not null then r1 is undefined
+        let mutable futFun = futFun // if not null then r2 is undefined
+        let mutable r1 = Unchecked.defaultof<'a>
+        let mutable f2 = Unchecked.defaultof<'a -> 'b>
+        interface Future<'b> with
+            member _.Poll(ctx) =
+                let inline complete1 r = fut <- Unchecked.defaultof<_>; r1 <- r
+                let inline complete2 r = futFun <- Unchecked.defaultof<_>; f2 <- r
+                let inline isNotComplete (fut: Future<_>) = isNotNull fut
+                let inline isBothComplete () = isNull fut && isNull futFun
+                let inline raiseDisposing ex =
+                    fut <- Unchecked.defaultof<_>; r1 <- Unchecked.defaultof<_>
+                    futFun <- Unchecked.defaultof<_>; f2 <- Unchecked.defaultof<_>
+                    raise ex
 
-        let inline raiseDisposing ex =
-            fut1 <- Unchecked.defaultof<_>
-            fut2 <- Unchecked.defaultof<_>
-            raise ex
-
-        create
-        <| fun ctx ->
-            try
-                pollTransiting fut1 ctx
-                <| fun x ->
-                    fut2.Cancel()
-                    complete x
-                <| fun () ->
+                if isNotComplete fut then
                     try
-                        pollTransiting fut2 ctx
-                        <| fun x ->
-                            fut1.Cancel()
-                            complete x
-                        <| fun () -> Poll.Pending
-                        <| fun f -> fut2 <- f
+                        pollTransiting fut ctx
+                        <| fun r -> complete1 r
+                        <| fun () -> ()
+                        <| fun f -> fut <- f
                     with ex ->
-                        fut1.Cancel()
+                        cancelIfNotNull futFun
                         raiseDisposing ex
-                <| fun f -> fut1 <- f
-            with ex ->
-                fut2.Cancel()
-                raiseDisposing ex
-        <| fun () ->
-            cancelIfNotNull fut1
-            cancelIfNotNull fut2
+                if isNotComplete futFun then
+                    try
+                        pollTransiting futFun ctx
+                        <| fun r -> complete2 r
+                        <| fun () -> ()
+                        <| fun f -> futFun <- f
+                    with ex ->
+                        cancelIfNotNull fut
+                        raiseDisposing ex
+                if isBothComplete () then
+                    let r = f2 r1
+                    Poll.Transit (ready r)
+                else
+                    Poll.Pending
+
+            member _.Cancel() =
+                cancelIfNotNull fut
+                cancelIfNotNull fut
 
     /// <summary> Creates the Computation, asynchronously applies 'f' function to result passed Computation </summary>
     /// <returns> Computation, asynchronously applies 'f' function to result passed Computation </returns>
-    let apply (funFut: Future<'a -> 'b>) (comp: Future<'a>) : Future<'b> =
-        let mutable fut = comp // if not null then r1 is undefined
-        let mutable funFut = funFut // if not null then r2 is undefined
-        let mutable r1 = Unchecked.defaultof<'a>
-        let mutable f2 = Unchecked.defaultof<'a -> 'b>
-
-        let inline complete1 r = fut <- Unchecked.defaultof<_>; r1 <- r
-        let inline complete2 r = funFut <- Unchecked.defaultof<_>; f2 <- r
-        let inline isNotComplete (fut: Future<_>) = isNotNull fut
-        let inline isBothComplete () = isNull fut && isNull funFut
-        let inline raiseDisposing ex =
-            fut <- Unchecked.defaultof<_>; r1 <- Unchecked.defaultof<_>
-            funFut <- Unchecked.defaultof<_>; f2 <- Unchecked.defaultof<_>
-            raise ex
-
-        create
-        <| fun ctx ->
-            if isNotComplete fut then
-                try
-                    pollTransiting fut ctx
-                    <| fun r -> complete1 r
-                    <| fun () -> ()
-                    <| fun f -> fut <- f
-                with ex ->
-                    cancelIfNotNull funFut
-                    raiseDisposing ex
-            if isNotComplete funFut then
-                try
-                    pollTransiting funFut ctx
-                    <| fun r -> complete2 r
-                    <| fun () -> ()
-                    <| fun f -> funFut <- f
-                with ex ->
-                    cancelIfNotNull fut
-                    raiseDisposing ex
-            if isBothComplete () then
-                let r = f2 r1
-                Poll.Transit (ready r)
-            else
-                Poll.Pending
-        <| fun () ->
-            cancelIfNotNull fut
-            cancelIfNotNull fut
+    let apply (futFun: Future<'a -> 'b>) (fut: Future<'a>) : Future<'b> =
+        upcast ApplyFuture(futFun, fut)
 
     type JoinFuture<'a>(source: Future<Future<'a>>) =
         let mutable fut = source
@@ -398,11 +363,11 @@ module Future =
     /// <summary> Create a Computation delaying invocation and computation of the Computation of the passed creator </summary>
     /// <returns> Computation delaying invocation and computation of the Computation of the passed creator </returns>
     let delay (creator: unit -> Future<'a>) : Future<'a> =
-        create
-        <| fun _ctx ->
-            let fut = creator ()
-            Poll.Transit fut
-        <| fun () -> ()
+        { new Future<'a> with
+            member _.Poll(_ctx) =
+                let fut = creator ()
+                Poll.Transit fut
+            member _.Cancel() = ( )}
 
     type YieldWorkflowFuture() =
         let mutable isYielded = false
@@ -422,31 +387,35 @@ module Future =
         upcast YieldWorkflowFuture()
 
 
-    /// <summary> Creates a IAsyncComputation that raise exception on poll after cancel. Useful for debug. </summary>
-    /// <returns> Fused IAsyncComputation </returns>
-    let inline cancellationFuse (source: Future<'a>) : Future<'a> =
-        let mutable isCancelled = false
-        create
-        <| fun ctx -> if not isCancelled then poll ctx source else raise FutureCancelledException
-        <| fun () -> isCancelled <- true
+    // /// <summary> Creates a IAsyncComputation that raise exception on poll after cancel. Useful for debug. </summary>
+    // /// <returns> Fused IAsyncComputation </returns>
+    // let inline cancellationFuse (source: Future<'a>) : Future<'a> =
+    //     let mutable isCancelled = false
+    //     { new Future<'a> with
+    //         member _.Poll(ctx) =
+    //             if not isCancelled then poll ctx source else raise FutureCancelledException
+    //         member _.Cancel() =
+    //             isCancelled <- true }
 
     //#endregion
 
     //#region STD integration
 
     let catch (source: Future<'a>) : Future<Result<'a, exn>> =
-        let mutable _source = source
-        create
-        <| fun context ->
-            try
-                pollTransiting _source context
-                <| fun x ->
-                    Poll.Ready (Ok x)
-                <| fun () -> Poll.Pending
-                <| fun f -> _source <- f
-            with e ->
-                Poll.Ready (Error e)
-        <| fun () -> cancelIfNotNull _source
+        let mutable _source = source // TODO: Make separate class for remove FSharpRef in closure
+        { new Future<_> with
+            member _.Poll(ctx) =
+                try
+                    pollTransiting _source ctx
+                    <| fun x ->
+                        Poll.Ready (Ok x)
+                    <| fun () -> Poll.Pending
+                    <| fun f -> _source <- f
+                with e ->
+                    Poll.Ready (Error e)
+            member _.Cancel() =
+                cancelIfNotNull _source
+        }
 
     [<RequireQualifiedAccess>]
     module Seq =
@@ -470,34 +439,35 @@ module Future =
 
     //#endregion
 
-    //#region OS
-    let sleep (dueTime: TimeSpan) =
+    type SleepFuture(duration: TimeSpan) =
         let mutable _timer: Timer = Unchecked.defaultof<_>
         let mutable _timeOut = false
+        interface Future<unit> with
+            member _.Poll(ctx) =
+                let inline onWake (context: IContext) _ =
+                    let timer' = _timer
+                    _timer <- Unchecked.defaultof<_>
+                    _timeOut <- true
+                    context.Wake()
+                    timer'.Dispose()
+                let inline createTimer context =
+                    new Timer(onWake context, null, duration, Timeout.InfiniteTimeSpan)
 
-        let inline onWake (context: IContext) _ =
-            let timer' = _timer
-            _timer <- Unchecked.defaultof<_>
-            _timeOut <- true
-            context.Wake()
-            timer'.Dispose()
+                if _timeOut then Poll.Ready ()
+                else
+                    _timer <- createTimer ctx
+                    Poll.Pending
 
-        let inline createTimer context =
-            new Timer(onWake context, null, dueTime, Timeout.InfiniteTimeSpan)
+            member _.Cancel() =
+                _timer.Dispose()
 
-        create
-        <| fun context ->
-            if _timeOut then Poll.Ready ()
-            else
-                _timer <- createTimer context
-                Poll.Pending
-        <| fun () ->
-            _timer.Dispose()
-            do ()
+    //#region OS
+    let sleep (duration: TimeSpan) : Future<unit> =
+        upcast SleepFuture(duration)
 
-    let sleepMs (milliseconds: int) =
-        let dueTime = TimeSpan(days=0, hours=0, minutes=0, seconds=0, milliseconds=milliseconds)
-        sleep dueTime
+    let sleepMs (millisecondDuration: int) =
+        let duration = TimeSpan(days=0, hours=0, minutes=0, seconds=0, milliseconds=millisecondDuration)
+        sleep duration
 
     /// Spawn a Future on current thread and synchronously waits for its Ready
     /// The simplest implementation of the Future scheduler.
@@ -533,29 +503,10 @@ module Future =
     //#region Core ignore
     /// <summary> Creates a Computation that ignore result of the passed Computation </summary>
     /// <returns> Computation that ignore result of the passed Computation </returns>
-    let ignore comp =
-        let mutable fut = comp
-        create
-        <| fun ctx ->
-            pollTransiting fut ctx
-            <| fun _ -> Poll.Ready ()
-            <| fun () -> Poll.Pending
-            <| fun f -> fut <- f
-        <| fun () -> do comp.Cancel()
-    //#endregion
+    let ignore (fut: Future<'a>) : Future<unit> =
+        fut |> map ignore
 
-// module Future_OLD =
-//     /// <summary> Создает внутренний Computation. </summary>
-//     let inline startComputation (fut: Future_OLD<'a>) = fut.StartComputation()
-//
-//     let inline create (__expand_creator: unit -> Future<'a>) : Future_OLD<'a> =
-//         { new Future_OLD<'a> with member _.StartComputation() = __expand_creator () }
-//
-//     /// <summary> Create the Future with ready value</summary>
-//     /// <param name="value"> Poll body </param>
-//     /// <returns> Future returned <code>Ready value</code> when polled </returns>
-//     let inline ready value =
-//         create (fun () -> AsyncComputation.ready value)
+    //#endregion
 
 
 module Utils =

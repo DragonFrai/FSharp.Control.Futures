@@ -21,28 +21,32 @@ module FutureAsyncTransforms =
             | Errored of exn
             | Cancelled of OperationCanceledException
 
-        let ofAsync (x: Async<'a>) : Future<'a> =
+        type AsyncFuture<'a>(asyncWorkflow: Async<'a>) =
             let mutable result = AsyncResult.Pending
             let mutable started = false
             let cts = new CancellationTokenSource()
-            Future.create
-            <| fun context ->
-                if not started then
-                    started <- true
-                    Async.StartWithContinuations(
-                        x,
-                        (fun r -> result <- AsyncResult.Completed r; context.Wake()),
-                        (fun e -> result <- AsyncResult.Errored e; context.Wake()),
-                        (fun ec -> result <- AsyncResult.Cancelled ec; context.Wake()),
-                        cts.Token
-                    )
-                match result with
-                | AsyncResult.Pending -> Poll.Pending
-                | AsyncResult.Completed result -> Poll.Ready result
-                | AsyncResult.Cancelled ec -> raise ec //Poll.Ready ^ MaybeCancel.Cancelled ec
-                | AsyncResult.Errored e -> raise e
-            <| fun () ->
-                cts.Cancel()
+            interface Future<'a> with
+                member _.Poll(ctx) =
+                    if not started then
+                        started <- true
+                        Async.StartWithContinuations(
+                            asyncWorkflow,
+                            (fun r -> result <- AsyncResult.Completed r; ctx.Wake()),
+                            (fun e -> result <- AsyncResult.Errored e; ctx.Wake()),
+                            (fun ec -> result <- AsyncResult.Cancelled ec; ctx.Wake()),
+                            cts.Token
+                        )
+                    match result with
+                    | AsyncResult.Pending -> Poll.Pending
+                    | AsyncResult.Completed result -> Poll.Ready result
+                    | AsyncResult.Cancelled ec -> raise ec //Poll.Ready ^ MaybeCancel.Cancelled ec
+                    | AsyncResult.Errored e -> raise e
+                member _.Cancel() =
+                    cts.Cancel()
+                    ()
+
+        let ofAsync (asyncWorkflow: Async<'a>) : Future<'a> =
+            upcast AsyncFuture<'a>(asyncWorkflow)
 
         let toAsync (fut: Future<'a>) : Async<'a> =
             // TODO: notify Async based awaiter about Future cancellation
