@@ -19,7 +19,7 @@
         <Compile Include="Utils.fs" />
         <Compile Include="Core.fs" />
         <Compile Include="Internals.fs" />
-        <Compile Include="Futures.fs" />
+        <Compile Include="Future.fs" />
         <Compile Include="Extensions.fs" />
         <Compile Include="Running.fs" />
         <Compile Include="Sync\Notify.fs" />

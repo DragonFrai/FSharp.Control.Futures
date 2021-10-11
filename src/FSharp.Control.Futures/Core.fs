@@ -52,16 +52,5 @@ exception FutureCancelledException
 
 [<RequireQualifiedAccess>]
 module Future =
-
-    let inline cancel (comp: Future<'a>) =
-        comp.Cancel()
-
+    let inline cancel (comp: Future<'a>) = comp.Cancel()
     let inline poll context (comp: Future<'a>) = comp.Poll(context)
-
-
-// --------------------------------
-
-namespace FSharp.Control.Futures
-
-type Future<'a> = Core.Future<'a>
-
