@@ -10,12 +10,12 @@ module Future =
     /// The simplest implementation of the Future scheduler.
     /// Equivalent to `(Scheduler.spawnOn anyScheduler).Join()`,
     /// but without the cost of complex general purpose scheduler synchronization
-    let runSync (comp: Future<'a>) : 'a =
+    let runSync (fut: Future<'a>) : 'a =
         // The simplest implementation of the Future scheduler.
         // Based on a polling cycle (polling -> waiting for awakening -> awakening -> polling -> ...)
         // until the point with the result is reached
         use wh = new EventWaitHandle(false, EventResetMode.AutoReset)
-        let mutable currentFut = comp
+        let mutable fut = fut
         let ctx =
             { new IContext with
                 member _.Wake() = wh.Set() |> ignore
@@ -24,13 +24,13 @@ module Future =
 
         let rec pollWhilePending () =
             let rec pollTransiting () =
-                match (Future.poll ctx currentFut) with
+                match (Future.poll ctx fut) with
                 | Poll.Ready x -> x
                 | Poll.Pending ->
                     wh.WaitOne() |> ignore
                     pollWhilePending ()
                 | Poll.Transit f ->
-                    currentFut <- f
+                    fut <- f
                     pollTransiting ()
             pollTransiting ()
 

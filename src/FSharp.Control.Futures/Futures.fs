@@ -121,8 +121,8 @@ module Future =
     /// <remarks> If one of the Computations threw an exception, the same exception will be thrown everywhere,
     /// and the other Computations will be canceled </remarks>
     /// <returns> Computation, asynchronously merging the results of passed Computation </returns>
-    let merge (comp1: Future<'a>) (comp2: Future<'b>) : Future<'a * 'b> =
-        upcast MergeFuture(comp1, comp2)
+    let merge (fut1: Future<'a>) (fut2: Future<'b>) : Future<'a * 'b> =
+        upcast MergeFuture(fut1, fut2)
 
     type FirstFuture<'a>(fut1: Future<'a>, fut2: Future<'a>) =
         let mutable fut1 = fut1
@@ -233,8 +233,8 @@ module Future =
 
     /// <summary> Creates the Computation, asynchronously joining the result of passed Computation </summary>
     /// <returns> Computation, asynchronously joining the result of passed Computation </returns>
-    let join (comp: Future<Future<'a>>) : Future<'a> =
-        upcast JoinFuture(comp)
+    let join (fut: Future<Future<'a>>) : Future<'a> =
+        upcast JoinFuture(fut)
 
     /// <summary> Create a Computation delaying invocation and computation of the Computation of the passed creator </summary>
     /// <returns> Computation delaying invocation and computation of the Computation of the passed creator </returns>

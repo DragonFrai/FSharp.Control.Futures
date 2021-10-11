@@ -37,18 +37,18 @@ module internal Value =
 type IVar<'a>() =
     let syncObj = obj()
     let mutable _value = Value<'a>.Blank
-    let mutable _waiters: LinkedList<IVarComputation<'a>> = nullObj
+    let mutable _waiters: LinkedList<IVarFuture<'a>> = nullObj
 
     member internal _.SyncObj = syncObj
     member internal _.Value = _value
     member internal _.Waiters = _waiters
 
-    member internal _.WaitNoSync(comp: IVarComputation<'a>) =
+    member internal _.WaitNoSync(ivarFut: IVarFuture<'a>) =
         if isNull _waiters then
             _waiters <- LinkedList()
-        _waiters.AddLast(comp)
+        _waiters.AddLast(ivarFut)
 
-    member internal _.CancelWaitNoSync(node: LinkedListNode<IVarComputation<'a>>) =
+    member internal _.CancelWaitNoSync(node: LinkedListNode<IVarFuture<'a>>) =
         _waiters.Remove(node)
 
     // return Error if put of the value failed (IVarDoublePutException)
@@ -87,16 +87,16 @@ type IVar<'a>() =
             | Value.WrittenException e -> raise e
 
     member this.Read() : Future<'a> =
-        upcast IVarComputation(this)
+        upcast IVarFuture(this)
 
 
 // IAsyncComputation version of IVar
-and [<Sealed>] internal IVarComputation<'a>(ivar: IVar<'a>) =
+and [<Sealed>] internal IVarFuture<'a>(ivar: IVar<'a>) =
     // selfNode notNull when _context notNull
     // Current waiter context
     let mutable _context: IContext = nullObj
     // Node for cancelling
-    let mutable _selfNode: LinkedListNode<IVarComputation<'a>> = nullObj
+    let mutable _selfNode: LinkedListNode<IVarFuture<'a>> = nullObj
 
     member internal _.WakeNoSync() =
         _context.Wake()

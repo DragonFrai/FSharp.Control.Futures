@@ -51,5 +51,5 @@ module Helpers =
                 pollTransiting f
         pollTransiting fut
 
-    let inline cancelIfNotNull (comp: Future<'a>) =
-        if isNotNull comp then comp.Cancel()
+    let inline cancelIfNotNull (fut: Future<'a>) =
+        if isNotNull fut then fut.Cancel()
