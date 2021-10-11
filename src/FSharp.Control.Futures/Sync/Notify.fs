@@ -5,7 +5,6 @@ open System.Collections.Generic
 open System.Threading
 open FSharp.Control.Futures
 open FSharp.Control.Futures.Core
-open FSharp.Control.Futures.Core.Utils
 
 
 //[<Class; Sealed>]

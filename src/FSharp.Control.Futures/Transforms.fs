@@ -5,7 +5,7 @@ open System
 open System.Threading
 open FSharp.Control.Futures
 open FSharp.Control.Futures.Core
-open FSharp.Control.Futures.Core.Utils
+open FSharp.Control.Futures.Internals
 
 
 [<AutoOpen>]
@@ -61,7 +61,7 @@ module FutureAsyncTransforms =
             let mutable fut = fut
 
             let rec wait () =
-                Future.Helpers.PollTransiting(&fut, ctx
+                PollTransiting(&fut, ctx
                 , onReady=fun x -> async { return x }
                 , onPending=fun () ->
                     async {
@@ -115,7 +115,7 @@ module FutureApmTransforms =
                 let mutable fut = fut
                 let startPollOnContext (ctx: IContext) =
                     startPoll (fun () ->
-                        Future.Helpers.pollTransiting fut ctx
+                        pollTransiting fut ctx
                         <| fun result ->
                             asyncResult.SetComplete(result)
                             if isNotNull callback then callback.Invoke(asyncResult)
@@ -146,14 +146,16 @@ module FutureApmTransforms =
 [<AutoOpen>]
 module FutureTaskTransforms =
 
+    open System.Threading.Tasks
+    open FutureApmTransforms
+
     [<RequireQualifiedAccess>]
     module Future =
 
-        open System.Threading.Tasks
-        open FutureApmTransforms
+        open FSharp.Control.Futures.Sync
 
         let ofTask (task: Task<'a>) : Future<'a> =
-            let ivar = OnceVar.create ()
+            let ivar = IVar.create ()
 
             task.ContinueWith(fun (task: Task<'a>) ->
                 let taskResult =
@@ -161,10 +163,11 @@ module FutureTaskTransforms =
                     elif task.IsCanceled then Error task.Exception
                     elif task.IsCompletedSuccessfully then Ok task.Result
                     else invalidOp "Unreachable"
-                OnceVar.write taskResult ivar
+                IVar.write taskResult ivar
             ) |> ignore
 
             ivar
+            |> IVar.read
             |> Future.map (function Ok x -> x | Error ex -> raise ex)
 
         let toTaskOn (scheduler: TaskScheduler) (fut: Future<'a>) : Task<'a> =

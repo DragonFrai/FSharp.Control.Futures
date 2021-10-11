@@ -1,8 +1,10 @@
 namespace FSharp.Control.Futures.Scheduling
 
 open System.Threading
+
 open FSharp.Control.Futures
 open FSharp.Control.Futures.Core
+open FSharp.Control.Futures.Internals
 open FSharp.Control.Futures.Sync
 
 
@@ -58,7 +60,7 @@ module internal rec RunnerScheduler =
 
             let mutable isComplete = false
             try
-                Future.Helpers.PollTransiting(&fut, context
+                PollTransiting(&fut, context
                 , onReady=fun x ->
                     IVar.write x ivar
                     isComplete <- true

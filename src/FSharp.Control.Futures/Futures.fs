@@ -1,8 +1,7 @@
-[<AutoOpen>]
-module FSharp.Control.Futures.Combinators
+namespace FSharp.Control.Futures
 
+open FSharp.Control.Futures.Core
 open FSharp.Control.Futures.Internals
-
 
 [<RequireQualifiedAccess>]
 module Future =
@@ -274,22 +273,101 @@ module Future =
     //         member _.Cancel() =
     //             isCancelled <- true }
 
-    //#endregion
+    [<RequireQualifiedAccess>]
+    module Seq =
 
-    //#region STD integration
+        open System.Collections.Generic
 
-    let catch (source: Future<'a>) : Future<Result<'a, exn>> =
-        let mutable _source = source // TODO: Make separate class for remove FSharpRef in closure
+        /// <summary> Creates a future iterated over a sequence </summary>
+        /// <remarks> The generated future does not substitute implicit breakpoints,
+        /// so on long iterations you should use <code>iterAsync</code> and <code>yieldWorkflow</code> </remarks>
+        let iter (seq: 'a seq) (body: 'a -> unit) =
+            lazy' (fun () -> for x in seq do body x)
+
+        /// <summary> Creates a future async iterated over a sequence </summary>
+        /// <remarks> The generated future does not substitute implicit breakpoints,
+        /// so on long iterations you should use <code>yieldWorkflow</code> </remarks>
+        let iterAsync (source: 'a seq) (body: 'a -> Future<unit>) =
+            let rec iterAsyncEnumerator body (enumerator: IEnumerator<'a>) =
+                if enumerator.MoveNext() then
+                    bind (fun () -> iterAsyncEnumerator body enumerator) (body enumerator.Current)
+                else
+                    readyUnit
+            delay (fun () -> iterAsyncEnumerator body (source.GetEnumerator()))
+
+    [<Struct; RequireQualifiedAccess>]
+    type internal TryWithState<'body, 'handler> =
+        | Empty
+        | Body of body: 'body
+        | Handler of handler: 'handler
+        | Cancelled
+
+    let tryWith (body: unit -> Future<'a>) (handler: exn -> Future<'a>) : Future<'a> =
+        let mutable _current = TryWithState.Empty
         { new Future<_> with
             member _.Poll(ctx) =
-                try
-                    pollTransiting _source ctx
-                    <| fun x ->
-                        Poll.Ready (Ok x)
-                    <| fun () -> Poll.Pending
-                    <| fun f -> _source <- f
-                with e ->
-                    Poll.Ready (Error e)
+                let rec pollCurrent () =
+                    match _current with
+                    | TryWithState.Empty ->
+                        _current <- TryWithState.Body (body ())
+                        pollCurrent ()
+                    | TryWithState.Body body ->
+                        try
+                            Future.poll ctx body
+                        with exn ->
+                            _current <- TryWithState.Handler (handler exn)
+                            pollCurrent ()
+                    | TryWithState.Handler handler ->
+                        Future.poll ctx handler
+                    | TryWithState.Cancelled -> raise FutureCancelledException
+                pollCurrent ()
+
             member _.Cancel() =
-                cancelIfNotNull _source
+                match _current with
+                | TryWithState.Empty ->
+                    _current <- TryWithState.Cancelled
+                | TryWithState.Body body ->
+                    _current <- TryWithState.Cancelled
+                    cancelIfNotNull body
+                | TryWithState.Handler handler ->
+                    _current <- TryWithState.Cancelled
+                    cancelIfNotNull handler
+                | TryWithState.Cancelled -> do ()
         }
+
+// --------
+// Builder
+// --------
+
+type FutureBuilder() =
+
+    member inline _.Return(x): Future<'a> = Future.ready x
+
+    member inline _.Bind(ca: Future<'a>, a2cb: 'a -> Future<'b>) = Future.bind a2cb ca
+
+    member inline _.Zero(): Future<unit> = Future.readyUnit
+
+    member inline _.ReturnFrom(c: Future<'a>): Future<'a> = c
+
+    member inline this.Combine(cu: Future<unit>, u2c: unit -> Future<'a>) = this.Bind(cu, u2c)
+
+    member inline _.MergeSources(c1: Future<'a>, c2: Future<'b>): Future<'a * 'b> =
+        Future.merge c1 c2
+
+    member inline _.Delay(u2c: unit -> Future<'a>) = u2c
+
+    member inline _.For(source, body) = Future.Seq.iterAsync source body
+
+    member inline this.While(cond: unit -> bool, body: unit -> Future<unit>): Future<unit> =
+        let whileSeq = seq { while cond () do yield () }
+        this.For(whileSeq, body)
+
+    member _.TryWith(body, handler): Future<'a> =
+        Future.tryWith body handler
+
+    member inline _.Run(u2c: unit -> Future<'a>): Future<'a> = Future.delay u2c
+
+
+[<AutoOpen>]
+module FutureBuilderImpl =
+    let future = FutureBuilder()

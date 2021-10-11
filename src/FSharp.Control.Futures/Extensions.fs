@@ -2,34 +2,31 @@
 module FSharp.Control.Futures.Extensions
 
 open System
-open System.Collections.Generic
+open System.Threading
+
+open FSharp.Control.Futures
+open FSharp.Control.Futures.Core
+open FSharp.Control.Futures.Internals
+
 
 [<RequireQualifiedAccess>]
 module Future =
 
-    open System.Threading
-
-    [<RequireQualifiedAccess>]
-    module Seq =
-
-        /// <summary> Creates a future iterated over a sequence </summary>
-        /// <remarks> The generated future does not substitute implicit breakpoints,
-        /// so on long iterations you should use <code>iterAsync</code> and <code>yieldWorkflow</code> </remarks>
-        let iter (seq: 'a seq) (body: 'a -> unit) =
-            Future.lazy' (fun () -> for x in seq do body x)
-
-        /// <summary> Creates a future async iterated over a sequence </summary>
-        /// <remarks> The generated future does not substitute implicit breakpoints,
-        /// so on long iterations you should use <code>yieldWorkflow</code> </remarks>
-        let iterAsync (source: 'a seq) (body: 'a -> Future<unit>) =
-            let rec iterAsyncEnumerator body (enumerator: IEnumerator<'a>) =
-                if enumerator.MoveNext() then
-                    Future.bind (fun () -> iterAsyncEnumerator body enumerator) (body enumerator.Current)
-                else
-                    Future.readyUnit
-            Future.delay (fun () -> iterAsyncEnumerator body (source.GetEnumerator()))
-
-    //#endregion
+    let catch (source: Future<'a>) : Future<Result<'a, exn>> =
+        let mutable _source = source // TODO: Make separate class for remove FSharpRef in closure
+        { new Future<_> with
+            member _.Poll(ctx) =
+                try
+                    pollTransiting _source ctx
+                    <| fun x ->
+                        Poll.Ready (Ok x)
+                    <| fun () -> Poll.Pending
+                    <| fun f -> _source <- f
+                with e ->
+                    Poll.Ready (Error e)
+            member _.Cancel() =
+                cancelIfNotNull _source
+        }
 
     type SleepFuture(duration: TimeSpan) =
         let mutable _timer: Timer = Unchecked.defaultof<_>
