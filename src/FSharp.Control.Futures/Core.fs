@@ -52,5 +52,12 @@ exception FutureCancelledException
 
 [<RequireQualifiedAccess>]
 module Future =
+
     let inline cancel (comp: Future<'a>) = comp.Cancel()
+
     let inline poll context (comp: Future<'a>) = comp.Poll(context)
+
+    let inline create ([<InlineIfLambda>] poll) ([<InlineIfLambda>] cancel) =
+        { new Future<_> with
+            member _.Poll(ctx) = poll ctx
+            member _.Cancel() = cancel () }
