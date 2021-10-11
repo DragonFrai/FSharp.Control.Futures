@@ -1,8 +1,6 @@
 [<AutoOpen>]
 module internal Utils
 
-open FSharp.Control.Futures
-
 [<RequireQualifiedAccess>]
 module Option =
     let ofValueOption = function
