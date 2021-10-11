@@ -17,7 +17,11 @@
 
     <ItemGroup>
         <Compile Include="Utils.fs" />
+        <Compile Include="Types.fs" />
         <Compile Include="Core.fs" />
+        <Compile Include="Internals.fs" />
+        <Compile Include="Combinators.fs" />
+        <Compile Include="Extensions.fs" />
         <Compile Include="Builders.fs" />
         <Compile Include="Sync\Notify.fs" />
         <Compile Include="Sync\IVar.fs" />

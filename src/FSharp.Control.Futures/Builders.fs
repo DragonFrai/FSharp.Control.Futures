@@ -1,6 +1,7 @@
 namespace FSharp.Control.Futures
 
 open FSharp.Control.Futures.Core
+open FSharp.Control.Futures.Internals
 
 // -------------------
 // FutureBuilder
@@ -41,10 +42,10 @@ module private Internal =
                     _current <- TryWithState.Cancelled
                 | TryWithState.Body body ->
                     _current <- TryWithState.Cancelled
-                    Future.cancelIfNotNull body
+                    cancelIfNotNull body
                 | TryWithState.Handler handler ->
                     _current <- TryWithState.Cancelled
-                    Future.cancelIfNotNull handler
+                    cancelIfNotNull handler
                 | TryWithState.Cancelled -> do ()
         }
 
