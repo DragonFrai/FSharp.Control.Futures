@@ -19,12 +19,12 @@ type ISender<'a> =
 
 type IChannel<'a> =
     inherit ISender<'a>
-    inherit IAsyncStreamer<'a>
+    inherit Stream<'a>
 
 // Publish types
 
 type IPublishStream<'a> =
-    inherit IAsyncStreamer<'a>
+    inherit Stream<'a>
     abstract member Subscribe: unit -> IPublishStream<'a>
 
 type IPublishChannel<'a> =
