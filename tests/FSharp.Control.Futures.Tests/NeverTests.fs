@@ -5,29 +5,26 @@ open FSharp.Control.Futures
 open FSharp.Control.Futures.Core
 
 
-let neverValueTest = test "AsyncComputation.never future returns Pending" {
+let neverValueTest = test "Future.never future returns Pending" {
     let fut: Future<int> = Future.never
 
     let expected = Poll.Pending
-    let actual1 = Future.poll (mockContext) fut
-    let actual2 = Future.poll (mockContext) fut
+    let actual = Future.poll (mockContext) fut
 
-    Expect.equal actual1 expected "AsyncComputation.never return Ready on first poll"
-    Expect.equal actual2 expected "AsyncComputation.ready return Ready on second poll"
+    Expect.equal actual expected "Future.never don't return Pending on poll"
 }
 
-let neverWakerTest = test "AsyncComputation.never future doesn't call waker" {
-    let fut = Future.ready ()
+let neverWakerTest = test "Future.never future doesn't call waker" {
+    let fut = Future.never
 
-    let _ = Future.poll (mockContextWithWake (fun () -> Expect.isTrue false "AsyncComputation.never shouldn't call waker on first poll")) fut
-    let _ = Future.poll (mockContextWithWake (fun () -> Expect.isTrue false "AsyncComputation.never shouldn't call waker on second poll")) fut
+    let _ = Future.poll (mockContextWithWake (fun () -> Expect.isTrue false "Future.never shouldn't call waker on poll")) fut
     ()
 }
 
 
 [<Tests>]
 let tests =
-    testList "Never" [
+    testList "Future.never" [
         neverValueTest
         neverWakerTest
     ]

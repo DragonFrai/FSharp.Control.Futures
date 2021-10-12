@@ -71,7 +71,7 @@ module HaskellNaming =
     let fmap f x = Future.map f x
     let return' x = Future.ready x
     let ( <*> ) f fut = Future.apply f fut
-    let ( >== ) x f = Future.bind f x
+    let ( >>= ) x f = Future.bind f x
 
 [<Tests>]
 let properties = testList "Combinator properties" [
@@ -94,7 +94,7 @@ let properties = testList "Combinator properties" [
 
     testProp "(return x) >>= f = f x" <| fun (x: int) (Gen.FunctorInt2String (f: int -> string)) ->
         let f = f >> Future.ready // TODO: Take from arguments
-        let r1 = (return' x) >== f
+        let r1 = (return' x) >>= f
         let r2 = f x
         futureEquals r1 r2
 ]
