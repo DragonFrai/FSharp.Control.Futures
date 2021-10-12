@@ -36,22 +36,21 @@ let fuseThrowsTransited = test "Future.fuse throws FutureFuseTransitedException 
         ""
 }
 
-// TODO
-// let fuseThrowsCancelled = test "Future.fuse throws FutureFuseCancelledException if polled after being cancelled" {
-//     let sourceFut = Future.ready 1
-//     let fusedFut = Future.fuse sourceFut
-//
-//     let firstPoll = Future.poll mockContext fusedFut
-//     Expect.equal firstPoll (Poll.Ready 1) ""
-//
-//     Expect.throwsT<FutureFuseReadyException>
-//         (fun () -> Future.poll mockContext fusedFut |> ignore)
-//         ""
-// }
+let fuseThrowsCancelled = test "Future.fuse throws FutureFuseCancelledException if polled after being cancelled" {
+    let sourceFut = Future.ready 1
+    let fusedFut = Future.fuse sourceFut
+
+    fusedFut |> Future.cancel
+
+    Expect.throwsT<FutureFuseCancelledException>
+        (fun () -> Future.poll mockContext fusedFut |> ignore)
+        ""
+}
 
 [<Tests>]
 let tests =
     testList "Future.fuse" [
         fuseThrowsReady
         fuseThrowsTransited
+        fuseThrowsCancelled
     ]
