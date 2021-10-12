@@ -10,7 +10,6 @@ let lazyCallFuncOnceTest = test "Future.lazy' correct call passed function order
     do checker.PushPoint(1)
 
     let _ = Future.poll (mockContext) fut
-    let _ = Future.poll (mockContext) fut
 
     Expect.sequenceEqual (checker.ToSeq()) [1; 2] <| "Illegal breakpoint order"
     ()
