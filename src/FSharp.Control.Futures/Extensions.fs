@@ -19,19 +19,18 @@ module Future =
 
     let catch (source: Future<'a>) : Future<Result<'a, exn>> =
         let mutable _source = source // TODO: Make separate class for remove FSharpRef in closure
-        { new Future<_> with
-            member _.Poll(ctx) =
-                try
-                    pollTransiting _source ctx
-                    <| fun x ->
-                        Poll.Ready (Ok x)
-                    <| fun () -> Poll.Pending
-                    <| fun f -> _source <- f
-                with e ->
-                    Poll.Ready (Error e)
-            member _.Cancel() =
-                cancelIfNotNull _source
-        }
+        Future.create
+        <| fun ctx ->
+            try
+                pollTransiting _source ctx
+                <| fun x ->
+                    Poll.Ready (Ok x)
+                <| fun () -> Poll.Pending
+                <| fun f -> _source <- f
+            with e ->
+                Poll.Ready (Error e)
+        <| fun () ->
+            cancelIfNotNull _source
 
     type SleepFuture(duration: TimeSpan) =
         let mutable _timer: Timer = Unchecked.defaultof<_>

@@ -12,32 +12,32 @@ module Future =
     /// <param name="value"> Poll body </param>
     /// <returns> Computation returned <code>Ready value</code> when polled </returns>
     let ready (value: 'a) : Future<'a> =
-        { new Future<'a> with
-            member _.Poll(_ctx) = Poll.Ready value
-            member _.Cancel() = () }
+        Future.create
+        <| fun _ctx -> Poll.Ready value
+        <| fun () -> ()
 
     /// <summary> Create the Computation returned <code>Ready ()</code> when polled</summary>
     /// <returns> Computation returned <code>Ready ()value)</code> when polled </returns>
     let readyUnit: Future<unit> =
-        { new Future<unit> with
-            member _.Poll(_ctx) = Poll.Ready ()
-            member _.Cancel() = () }
+        Future.create
+        <| fun _ctx -> Poll.Ready ()
+        <| fun () -> ()
 
     /// <summary> Creates always pending Computation </summary>
     /// <returns> always pending Computation </returns>
     let never<'a> : Future<'a> =
-        { new Future<'a> with
-            member _.Poll(_ctx) = Poll.Pending
-            member _.Cancel() = () }
+        Future.create
+        <| fun _ctx -> Poll.Pending
+        <| fun () -> ()
 
     /// <summary> Creates the Computation lazy evaluator for the passed function </summary>
     /// <returns> Computation lazy evaluator for the passed function </returns>
     let lazy' (f: unit -> 'a) : Future<'a> =
-        { new Future<'a> with
-            member _.Poll(_ctx) =
-                let x = f ()
-                Poll.Ready x
-            member _.Cancel() = () }
+        Future.create
+        <| fun _ctx ->
+            let x = f ()
+            Poll.Ready x
+        <| fun () -> ()
 
     [<Sealed>]
     type BindFuture<'a, 'b>(binder: 'a -> Future<'b>, source: Future<'a>) =
@@ -241,11 +241,11 @@ module Future =
     /// <summary> Create a Computation delaying invocation and computation of the Computation of the passed creator </summary>
     /// <returns> Computation delaying invocation and computation of the Computation of the passed creator </returns>
     let delay (creator: unit -> Future<'a>) : Future<'a> =
-        { new Future<'a> with
-            member _.Poll(_ctx) =
-                let fut = creator ()
-                Poll.Transit fut
-            member _.Cancel() = ( )}
+        Future.create
+        <| fun _ctx ->
+            let fut = creator ()
+            Poll.Transit fut
+        <| fun () -> ()
 
     type YieldWorkflowFuture() =
         let mutable isYielded = false
@@ -263,17 +263,6 @@ module Future =
     /// <returns> Computation that returns control flow to the scheduler once </returns>
     let yieldWorkflow () : Future<unit> =
         upcast YieldWorkflowFuture()
-
-
-    // /// <summary> Creates a IAsyncComputation that raise exception on poll after cancel. Useful for debug. </summary>
-    // /// <returns> Fused IAsyncComputation </returns>
-    // let inline cancellationFuse (source: Future<'a>) : Future<'a> =
-    //     let mutable isCancelled = false
-    //     { new Future<'a> with
-    //         member _.Poll(ctx) =
-    //             if not isCancelled then poll ctx source else raise FutureCancelledException
-    //         member _.Cancel() =
-    //             isCancelled <- true }
 
     [<RequireQualifiedAccess>]
     module Seq =
