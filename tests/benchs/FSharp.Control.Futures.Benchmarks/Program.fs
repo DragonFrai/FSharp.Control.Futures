@@ -35,12 +35,12 @@ type FibonacciBenchmark() =
     [<Benchmark>]
     [<ArgumentsSource("Arguments")>]
     member _.SerialFuture(n) =
-        SerialFutureBuilder.fib n |> Future_OLD.runSync
+        SerialFutureBuilder.fib n |> Future.runSync
 
     [<Benchmark>]
     [<ArgumentsSource("Arguments")>]
     member _.MergeFuture(n) =
-        MergeFutureBuilder.fibMerge n |> Future_OLD.runSync
+        MergeFutureBuilder.fibMerge n |> Future.runSync
 
     [<Benchmark>]
     [<ArgumentsSource("Arguments")>]
