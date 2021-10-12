@@ -37,5 +37,5 @@ type StreamBuilder() =
         this.For(whileSeq, body)
 
 [<AutoOpen>]
-module AsyncStreamerBuilderImpl =
+module StreamBuilderImpl =
     let stream = StreamBuilder()
