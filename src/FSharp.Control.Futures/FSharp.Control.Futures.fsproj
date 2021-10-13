@@ -30,6 +30,7 @@
         <Compile Include="Sync\Barrier.fs" />
         <Compile Include="Scheduling.fs" />
         <Compile Include="Transforms.fs" />
+        <Compile Include="IO.fs" />
     </ItemGroup>
 
     <ItemGroup>
