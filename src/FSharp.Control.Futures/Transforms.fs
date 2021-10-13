@@ -81,6 +81,38 @@ module FutureApmTransforms =
     [<RequireQualifiedAccess>]
     module Future =
 
+        type ApmFuture<'a>(beginMethod: AsyncCallback -> obj -> IAsyncResult, endMethod: IAsyncResult -> 'a) =
+            let mutable asyncResult: IAsyncResult = Unchecked.defaultof<_>
+            let mutable lastContext: IContext = Unchecked.defaultof<_>
+            let asyncCallback =
+                AsyncCallback(fun ar ->
+                    asyncResult <- ar
+                    lastContext.Wake()
+                )
+
+            interface Future<'a> with
+                member this.Poll(ctx) =
+                    lastContext <- ctx // FIXME: Context sync
+                    // If is not started
+                    if isNull asyncResult then
+                        asyncResult <- beginMethod asyncCallback null
+                        if asyncResult.CompletedSynchronously then
+                            Poll.Ready (endMethod asyncResult)
+                        else
+                            Poll.Pending
+                    elif not asyncResult.IsCompleted then
+                        Poll.Pending
+                    else
+                        Poll.Ready (endMethod asyncResult)
+
+                member this.Cancel() =
+                    raise (NotSupportedException("APM based Futures don't support cancellation"))
+
+        let ofBeginEnd (beginMethod: AsyncCallback -> obj -> IAsyncResult) (endMethod: IAsyncResult -> 'a) : Future<'a> =
+            upcast ApmFuture<'a>(beginMethod, endMethod)
+
+        // ----
+
         type private FutureAsyncResult<'a>(state: obj) =
             let asyncWaitHandle = new EventWaitHandle(false, EventResetMode.ManualReset)
             let mutable result: 'a option = None
