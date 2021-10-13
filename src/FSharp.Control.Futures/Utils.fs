@@ -24,6 +24,13 @@ type InlineIfLambdaAttribute() =
 type IIntrusiveNode<'a> when 'a :> IIntrusiveNode<'a> =
     abstract Next: 'a with get, set
 
+type IntrusiveNode<'a> when 'a :> IIntrusiveNode<'a> =
+    val mutable next: 'a
+    interface IIntrusiveNode<'a> with
+        member this.Next
+            with get () = this.next
+            and set v = this.next <- v
+
 /// Односвязный список, элементы которого являются его же узлами.
 /// Может быть полезен для исключения дополнительных аллокаций услов на бодобии услов LinkedList.
 /// Например, список ожидающих Context или ожидающих значение 'w: IAsyncComputation
