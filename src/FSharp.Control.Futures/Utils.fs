@@ -46,10 +46,10 @@ module IntrusiveList =
     let create () = IntrusiveList(Unchecked.defaultof<'a>)
     let single x = IntrusiveList(x)
 
-    let inline isEmpty (list: inref<IntrusiveList<'a>>) =
+    let isEmpty (list: inref<IntrusiveList<'a>>) =
         list.startNode = null || list.endNode = null
 
-    let inline isSingle (list: inref<IntrusiveList<'a>>) =
+    let isSingle (list: inref<IntrusiveList<'a>>) =
         list.startNode <&> null && list.startNode =&= list.endNode
 
     let pushBack (x: 'a) (list: byref<IntrusiveList<'a>>) =
