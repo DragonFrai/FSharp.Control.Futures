@@ -50,7 +50,7 @@ module Stream =
         <| fun _ -> StreamPoll.Next value
         <| fun () -> do ()
 
-    let never<'a> : IStream<'a> =
+    let never<'a> : Stream<'a> =
         Stream.create
         <| fun _ -> StreamPoll.Pending
         <| fun () -> do ()
@@ -92,7 +92,7 @@ module Stream =
         <| fun () ->
             do ()
 
-    let ofSeq (src: 'a seq) : IStream<'a> =
+    let ofSeq (src: 'a seq) : Stream<'a> =
         let mutable _enumerator = src.GetEnumerator()
         Stream.create
         <| fun _ ->
@@ -106,17 +106,17 @@ module Stream =
     // Combinators
     // -----------
 
-    let map (mapper: 'a -> 'b) (source: IStream<'a>) : IStream<'b> =
+    let map (mapper: 'a -> 'b) (source: Stream<'a>) : Stream<'b> =
         Stream.create
         <| fun context -> source.PollNext(context) |> StreamPoll.map mapper
         <| fun () -> do source.Close()
 
-    let collect (collector: 'a -> IStream<'b>) (source: IStream<'a>) : IStream<'b> =
+    let collect (collector: 'a -> Stream<'b>) (source: Stream<'a>) : Stream<'b> =
 
-        // Берем по одному IStream<'b> из _source, перебираем их элементы, пока каждый из них не закончится
+        // Берем по одному Stream<'b> из _source, перебираем их элементы, пока каждый из них не закончится
 
         let mutable _source = source
-        let mutable _inners: IStream<'b> = Unchecked.defaultof<_>
+        let mutable _inners: Stream<'b> = Unchecked.defaultof<_>
         Stream.create
         <| fun context ->
             let mutable _result = ValueNone
@@ -145,7 +145,7 @@ module Stream =
     /// Alias to `PullStream.collect`
     let inline bind binder source = collect binder source
 
-    let iter (action: 'a -> unit) (source: IStream<'a>) : IFuture<unit> =
+    let iter (action: 'a -> unit) (source: Stream<'a>) : IFuture<unit> =
         let mutable _source = source
         Future.create
         <| fun context ->
@@ -160,7 +160,7 @@ module Stream =
             _source.Close()
             _source <- Unchecked.defaultof<_>
 
-    let iterAsync (action: 'a -> IFuture<unit>) (source: IStream<'a>) : IFuture<unit> =
+    let iterAsync (action: 'a -> IFuture<unit>) (source: Stream<'a>) : IFuture<unit> =
         let mutable _currFut: IFuture<unit> voption = ValueNone
         Future.create
         <| fun context ->
@@ -191,7 +191,7 @@ module Stream =
                 _currFut <- ValueNone
             | ValueNone -> ()
 
-    let fold (folder: 's -> 'a -> 's) (initState: 's) (source: IStream<'a>): IFuture<'s> =
+    let fold (folder: 's -> 'a -> 's) (initState: 's) (source: Stream<'a>): IFuture<'s> =
         let mutable _currState = initState
         Future.create
         <| fun context ->
@@ -208,7 +208,7 @@ module Stream =
         <| fun () ->
             source.Close()
 
-    let scan (folder: 's -> 'a -> 's) (initState: 's) (source: IStream<'a>) : IStream<'s> =
+    let scan (folder: 's -> 'a -> 's) (initState: 's) (source: Stream<'a>) : Stream<'s> =
         let mutable _currState = initState
         let mutable _initReturned = false
         Stream.create
@@ -228,7 +228,7 @@ module Stream =
         <| fun () ->
             source.Close()
 
-    let chooseV (chooser: 'a -> 'b voption) (source: IStream<'a>) : IStream<'b> =
+    let chooseV (chooser: 'a -> 'b voption) (source: Stream<'a>) : Stream<'b> =
         Stream.create
         <| fun context ->
             let rec loop () =
@@ -245,7 +245,7 @@ module Stream =
         <| fun () ->
             source.Close()
 
-    let tryPickV (chooser: 'a -> 'b voption) (source: IStream<'a>) : IFuture<'b voption> =
+    let tryPickV (chooser: 'a -> 'b voption) (source: Stream<'a>) : IFuture<'b voption> =
         let mutable _source = source
         let mutable _result: 'b voption = ValueNone
         Future.create
@@ -268,19 +268,19 @@ module Stream =
         <| fun () ->
             source.Close()
 
-    let tryPick (chooser: 'a -> 'b option) (source: IStream<'a>) : IFuture<'b option> =
+    let tryPick (chooser: 'a -> 'b option) (source: Stream<'a>) : IFuture<'b option> =
         tryPickV (chooser >> Option.toValueOption) source |> Future.map Option.ofValueOption
 
-    let pickV (chooser: 'a -> 'b voption) (source: IStream<'a>) : IFuture<'b> =
+    let pickV (chooser: 'a -> 'b voption) (source: Stream<'a>) : IFuture<'b> =
         tryPickV chooser source
         |> Future.map ^function
             | ValueSome r -> r
             | ValueNone -> raise (System.Collections.Generic.KeyNotFoundException())
 
-    let join (source: IStream<IStream<'a>>) : IStream<'a> =
+    let join (source: Stream<Stream<'a>>) : Stream<'a> =
         bind id source
 
-    let append (source1: IStream<'a>) (source2: IStream<'a>) : IStream<'a> =
+    let append (source1: Stream<'a>) (source2: Stream<'a>) : Stream<'a> =
         let mutable _source1 = source1 // when = null -- already completed
         let mutable _source2 = source2 // when _source1 and _source2 = null then completed
 
@@ -304,7 +304,7 @@ module Stream =
             cancelNullable _source1
             cancelNullable _source2
 
-    let bufferByCount (bufferSize: int) (source: IStream<'a>) : IStream<'a[]> =
+    let bufferByCount (bufferSize: int) (source: Stream<'a>) : Stream<'a[]> =
         let mutable buffer = Array.zeroCreate bufferSize
         let mutable currIdx = 0
         Stream.create
@@ -335,7 +335,7 @@ module Stream =
             source.Close()
             buffer <- Unchecked.defaultof<_>
 
-    let filter (predicate: 'a -> bool) (source: IStream<'a>) : IStream<'a> =
+    let filter (predicate: 'a -> bool) (source: Stream<'a>) : Stream<'a> =
         Stream.create
         <| fun context ->
             let rec loop () =
@@ -352,7 +352,7 @@ module Stream =
         <| fun () ->
             source.Close()
 
-    let any (predicate: 'a -> bool) (source: IStream<'a>) : IFuture<bool> =
+    let any (predicate: 'a -> bool) (source: Stream<'a>) : IFuture<bool> =
         let mutable result: bool voption = ValueNone
         Future.create
         <| fun context ->
@@ -376,7 +376,7 @@ module Stream =
             loop ()
         <| source.Close
 
-    let all (predicate: 'a -> bool) (source: IStream<'a>) : IFuture<bool> =
+    let all (predicate: 'a -> bool) (source: Stream<'a>) : IFuture<bool> =
         let mutable result: bool voption = ValueNone
         Future.create
         <| fun context ->
@@ -400,7 +400,7 @@ module Stream =
         <| fun () ->
             source.Close()
 
-    let zip (source1: IStream<'a>) (source2: IStream<'b>) : IStream<'a * 'b> =
+    let zip (source1: Stream<'a>) (source2: Stream<'b>) : Stream<'a * 'b> =
 
         let mutable v1 = ValueNone
         let mutable v2 = ValueNone
@@ -436,7 +436,7 @@ module Stream =
             source1.Close()
             source2.Close()
 
-    let tryHeadV (source: IStream<'a>) : IFuture<'a voption> =
+    let tryHeadV (source: Stream<'a>) : IFuture<'a voption> =
         Future.create
         <| fun context ->
             match source.PollNext(context) with
@@ -445,17 +445,17 @@ module Stream =
             | StreamPoll.Next x -> Poll.Ready (ValueSome x)
         <| source.Close
 
-    let tryHead (source: IStream<'a>) : IFuture<'a option> =
+    let tryHead (source: Stream<'a>) : IFuture<'a option> =
         tryHeadV source |> Future.map (function ValueSome x -> Some x | ValueNone -> None)
 
-    let head (source: IStream<'a>) : IFuture<'a> =
+    let head (source: Stream<'a>) : IFuture<'a> =
         tryHeadV source
         |> Future.map (function
             | ValueSome x -> x
             | ValueNone -> invalidArg (nameof source) "The input stream was empty."
         )
 
-    let tryLastV (source: IStream<'a>) : IFuture<'a voption> =
+    let tryLastV (source: Stream<'a>) : IFuture<'a voption> =
         let mutable last = ValueNone
         Future.create
         <| fun context ->
@@ -470,17 +470,17 @@ module Stream =
         <| fun () ->
             source.Close()
 
-    let tryLast (source: IStream<'a>) : IFuture<'a option> =
+    let tryLast (source: Stream<'a>) : IFuture<'a option> =
         tryLastV source |> Future.map (function ValueSome x -> Some x | ValueNone -> None)
 
-    let last (source: IStream<'a>) : IFuture<'a> =
+    let last (source: Stream<'a>) : IFuture<'a> =
         tryLastV source
         |> Future.map (function
             | ValueSome x -> x
             | ValueNone -> invalidArg (nameof source) "The input stream was empty."
         )
 
-    let ofComputation (fut: IFuture<'a>) : IStream<'a> =
+    let ofComputation (fut: IFuture<'a>) : Stream<'a> =
         let mutable _fut = fut // fut == null, when completed
         Stream.create
         <| fun context ->
@@ -498,8 +498,8 @@ module Stream =
 
     let inline singleAsync x = ofComputation x
 
-    let delay (u2S: unit -> IStream<'a>) : IStream<'a> =
-        let mutable _inner: IStream<'a> voption = ValueNone
+    let delay (u2S: unit -> Stream<'a>) : Stream<'a> =
+        let mutable _inner: Stream<'a> voption = ValueNone
         Stream.create
         <| fun context ->
             match _inner with
@@ -515,7 +515,7 @@ module Stream =
                 _inner <- ValueNone
             | ValueNone -> ()
 
-    let take (count: int) (source: IStream<'a>) : IStream<'a> =
+    let take (count: int) (source: Stream<'a>) : Stream<'a> =
         let mutable _taken = 0
         Stream.create
         <| fun context ->
