@@ -14,7 +14,7 @@ type Stream<'a> = Core.Stream<'a>
 module Stream =
 
     let inline cancelNullable (stream: Stream<'a>) =
-        if not (obj.ReferenceEquals(stream, null)) then stream.Cancel()
+        if not (obj.ReferenceEquals(stream, null)) then stream.Close()
 
     // -----------
     // Creation
@@ -109,7 +109,7 @@ module Stream =
     let map (mapper: 'a -> 'b) (source: IStream<'a>) : IStream<'b> =
         Stream.create
         <| fun context -> source.PollNext(context) |> StreamPoll.map mapper
-        <| fun () -> do source.Cancel()
+        <| fun () -> do source.Close()
 
     let collect (collector: 'a -> IStream<'b>) (source: IStream<'a>) : IStream<'b> =
 
@@ -137,9 +137,9 @@ module Stream =
             ValueOption.get _result
 
         <| fun () ->
-            _source.Cancel()
+            _source.Close()
             if not (obj.ReferenceEquals(_inners, null)) then
-                _inners.Cancel()
+                _inners.Close()
                 _inners <- Unchecked.defaultof<_>
 
     /// Alias to `PullStream.collect`
@@ -157,7 +157,7 @@ module Stream =
                 | StreamPoll.Next x -> action x
             ValueOption.get _result
         <| fun () ->
-            _source.Cancel()
+            _source.Close()
             _source <- Unchecked.defaultof<_>
 
     let iterAsync (action: 'a -> IFuture<unit>) (source: IStream<'a>) : IFuture<unit> =
@@ -184,7 +184,7 @@ module Stream =
                     | Poll.Pending -> Poll.Pending
             loop ()
         <| fun () ->
-            source.Cancel()
+            source.Close()
             match _currFut with
             | ValueSome fut ->
                 fut.Cancel()
@@ -206,7 +206,7 @@ module Stream =
                     loop ()
             loop ()
         <| fun () ->
-            source.Cancel()
+            source.Close()
 
     let scan (folder: 's -> 'a -> 's) (initState: 's) (source: IStream<'a>) : IStream<'s> =
         let mutable _currState = initState
@@ -226,7 +226,7 @@ module Stream =
                     _currState <- state
                     StreamPoll.Next _currState
         <| fun () ->
-            source.Cancel()
+            source.Close()
 
     let chooseV (chooser: 'a -> 'b voption) (source: IStream<'a>) : IStream<'b> =
         Stream.create
@@ -243,7 +243,7 @@ module Stream =
                     | ValueNone -> loop ()
             loop ()
         <| fun () ->
-            source.Cancel()
+            source.Close()
 
     let tryPickV (chooser: 'a -> 'b voption) (source: IStream<'a>) : IFuture<'b voption> =
         let mutable _source = source
@@ -266,7 +266,7 @@ module Stream =
                         _source <- Unchecked.defaultof<_>
                         Poll.Ready _result
         <| fun () ->
-            source.Cancel()
+            source.Close()
 
     let tryPick (chooser: 'a -> 'b option) (source: IStream<'a>) : IFuture<'b option> =
         tryPickV (chooser >> Option.toValueOption) source |> Future.map Option.ofValueOption
@@ -332,7 +332,7 @@ module Stream =
                         loop ()
             loop ()
         <| fun () ->
-            source.Cancel()
+            source.Close()
             buffer <- Unchecked.defaultof<_>
 
     let filter (predicate: 'a -> bool) (source: IStream<'a>) : IStream<'a> =
@@ -350,7 +350,7 @@ module Stream =
                         loop ()
             loop ()
         <| fun () ->
-            source.Cancel()
+            source.Close()
 
     let any (predicate: 'a -> bool) (source: IStream<'a>) : IFuture<bool> =
         let mutable result: bool voption = ValueNone
@@ -374,7 +374,7 @@ module Stream =
                         else
                             loop ()
             loop ()
-        <| source.Cancel
+        <| source.Close
 
     let all (predicate: 'a -> bool) (source: IStream<'a>) : IFuture<bool> =
         let mutable result: bool voption = ValueNone
@@ -398,7 +398,7 @@ module Stream =
                             Poll.Ready false
             loop ()
         <| fun () ->
-            source.Cancel()
+            source.Close()
 
     let zip (source1: IStream<'a>) (source2: IStream<'b>) : IStream<'a * 'b> =
 
@@ -416,10 +416,10 @@ module Stream =
             let r1, r2 = getV v1, getV v2
             match r1, r2 with
             | StreamPoll.Completed, _ ->
-                source2.Cancel()
+                source2.Close()
                 StreamPoll.Completed
             | _, StreamPoll.Completed ->
-                source1.Cancel()
+                source1.Close()
                 StreamPoll.Completed
             | StreamPoll.Pending, _ ->
                 v1 <- ValueNone
@@ -433,8 +433,8 @@ module Stream =
                 StreamPoll.Next (x1, x2)
 
         <| fun () ->
-            source1.Cancel()
-            source2.Cancel()
+            source1.Close()
+            source2.Close()
 
     let tryHeadV (source: IStream<'a>) : IFuture<'a voption> =
         Future.create
@@ -443,7 +443,7 @@ module Stream =
             | StreamPoll.Pending -> Poll.Pending
             | StreamPoll.Completed -> Poll.Ready ValueNone
             | StreamPoll.Next x -> Poll.Ready (ValueSome x)
-        <| source.Cancel
+        <| source.Close
 
     let tryHead (source: IStream<'a>) : IFuture<'a option> =
         tryHeadV source |> Future.map (function ValueSome x -> Some x | ValueNone -> None)
@@ -468,7 +468,7 @@ module Stream =
                     loop ()
             loop ()
         <| fun () ->
-            source.Cancel()
+            source.Close()
 
     let tryLast (source: IStream<'a>) : IFuture<'a option> =
         tryLastV source |> Future.map (function ValueSome x -> Some x | ValueNone -> None)
@@ -511,7 +511,7 @@ module Stream =
         <| fun () ->
             match _inner with
             | ValueSome x ->
-                x.Cancel()
+                x.Close()
                 _inner <- ValueNone
             | ValueNone -> ()
 
@@ -529,7 +529,7 @@ module Stream =
             | StreamPoll.Next x ->
                 _taken <- _taken + 1
                 if _taken >= count then
-                    source.Cancel()
+                    source.Close()
                 StreamPoll.Next x
         <| fun () ->
-            source.Cancel()
+            source.Close()

@@ -38,7 +38,7 @@ module StreamPoll =
 [<Interface>]
 type IStream<'a> =
     abstract PollNext: IContext -> StreamPoll<'a>
-    abstract Cancel: unit -> unit
+    abstract Close: unit -> unit
 
 type Stream<'a> = IStream<'a>
 
@@ -47,9 +47,9 @@ module Stream =
     let inline create (pollNext: IContext -> StreamPoll<'a>) (cancel: unit -> unit) =
         { new IStream<_> with
             member _.PollNext(ctx) = pollNext ctx
-            member _.Cancel() = cancel () }
+            member _.Close() = cancel () }
 
     let inline cancel (stream: IStream<'a>) =
-        stream.Cancel()
+        stream.Close()
 
     let inline pollNext (context: IContext) (stream: IStream<'a>) = stream.PollNext(context)

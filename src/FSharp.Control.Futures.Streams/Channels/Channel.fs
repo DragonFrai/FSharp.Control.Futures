@@ -5,7 +5,7 @@ open FSharp.Control.Futures.Streams
 
 type private SubjectChannel<'a>(sender: ISender<'a>, stream: Stream<'a>) =
     interface IChannel<'a> with
-        member this.Cancel() = stream.Cancel()
+        member this.Cancel() = stream.Close()
         member this.PollNext(ctx) = stream.PollNext(ctx)
         member this.Dispose() = sender.Dispose()
         member this.Send(x) = sender.Send(x)
