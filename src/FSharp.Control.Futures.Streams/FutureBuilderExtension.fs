@@ -1,7 +1,6 @@
 [<AutoOpen>]
 module FSharp.Control.Futures.Streams.FutureBuilderExtension
 
-open FSharp.Control.Futures.Core
 open FSharp.Control.Futures
 
 

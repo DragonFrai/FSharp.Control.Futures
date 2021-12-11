@@ -5,7 +5,7 @@ open FSharp.Control.Futures.Core
 open FSharp.Control.Futures.Streams.Core
 
 
-exception StreamCancelledException
+exception StreamClosedException
 exception StreamCompletedException
 
 type Stream<'a> = Core.Stream<'a>
