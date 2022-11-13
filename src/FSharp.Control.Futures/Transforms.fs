@@ -195,7 +195,7 @@ module FutureTaskTransforms =
                     elif task.IsCanceled then Error task.Exception
                     elif task.IsCompletedSuccessfully then Ok task.Result
                     else invalidOp "Unreachable"
-                IVar.write taskResult ivar
+                IVar.writeValue taskResult ivar
             ) |> ignore
 
             ivar

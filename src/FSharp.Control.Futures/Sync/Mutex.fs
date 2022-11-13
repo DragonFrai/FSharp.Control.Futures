@@ -4,6 +4,14 @@ open FSharp.Control.Futures
 
 // TODO
 
+// type Mutex<'a>(init: 'a) =
+//     let mutable value = init
+//     let sync = obj()
+//     let mutable hasLock = false
+//
+// type Mutex
+
+
 //
 //[<Sealed>]
 //type Mutex<'a>(inner: 'a) =
@@ -15,7 +23,7 @@ open FSharp.Control.Futures
 //    let mutable waiters: IVar<'a> list = []
 //
 //    member _.Lock(action: 'a -> IComputationTmp<unit>) : IComputationTmp<unit> =
-////        // release lock
+//        // release lock
 //        let release () =
 //            lock sync <| fun () ->
 //                match waiters with

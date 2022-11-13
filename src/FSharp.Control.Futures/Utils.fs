@@ -4,11 +4,11 @@ module Utils
 
 let inline internal ( ^ ) f x = f x
 
+let inline refEq (a: obj) (b: obj) = obj.ReferenceEquals(a, b)
 let inline nullObj<'a when 'a : not struct> = Unchecked.defaultof<'a>
-let inline isNull<'a when 'a : not struct> (x: 'a) = obj.ReferenceEquals(x, null)
+let inline isNull<'a when 'a : not struct> (x: 'a) = refEq x null
 let inline isNotNull<'a when 'a : not struct> (x: 'a) = not (isNull x)
-let inline ( =&= ) (a: 'a) (b: 'a) = obj.ReferenceEquals(a, b)
-let inline ( <&> ) (a: 'a) (b: 'a) = not (obj.ReferenceEquals(a, b))
+
 
 // let (|IsNull|IsNotNull|) x = match x with null -> IsNull | _ -> IsNotNull x
 // let (|IsNullRef|IsNotNullRef|) x = match x with _ when obj.ReferenceEquals(x, null) -> IsNullRef | _ -> IsNotNullRef x
@@ -26,12 +26,21 @@ type InlineIfLambdaAttribute() =
 type IIntrusiveNode<'a> when 'a :> IIntrusiveNode<'a> =
     abstract Next: 'a with get, set
 
-type IntrusiveNode<'a> when 'a :> IIntrusiveNode<'a> =
-    val mutable next: 'a
-    interface IIntrusiveNode<'a> with
+[<AllowNullLiteral>]
+type IntrusiveNode<'self> when 'self :> IIntrusiveNode<'self>() =
+    [<DefaultValue>]
+    val mutable next: 'self
+    interface IIntrusiveNode<'self> with
         member this.Next
             with get () = this.next
             and set v = this.next <- v
+
+module IntrusiveNode =
+    let rec forEach<'a when 'a:> IIntrusiveNode<'a> and 'a: not struct> (f: 'a -> unit) (root: 'a) =
+        if isNull root then ()
+        else
+            f root
+            forEach f root.Next
 
 /// Односвязный список, элементы которого являются его же узлами.
 /// Может быть полезен для исключения дополнительных аллокаций услов на бодобии услов LinkedList.
@@ -42,32 +51,32 @@ type IntrusiveList<'a> when 'a :> IIntrusiveNode<'a> and 'a : not struct =
     val mutable internal endNode: 'a
     new(init: 'a) = { startNode = init; endNode = init }
 
-module IntrusiveList =
-    let create () = IntrusiveList(Unchecked.defaultof<'a>)
-    let single x = IntrusiveList(x)
+type IntrusiveList =
+    static member Create(): IntrusiveList<'a> = IntrusiveList(nullObj)
 
-    let isEmpty (list: inref<IntrusiveList<'a>>) =
-        list.startNode = null || list.endNode = null
+    static member Single(x: 'a): IntrusiveList<'a> = IntrusiveList(x)
 
-    let isSingle (list: inref<IntrusiveList<'a>>) =
-        list.startNode <&> null && list.startNode =&= list.endNode
+    static member IsEmpty(list: IntrusiveList<'a> inref): bool =
+        isNull list.startNode
 
-    let pushBack (x: 'a) (list: byref<IntrusiveList<'a>>) =
-        if isEmpty &list then
+    static member PushBack(list: IntrusiveList<'a> byref, x: 'a): unit =
+        let mutable list = &list
+        if IntrusiveList.IsEmpty(&list) then
             list.startNode <- x
             list.endNode <- x
-            x.Next <- null
+            x.Next <- nullObj
         else
             list.endNode.Next <- x
             list.endNode <- x
 
-    let popFront (list: byref<IntrusiveList<'a>>) =
-        if isEmpty &list
-        then null
+    static member PopFront(list: IntrusiveList<'a> byref): 'a =
+        let mutable list = &list
+        if IntrusiveList.IsEmpty(&list)
+        then nullObj
         elif list.endNode = list.startNode then
             let r = list.startNode
-            list.startNode <- null
-            list.endNode <- null
+            list.startNode <- nullObj
+            list.endNode <- nullObj
             r
         else
             let first = list.startNode
@@ -75,33 +84,41 @@ module IntrusiveList =
             list.startNode <- second
             first
 
-    /// <summary> Delete element from list and return true on success </summary>
-    let remove (toRemove: 'a) (list: byref<IntrusiveList<'a>>): bool =
+    static member Drain(list: IntrusiveList<'a> byref): 'a =
         let mutable list = &list
-        if isEmpty &list then
+        let root = list.startNode
+        list.startNode <- nullObj
+        list.endNode <- nullObj
+        root
+
+    static member Remove(list: IntrusiveList<'a> byref, toRemove: 'a): bool =
+        let mutable list = &list
+        if IntrusiveList.IsEmpty(&list) then
             false
-        elif list.startNode =&= toRemove then
-            list.startNode <- null
-            list.endNode <- null
+        elif refEq list.startNode toRemove then
+            list.startNode <- nullObj
+            list.endNode <- nullObj
             true
-        elif list.startNode.Next <&> null then
-            let rec findParent (child: 'a) (first: 'a) (second: 'a) =
-                if child =&= second then first
-                elif second.Next =&= null then findParent child second second.Next
-                else null
+        elif refEq list.startNode.Next null then
+            let rec findParent (childToRemove: obj) (parent: 'a) (child: 'a) =
+                if refEq childToRemove child then parent
+                elif isNull child.Next then nullObj
+                else findParent childToRemove child child.Next
             let parent = findParent toRemove list.startNode list.startNode.Next
-            match parent with
-            | null -> false
-            | parent ->
+            if refEq parent null
+            then false
+            else
                 parent.Next <- parent.Next.Next
+                if isNull parent.Next then // ребенок был последней нодой
+                    list.endNode <- parent
                 true
         else
             false
 
-    let toList (list: inref<IntrusiveList<'a>>) : 'a list =
+    static member ToList(list: IntrusiveList<'a> inref): 'a list =
         let root = list.startNode
         let rec collect (c: 'a list) (node: 'a) =
-            if node =&= null then c
+            if isNull node then c
             else collect (c @ [node]) node.Next
         collect [] root
 

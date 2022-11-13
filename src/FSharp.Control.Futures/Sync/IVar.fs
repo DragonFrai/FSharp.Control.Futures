@@ -1,31 +1,18 @@
 namespace FSharp.Control.Futures.Sync
 
-open System.Collections.Generic
+open System.Threading
 open FSharp.Control.Futures.Core
 open FSharp.Control.Futures
 
 
-[<Struct; RequireQualifiedAccess>]
-type IVarWriteError =
-    | DoubleWrite
-
 exception IVarDoubleWriteException
+exception IVarValueNotWrittenException
 
-
-// TODO?: Add Cancelled variant?
 [<Struct; RequireQualifiedAccess>]
-type internal Value<'a> =
+type internal State =
     | Blank
-    | Written of value: 'a
-    // Not a substitute for sending Option<'a>.
-    | WrittenException of exn: exn
-
-module internal Value =
-    let inline internal asPollResult (value: Value<'a>) =
-        match value with
-        | Value.Blank -> Poll.Pending
-        | Value.Written x -> Ok x |> Poll.Ready
-        | Value.WrittenException e -> Error e |> Poll.Ready
+    | Written
+    | WrittenFailure
 
 /// An immutable cell to asynchronously wait for a single value.
 /// Represents the pending future in which value can be put.
@@ -35,131 +22,133 @@ module internal Value =
 /// which is too expensive to wrap in "(x: IVar<Result<_, _>>) |> Future.raise".
 [<Sealed>]
 type IVar<'a>() =
-    let syncObj = obj()
-    let mutable _value = Value<'a>.Blank
-    let mutable _waiters: LinkedList<IVarFuture<'a>> = nullObj
+    let _spinLock = SpinLock(false)
+    let mutable _state = State.Blank
+    let mutable _value: 'a = Unchecked.defaultof<_>
+    let mutable _exception: exn = nullObj
+    let mutable _waiters: IntrusiveList<IVarReadFuture<'a>> = IntrusiveList.Create()
 
-    member internal _.SyncObj = syncObj
-    member internal _.Value = _value
-    member internal _.Waiters = _waiters
 
-    member internal _.WaitNoSync(ivarFut: IVarFuture<'a>) =
-        if isNull _waiters then
-            _waiters <- LinkedList()
-        _waiters.AddLast(ivarFut)
+    member inline internal _.RemoveWaiterNoSync(waiter: IVarReadFuture<'a>) =
+        if isNotNull waiter.Context then
+            waiter.Context <- nullObj
+            IntrusiveList.Remove(&_waiters, waiter) |> ignore
 
-    member internal _.CancelWaitNoSync(node: LinkedListNode<IVarFuture<'a>>) =
-        _waiters.Remove(node)
+    member inline internal _.RegisterWaiterNoSync(waiter: IVarReadFuture<'a>, ctx: IContext) =
+        waiter.Context <- ctx
+        IntrusiveList.PushBack(&_waiters, waiter)
 
-    // return Error if put of the value failed (IVarDoublePutException)
-    member inline private _.TryWriteInnerNoSync(x: Result<'a, exn>) : Result<unit, IVarWriteError> =
-        match _value with
-        | Value.Blank ->
-            _value <- match x with Ok x -> Value.Written x | Error ex -> Value.WrittenException ex
-            if isNotNull _waiters then
-                for waiter in _waiters do waiter.WakeNoSync()
-                _waiters <- nullObj
-            Ok ()
-        | Value.Written _ | Value.WrittenException _ ->
-            Error IVarWriteError.DoubleWrite
+    member inline internal this.PollResult(reader: IVarReadFuture<'a>, ctx: IContext) =
+        match _state with
+        | State.Written -> Poll.Ready _value
+        | State.WrittenFailure -> raise _exception
+        | State.Blank ->
+            let mutable hasLock = false
+            _spinLock.Enter(&hasLock)
+            match _state with
+            | State.Written ->
+                this.RemoveWaiterNoSync(reader)
+                Poll.Ready _value
+            | State.WrittenFailure ->
+                this.RemoveWaiterNoSync(reader)
+                raise _exception
+            | State.Blank ->
+                this.RegisterWaiterNoSync(reader, ctx)
+                Poll.Pending
 
-    member this.TryWrite(x: 'a) =
-        lock syncObj <| fun () ->
-            this.TryWriteInnerNoSync(Ok x)
+    member inline internal _.CancelRead(reader: IVarReadFuture<'a>) =
+        if isNotNull reader.Context then
+            let mutable hasLock = false
+            _spinLock.Enter(&hasLock)
+            reader.Context <- nullObj
+            IntrusiveList.Remove(&_waiters, reader) |> ignore
+            if hasLock then _spinLock.Exit()
 
-    member this.Write(x: 'a) =
-        lock syncObj <| fun () -> this.TryWriteInnerNoSync(Ok x)
-        |> function Error (_: IVarWriteError) -> raise IVarDoubleWriteException | _ -> ()
+    member inline private _.WriteInner(x: 'a, ex: exn): unit =
+        let mutable hasLock = false
+        _spinLock.Enter(&hasLock)
+        match _state with
+        | State.Blank ->
+            if isNull ex
+            then
+                _value <- x
+                _state <- State.Written
+            else
+                _exception <- ex
+                _state <- State.WrittenFailure
 
-    member this.TryWriteException(ex: exn) =
-        lock syncObj <| fun () ->
-            this.TryWriteInnerNoSync(Error ex)
+            let root = IntrusiveList.Drain(&_waiters)
+            if hasLock then _spinLock.Exit()
+
+            let rec wakeLoop (fut: IVarReadFuture<'a>) =
+                if isNotNull fut then
+                    let ctx: IContext = fut.Context
+                    fut.Context <- nullObj
+                    ctx.Wake()
+                    wakeLoop fut.next
+            wakeLoop root
+
+        | State.Written | State.WrittenFailure ->
+            if hasLock then _spinLock.Exit()
+            raise IVarDoubleWriteException
+
+    member this.WriteValue(x: 'a) =
+        this.WriteInner(x, nullObj)
 
     member this.WriteException(ex: exn) =
-        lock syncObj <| fun () -> this.TryWriteInnerNoSync(Error ex)
-        |> function Error (_: IVarWriteError) -> raise IVarDoubleWriteException | _ -> ()
+        this.WriteInner(Unchecked.defaultof<'a>, ex)
 
-    member this.TryRead() =
-        lock syncObj <| fun () ->
-            match _value with
-            | Value.Blank -> None
-            | Value.Written x -> Some x
-            | Value.WrittenException e -> raise e
+    member this.Write(fut: Future<'a>): Future<unit> = future {
+        try
+            let! x = fut
+            this.WriteValue(x)
+        with e ->
+            this.WriteException(e)
+    }
 
     member this.Read() : Future<'a> =
-        upcast IVarFuture(this)
+        upcast IVarReadFuture(this)
 
+    member _.HasValue(): bool = _state <> State.Blank
+
+    member this.Get(): 'a =
+        match _state with
+        | State.Blank -> raise IVarValueNotWrittenException
+        | State.Written -> _value
+        | State.WrittenFailure -> raise _exception
 
 // IAsyncComputation version of IVar
-and [<Sealed>] internal IVarFuture<'a>(ivar: IVar<'a>) =
-    // selfNode notNull when _context notNull
+and [<Sealed>] internal IVarReadFuture<'a>(ivar: IVar<'a>) =
+    inherit IntrusiveNode<IVarReadFuture<'a>>()
+
     // Current waiter context
     let mutable _context: IContext = nullObj
-    // Node for cancelling
-    let mutable _selfNode: LinkedListNode<IVarFuture<'a>> = nullObj
-
-    member internal _.WakeNoSync() =
-        _context.Wake()
-        ivar.CancelWaitNoSync(_selfNode)
-        _context <- nullObj
-        _selfNode <- nullObj
+    member val Context = _context with get, set
 
     interface Future<'a> with
-        member this.Poll(ctx) =
-            lock ivar.SyncObj <| fun () ->
-                match ivar.Value with
-                | Value.Written x ->
-                    if isNotNull _context then
-                        ivar.CancelWaitNoSync(_selfNode)
-                        _selfNode <- nullObj
-                        _context <- nullObj
-                    Poll.Ready x
-                | Value.Blank ->
-                    _selfNode <- ivar.WaitNoSync(this)
-                    _context <- ctx
-                    Poll.Pending
-                | Value.WrittenException e ->
-                    _context <- nullObj
-                    _selfNode <- nullObj
-                    raise e
+        member this.Poll(ctx) = ivar.PollResult(this, ctx)
 
-        member this.Cancel() =
-            if isNotNull _context then
-                ivar.CancelWaitNoSync(_selfNode)
-                _context <- nullObj
+        member this.Cancel() = ivar.CancelRead(this)
 
 
 module IVar =
     /// Create empty IVar instance
     let inline create () = IVar()
 
-    /// Put a value and if it is already set raise exception
-    let inline write (x: 'a) (ivar: IVar<'a>) = ivar.Write(x)
-
-    /// Tries to put a value and if it is already set returns an Error
-    let inline tryWrite (x: 'a) (ivar: IVar<'a>) = ivar.TryWrite(x)
-
-    let inline writeException (ex: exn) (ivar: IVar<'a>) = ivar.WriteException(ex)
-
-    let inline tryWriteException (ex: exn) (ivar: IVar<'a>) = ivar.TryWriteException(ex)
-
     /// Create future that write result of future in target.
     /// When future throw exception catch it and write in target.
     /// Throw exception when duplicate write in IVar
-    let inline writeFrom (source: Future<'a>) (target: IVar<'a>) =
-        future {
-            try
-                let! x = source
-                target.Write(x)
-            with e ->
-                target.WriteException(e)
-        }
+    let inline write (source: Future<'a>) (ivar: IVar<'a>) = ivar.Write(source)
+
+    /// Put a value and if it is already set raise exception
+    let inline writeValue (x: 'a) (ivar: IVar<'a>) = ivar.WriteValue(x)
+
+    let inline writeFailure (ex: exn) (ivar: IVar<'a>) = ivar.WriteException(ex)
 
     /// <summary> Returns the future pending value. </summary>
-    /// <remarks> IVar itself is a future, therefore
-    /// it is impossible to expect or launch this future in two places at once. </remarks>
     let inline read (ivar: IVar<'a>) = ivar.Read()
 
-    /// Immediately gets the current IVar value and returns Some x if set
-    let inline tryRead (ivar: IVar<'a>) = ivar.TryRead()
+    let inline hasValue (ivar: IVar<'a>) : bool = ivar.HasValue()
+
+    let inline get (ivar: IVar<'a>) : 'a = ivar.Get()
 

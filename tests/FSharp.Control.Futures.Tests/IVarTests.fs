@@ -9,7 +9,7 @@ open FSharp.Control.Futures.Sync
 let ivarPut = test "IVar put and await sync" {
     let ivar = IVar<int>()
 
-    IVar.write 12 ivar
+    IVar.writeValue 12 ivar
     let x = ivar.Read() |> Future.runSync
 
     Expect.equal x 12 "IVar return illegal value"
