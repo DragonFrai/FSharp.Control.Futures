@@ -6,7 +6,7 @@ open FSharp.Control.Futures.Core
 open FSharp.Control.Futures.Sync
 
 
-let ivarPut = test "IVar put and await sync" {
+let ivarWriteBeforeRead = test "IVar write before read" {
     let ivar = IVar<int>()
 
     IVar.writeValue 12 ivar
@@ -16,8 +16,22 @@ let ivarPut = test "IVar put and await sync" {
     ()
 }
 
+let ivarReadBeforeWrite = test "IVar read before write" {
+    let ivar = IVar<int>()
+    let readFut = IVar.read ivar
+    let writeFut = Future.lazy' (fun () -> IVar.writeValue 12 ivar)
+
+    let fut = Future.merge readFut writeFut
+
+    let x, _ = fut |> Future.runSync
+
+    Expect.equal x 12 "IVar return illegal value"
+    ()
+}
+
 [<Tests>]
 let tests =
     testList "IVar" [
-        ivarPut
+        ivarWriteBeforeRead
+        ivarReadBeforeWrite
     ]
