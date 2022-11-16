@@ -28,7 +28,6 @@ type IVar<'a>() =
     let mutable _exception: exn = nullObj
     let mutable _waiters: IntrusiveList<IVarReadFuture<'a>> = IntrusiveList.Create()
 
-
     member inline internal _.RemoveWaiterNoSync(waiter: IVarReadFuture<'a>) =
         if isNotNull waiter.Context then
             waiter.Context <- nullObj
@@ -39,22 +38,22 @@ type IVar<'a>() =
         IntrusiveList.PushBack(&_waiters, waiter)
 
     member inline internal this.PollResult(reader: IVarReadFuture<'a>, ctx: IContext) =
+        // TODO: Add a non-blocking branch if a pending branch has not yet been added and a result exists
+        let mutable hasLock = false
+        _spinLock.Enter(&hasLock)
         match _state with
-        | State.Written -> Poll.Ready _value
-        | State.WrittenFailure -> raise _exception
+        | State.Written ->
+            this.RemoveWaiterNoSync(reader)
+            if hasLock then _spinLock.Exit()
+            Poll.Ready _value
+        | State.WrittenFailure ->
+            this.RemoveWaiterNoSync(reader)
+            if hasLock then _spinLock.Exit()
+            raise _exception
         | State.Blank ->
-            let mutable hasLock = false
-            _spinLock.Enter(&hasLock)
-            match _state with
-            | State.Written ->
-                this.RemoveWaiterNoSync(reader)
-                Poll.Ready _value
-            | State.WrittenFailure ->
-                this.RemoveWaiterNoSync(reader)
-                raise _exception
-            | State.Blank ->
-                this.RegisterWaiterNoSync(reader, ctx)
-                Poll.Pending
+            this.RegisterWaiterNoSync(reader, ctx)
+            if hasLock then _spinLock.Exit()
+            Poll.Pending
 
     member inline internal _.CancelRead(reader: IVarReadFuture<'a>) =
         if isNotNull reader.Context then
