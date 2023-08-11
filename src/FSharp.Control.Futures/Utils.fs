@@ -13,12 +13,6 @@ let inline isNotNull<'a when 'a : not struct> (x: 'a) = not (isNull x)
 // let (|IsNull|IsNotNull|) x = match x with null -> IsNull | _ -> IsNotNull x
 // let (|IsNullRef|IsNotNullRef|) x = match x with _ when obj.ReferenceEquals(x, null) -> IsNullRef | _ -> IsNotNullRef x
 
-// TODO: Change to std F# 6 InlineIfLambda
-[<System.AttributeUsage(System.AttributeTargets.Parameter)>]
-type InlineIfLambdaAttribute() =
-    inherit System.Attribute()
-
-
 //---------------
 // IntrusiveList
 
@@ -43,7 +37,7 @@ module IntrusiveNode =
             forEach f root.Next
 
 /// Односвязный список, элементы которого являются его же узлами.
-/// Может быть полезен для исключения дополнительных аллокаций услов на бодобии услов LinkedList.
+/// Может быть полезен для исключения дополнительных аллокаций услов на подобии услов LinkedList.
 /// Например, список ожидающих Context или ожидающих значение 'w: Future
 [<Struct>]
 type IntrusiveList<'a> when 'a :> IIntrusiveNode<'a> and 'a : not struct =
@@ -56,9 +50,11 @@ type IntrusiveList =
 
     static member Single(x: 'a): IntrusiveList<'a> = IntrusiveList(x)
 
+    /// Проверяет список на пустоту
     static member IsEmpty(list: IntrusiveList<'a> inref): bool =
         isNull list.startNode
 
+    /// Добавляет элемент в конец
     static member PushBack(list: IntrusiveList<'a> byref, x: 'a): unit =
         let mutable list = &list
         if IntrusiveList.IsEmpty(&list) then
@@ -69,6 +65,7 @@ type IntrusiveList =
             list.endNode.Next <- x
             list.endNode <- x
 
+    /// Забирает элемент из начала
     static member PopFront(list: IntrusiveList<'a> byref): 'a =
         let mutable list = &list
         if IntrusiveList.IsEmpty(&list)
@@ -84,6 +81,8 @@ type IntrusiveList =
             list.startNode <- second
             first
 
+    /// Опустошает список и возвращает первую ноду, по которой можно проитерироваться.
+    /// Может быть полезно для краткосрочного взятия лока на список.
     static member Drain(list: IntrusiveList<'a> byref): 'a =
         let mutable list = &list
         let root = list.startNode
@@ -91,13 +90,17 @@ type IntrusiveList =
         list.endNode <- nullObj
         root
 
+    /// Убирает конкретный узел из списка
     static member Remove(list: IntrusiveList<'a> byref, toRemove: 'a): bool =
         let mutable list = &list
         if IntrusiveList.IsEmpty(&list) then
             false
         elif refEq list.startNode toRemove then
-            list.startNode <- nullObj
-            list.endNode <- nullObj
+            if refEq list.startNode list.endNode then
+                list.startNode <- nullObj
+                list.endNode <- nullObj
+            else
+                list.startNode <- list.startNode.Next
             true
         elif refEq list.startNode.Next null then
             let rec findParent (childToRemove: obj) (parent: 'a) (child: 'a) =

@@ -6,263 +6,212 @@ open FSharp.Control.Futures.Internals
 type Future<'a> = Core.Future<'a>
 
 [<RequireQualifiedAccess>]
+module Futures =
+
+    [<Sealed>]
+    type Ready<'a>(value: 'a) =
+        interface Future<'a> with
+            member this.Poll(_ctx) = Poll.Ready value
+            member this.Cancel() = ()
+
+    [<Sealed>]
+    type ReadyUnit private () =
+        static member Instance : ReadyUnit = ReadyUnit()
+        interface Future<unit> with
+            member this.Poll(_ctx) = Poll.Ready ()
+            member this.Cancel() = ()
+
+    [<Sealed>]
+    type Never<'a> private () =
+        static member Create<'a>() : Never<'a> = Never()
+        interface Future<'a> with
+            member this.Poll(_ctx) = Poll.Pending
+            member this.Cancel() = ()
+
+    [<Sealed>]
+    type Lazy<'a>(lazy': unit -> 'a) =
+        interface Future<'a> with
+            member this.Poll(_ctx) = Poll.Ready (lazy' ())
+            member this.Cancel() = ()
+
+    [<Sealed>]
+    type Delay<'a>(delay: unit -> Future<'a>) =
+        interface Future<'a> with
+            member this.Poll(_ctx) = Poll.Transit (delay ())
+            member this.Cancel() = ()
+
+    [<Sealed>]
+    type Yield() =
+        let mutable isYielded = false
+        interface Future<unit> with
+            member this.Poll(ctx) =
+                if isYielded
+                then Poll.Ready ()
+                else
+                    isYielded <- true
+                    ctx.Wake()
+                    Poll.Pending
+            member this.Cancel() = ()
+
+    [<Sealed>]
+    type Bind<'a, 'b>(source: Future<'a>, binder: 'a -> Future<'b>) =
+        let mutable poller = NaivePoller(source)
+        interface Future<'b> with
+            member this.Poll(ctx) =
+                match poller.Poll(ctx) with
+                | NaivePoll.Ready result -> Poll.Transit (binder result)
+                | NaivePoll.Pending -> Poll.Pending
+
+            member this.Cancel() = poller.Cancel()
+
+    [<Sealed>]
+    type Map<'a, 'b>(mapping: 'a -> 'b, source: Future<'a>) =
+        let mutable poller = NaivePoller(source)
+        interface Future<'b> with
+            member this.Poll(ctx) =
+                match poller.Poll(ctx) with
+                | NaivePoll.Ready result -> Poll.Ready (mapping result)
+                | NaivePoll.Pending -> Poll.Pending
+
+            member this.Cancel() = poller.Cancel()
+
+    [<Sealed>]
+    type Merge<'a, 'b>(fut1: Future<'a>, fut2: Future<'b>) =
+        let mutable sMerge = StructuralMerge(fut1, fut2)
+
+        interface Future<'a * 'b> with
+            member this.Poll(ctx) =
+                match sMerge.Poll(ctx) with
+                | NaivePoll.Ready (struct (a, b)) -> Poll.Ready (a, b)
+                | NaivePoll.Pending -> Poll.Pending
+
+            member this.Cancel() =
+                sMerge.Cancel()
+
+    [<Sealed>]
+    type First<'a>(fut1: Future<'a>, fut2: Future<'a>) =
+        let mutable poller1 = NaivePoller(fut1)
+        let mutable poller2 = NaivePoller(fut2)
+
+        interface Future<'a> with
+            member _.Poll(ctx) =
+                try
+                    match poller1.Poll(ctx) with
+                    | NaivePoll.Ready result ->
+                        poller2.Cancel()
+                        Poll.Ready result
+                    | NaivePoll.Pending ->
+                        try
+                            match poller2.Poll(ctx) with
+                            | NaivePoll.Ready result ->
+                                poller1.Cancel()
+                                Poll.Ready result
+                            | NaivePoll.Pending ->
+                                Poll.Pending
+                        with ex ->
+                            poller2.Terminate()
+                            poller1.Cancel()
+                            raise ex
+                with ex ->
+                    poller1.Terminate()
+                    poller2.Cancel()
+                    raise ex
+
+            member _.Cancel() =
+                poller1.Cancel()
+                poller2.Cancel()
+
+    [<Sealed>]
+    type Join<'a>(source: Future<Future<'a>>) =
+        let mutable poller = NaivePoller(source)
+        interface Future<'a> with
+            member this.Poll(ctx) =
+                match poller.Poll(ctx) with
+                | NaivePoll.Ready innerFut -> Poll.Transit innerFut
+                | NaivePoll.Pending -> Poll.Pending
+            member this.Cancel() = poller.Cancel()
+
+    [<Sealed>]
+    type Apply<'a, 'b>(fut: Future<'a>, futFun: Future<'a -> 'b>) =
+        let mutable sMerge = StructuralMerge(fut, futFun)
+
+        interface Future<'b> with
+            member _.Poll(ctx) =
+                match sMerge.Poll(ctx) with
+                | NaivePoll.Ready (struct (x, f)) -> Poll.Ready (f x)
+                | NaivePoll.Pending -> Poll.Pending
+
+            member _.Cancel() =
+                sMerge.Cancel()
+
+[<RequireQualifiedAccess>]
 module Future =
 
     /// <summary> Create the Computation with ready value</summary>
     /// <param name="value"> Poll body </param>
     /// <returns> Computation returned <code>Ready value</code> when polled </returns>
-    let ready (value: 'a) : Future<'a> =
-        Future.create
-        <| fun _ctx -> Poll.Ready value
-        <| fun () -> ()
+    let inline ready (value: 'a) : Future<'a> =
+        upcast Futures.Ready(value)
 
     /// <summary> Create the Computation returned <code>Ready ()</code> when polled</summary>
     /// <returns> Computation returned <code>Ready ()value)</code> when polled </returns>
     let readyUnit: Future<unit> =
-        Future.create
-        <| fun _ctx -> Poll.Ready ()
-        <| fun () -> ()
+        upcast Futures.ReadyUnit.Instance
 
     /// <summary> Creates always pending Computation </summary>
     /// <returns> always pending Computation </returns>
     let never<'a> : Future<'a> =
-        Future.create
-        <| fun _ctx -> Poll.Pending
-        <| fun () -> ()
+        upcast Futures.Never.Create()
 
     /// <summary> Creates the Computation lazy evaluator for the passed function </summary>
     /// <returns> Computation lazy evaluator for the passed function </returns>
-    let lazy' (f: unit -> 'a) : Future<'a> =
-        Future.create
-        <| fun _ctx ->
-            let x = f ()
-            Poll.Ready x
-        <| fun () -> ()
-
-    [<Sealed>]
-    type BindFuture<'a, 'b>(binder: 'a -> Future<'b>, source: Future<'a>) =
-        let mutable fut = source
-        interface Future<'b> with
-            member this.Poll(ctx) =
-                PollTransiting(&fut, ctx
-                , onReady=fun x ->
-                    let futB = binder x
-                    Poll.Transit futB
-                , onPending=fun () ->
-                    Poll.Pending
-                )
-            member this.Cancel() =
-                cancelIfNotNull fut
+    let inline lazy' (f: unit -> 'a) : Future<'a> =
+        upcast Futures.Lazy(f)
 
     /// <summary> Creates the Computation, asynchronously applies the result of the passed compute to the binder </summary>
     /// <returns> Computation, asynchronously applies the result of the passed compute to the binder </returns>
-    let bind (binder: 'a -> Future<'b>) (source: Future<'a>) : Future<'b> =
-        upcast BindFuture(binder, source)
-
-    type MapFuture<'a, 'b>(mapping: 'a -> 'b, source: Future<'a>) =
-        let mutable fut = source
-        interface Future<'b> with
-            member this.Poll(context) =
-                PollTransiting(&fut, context
-                , onReady=fun x ->
-                    let r = mapping x
-                    Poll.Ready r
-                , onPending=fun () -> Poll.Pending
-                )
-            member this.Cancel() = fut.Cancel()
+    let inline bind (binder: 'a -> Future<'b>) (source: Future<'a>) : Future<'b> =
+        upcast Futures.Bind(source, binder)
 
     /// <summary> Creates the Computation, asynchronously applies mapper to result passed Computation </summary>
     /// <returns> Computation, asynchronously applies mapper to result passed Computation </returns>
-    let map (mapping: 'a -> 'b) (source: Future<'a>) : Future<'b> =
-        upcast MapFuture(mapping, source)
-
-    type MergeFuture<'a, 'b>(fut1: Future<'a>, fut2: Future<'b>) =
-        let mutable fut1 = fut1 // if not null then r1 is undefined
-        let mutable fut2 = fut2 // if not null then r2 is undefined
-        let mutable r1 = Unchecked.defaultof<'a>
-        let mutable r2 = Unchecked.defaultof<'b>
-
-        interface Future<'a * 'b> with
-            member this.Poll(ctx) =
-                let inline complete1 r = fut1 <- Unchecked.defaultof<_>; r1 <- r
-                let inline complete2 r = fut2 <- Unchecked.defaultof<_>; r2 <- r
-                let inline isNotComplete (fut: Future<_>) = isNotNull fut
-                let inline isBothComplete () = isNull fut1 && isNull fut2
-                let inline raiseDisposing ex =
-                    fut1 <- Unchecked.defaultof<_>; r1 <- Unchecked.defaultof<_>
-                    fut2 <- Unchecked.defaultof<_>; r2 <- Unchecked.defaultof<_>
-                    raise ex
-
-                if isNotComplete fut1 then
-                    try
-                        pollTransiting fut1 ctx
-                        <| fun r -> complete1 r
-                        <| fun () -> ()
-                        <| fun f -> fut1 <- f
-                    with ex ->
-                        cancelIfNotNull fut2
-                        raiseDisposing ex
-                if isNotComplete fut2 then
-                    try
-                        pollTransiting fut2 ctx
-                        <| fun r -> complete2 r
-                        <| fun () -> ()
-                        <| fun f -> fut2 <- f
-                    with ex ->
-                        cancelIfNotNull fut1
-                        raiseDisposing ex
-                if isBothComplete () then
-                    Poll.Transit (ready (r1, r2))
-                else
-                    Poll.Pending
-            member this.Cancel() =
-                cancelIfNotNull fut1
-                cancelIfNotNull fut2
+    let inline map (mapping: 'a -> 'b) (source: Future<'a>) : Future<'b> =
+        upcast Futures.Map(mapping, source)
 
     /// <summary> Creates the Computation, asynchronously merging the results of passed Computations </summary>
     /// <remarks> If one of the Computations threw an exception, the same exception will be thrown everywhere,
     /// and the other Computations will be canceled </remarks>
     /// <returns> Computation, asynchronously merging the results of passed Computation </returns>
-    let merge (fut1: Future<'a>) (fut2: Future<'b>) : Future<'a * 'b> =
-        upcast MergeFuture(fut1, fut2)
-
-    type FirstFuture<'a>(fut1: Future<'a>, fut2: Future<'a>) =
-        let mutable fut1 = fut1
-        let mutable fut2 = fut2
-        interface Future<'a> with
-            member _.Poll(ctx) =
-                let inline complete result =
-                    fut1 <- Unchecked.defaultof<_>
-                    fut2 <- Unchecked.defaultof<_>
-                    Poll.Ready result
-                let inline raiseDisposing ex =
-                    fut1 <- Unchecked.defaultof<_>
-                    fut2 <- Unchecked.defaultof<_>
-                    raise ex
-
-                try
-                    pollTransiting fut1 ctx
-                    <| fun x ->
-                        fut2.Cancel()
-                        complete x
-                    <| fun () ->
-                        try
-                            pollTransiting fut2 ctx
-                            <| fun x ->
-                                fut1.Cancel()
-                                complete x
-                            <| fun () -> Poll.Pending
-                            <| fun f -> fut2 <- f
-                        with ex ->
-                            fut1.Cancel()
-                            raiseDisposing ex
-                    <| fun f -> fut1 <- f
-                with ex ->
-                    fut2.Cancel()
-                    raiseDisposing ex
-
-            member _.Cancel() =
-                cancelIfNotNull fut1
-                cancelIfNotNull fut2
+    let inline merge (fut1: Future<'a>) (fut2: Future<'b>) : Future<'a * 'b> =
+        upcast Futures.Merge(fut1, fut2)
 
     /// <summary> Creates a Computations that will return the result of
     /// the first one that pulled out the result from the passed  </summary>
     /// <remarks> If one of the Computations threw an exception, the same exception will be thrown everywhere,
     /// and the other Computations will be canceled </remarks>
     /// <returns> Computation, asynchronously merging the results of passed Computation </returns>
-    let first (fut1: Future<'a>) (fut2: Future<'a>) : Future<'a> =
-        upcast FirstFuture(fut1, fut2)
-
-    type ApplyFuture<'a, 'b>(futFun: Future<'a -> 'b>, fut: Future<'a>) =
-        let mutable fut = fut // if not null then r1 is undefined
-        let mutable futFun = futFun // if not null then r2 is undefined
-        let mutable r1 = Unchecked.defaultof<'a>
-        let mutable f2 = Unchecked.defaultof<'a -> 'b>
-        interface Future<'b> with
-            member _.Poll(ctx) =
-                let inline complete1 r = fut <- Unchecked.defaultof<_>; r1 <- r
-                let inline complete2 r = futFun <- Unchecked.defaultof<_>; f2 <- r
-                let inline isNotComplete (fut: Future<_>) = isNotNull fut
-                let inline isBothComplete () = isNull fut && isNull futFun
-                let inline raiseDisposing ex =
-                    fut <- Unchecked.defaultof<_>; r1 <- Unchecked.defaultof<_>
-                    futFun <- Unchecked.defaultof<_>; f2 <- Unchecked.defaultof<_>
-                    raise ex
-
-                if isNotComplete fut then
-                    try
-                        pollTransiting fut ctx
-                        <| fun r -> complete1 r
-                        <| fun () -> ()
-                        <| fun f -> fut <- f
-                    with ex ->
-                        cancelIfNotNull futFun
-                        raiseDisposing ex
-                if isNotComplete futFun then
-                    try
-                        pollTransiting futFun ctx
-                        <| fun r -> complete2 r
-                        <| fun () -> ()
-                        <| fun f -> futFun <- f
-                    with ex ->
-                        cancelIfNotNull fut
-                        raiseDisposing ex
-                if isBothComplete () then
-                    let r = f2 r1
-                    Poll.Transit (ready r)
-                else
-                    Poll.Pending
-
-            member _.Cancel() =
-                cancelIfNotNull fut
-                cancelIfNotNull fut
+    let inline first (fut1: Future<'a>) (fut2: Future<'a>) : Future<'a> =
+        upcast Futures.First(fut1, fut2)
 
     /// <summary> Creates the Computation, asynchronously applies 'f' function to result passed Computation </summary>
     /// <returns> Computation, asynchronously applies 'f' function to result passed Computation </returns>
-    let apply (futFun: Future<'a -> 'b>) (fut: Future<'a>) : Future<'b> =
-        upcast ApplyFuture(futFun, fut)
-
-    type JoinFuture<'a>(source: Future<Future<'a>>) =
-        let mutable fut = source
-        interface Future<'a> with
-            member this.Poll(ctx) =
-                pollTransiting fut ctx
-                <| fun innerFut ->
-                    Poll.Transit innerFut
-                <| fun () -> Poll.Pending
-                <| fun f -> fut <- f
-            member this.Cancel() = fut.Cancel()
+    let inline apply (futFun: Future<'a -> 'b>) (fut: Future<'a>) : Future<'b> =
+        upcast Futures.Apply(fut, futFun)
 
     /// <summary> Creates the Computation, asynchronously joining the result of passed Computation </summary>
     /// <returns> Computation, asynchronously joining the result of passed Computation </returns>
-    let join (fut: Future<Future<'a>>) : Future<'a> =
-        upcast JoinFuture(fut)
+    let inline join (fut: Future<Future<'a>>) : Future<'a> =
+        upcast Futures.Join(fut)
 
     /// <summary> Create a Computation delaying invocation and computation of the Computation of the passed creator </summary>
     /// <returns> Computation delaying invocation and computation of the Computation of the passed creator </returns>
-    let delay (creator: unit -> Future<'a>) : Future<'a> =
-        Future.create
-        <| fun _ctx ->
-            let fut = creator ()
-            Poll.Transit fut
-        <| fun () -> ()
-
-    type YieldWorkflowFuture() =
-        let mutable isYielded = false
-        interface Future<unit> with
-            member this.Poll(context) =
-                if isYielded then
-                    Poll.Transit (ready ())
-                else
-                    isYielded <- true
-                    context.Wake()
-                    Poll.Pending
-            member this.Cancel() = ()
+    let inline delay (creator: unit -> Future<'a>) : Future<'a> =
+        upcast Futures.Delay(creator)
 
     /// <summary> Creates a Computation that returns control flow to the scheduler once </summary>
     /// <returns> Computation that returns control flow to the scheduler once </returns>
-    let yieldWorkflow () : Future<unit> =
-        upcast YieldWorkflowFuture()
+    let inline yieldWorkflow () : Future<unit> =
+        upcast Futures.Yield()
 
     [<RequireQualifiedAccess>]
     module Seq =
@@ -272,13 +221,13 @@ module Future =
         /// <summary> Creates a future iterated over a sequence </summary>
         /// <remarks> The generated future does not substitute implicit breakpoints,
         /// so on long iterations you should use <code>iterAsync</code> and <code>yieldWorkflow</code> </remarks>
-        let iter (seq: 'a seq) (body: 'a -> unit) =
+        let iterBlocking (seq: 'a seq) (body: 'a -> unit) =
             lazy' (fun () -> for x in seq do body x)
 
         /// <summary> Creates a future async iterated over a sequence </summary>
         /// <remarks> The generated future does not substitute implicit breakpoints,
         /// so on long iterations you should use <code>yieldWorkflow</code> </remarks>
-        let iterAsync (source: 'a seq) (body: 'a -> Future<unit>) =
+        let iter (source: 'a seq) (body: 'a -> Future<unit>) =
             let rec iterAsyncEnumerator body (enumerator: IEnumerator<'a>) =
                 if enumerator.MoveNext() then
                     bind (fun () -> iterAsyncEnumerator body enumerator) (body enumerator.Current)
@@ -347,7 +296,7 @@ type FutureBuilder() =
 
     member inline _.Delay(u2c: unit -> Future<'a>) = u2c
 
-    member inline _.For(source, body) = Future.Seq.iterAsync source body
+    member inline _.For(source, body) = Future.Seq.iter source body
 
     member inline this.While(cond: unit -> bool, body: unit -> Future<unit>): Future<unit> =
         let whileSeq = seq { while cond () do yield () }

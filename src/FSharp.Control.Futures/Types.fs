@@ -5,11 +5,11 @@ open System
 /// <summary> Current state of a AsyncComputation </summary>
 type [<Struct; RequireQualifiedAccess>]
     Poll<'a> =
-    | Ready of readyValue: 'a
+    | Ready of result: 'a
     | Pending
-    | Transit of transitComputation: IFuture<'a>
+    | Transit of transitTo: IFuture<'a>
 
-/// # IAsyncComputation poll schema
+/// # Future poll schema
 /// [ Poll.Pending -> ... -> Poll.Pending ] -> Poll.Ready x1 -> ... -> Poll.Ready xn
 ///  x1 == x2 == ... == xn
 and IFuture<'a> =
@@ -47,8 +47,14 @@ and IJoinHandle<'a> =
     abstract Join: unit -> 'a
     abstract Await: unit -> Future<'a>
 
+/// Exception is thrown when future is in a terminated state:
+/// Completed, Completed with exception, Canceled
+exception FutureTerminatedException
+
 /// Exception is thrown when re-polling after cancellation (assuming IAsyncComputation is tracking such an invalid call)
 exception FutureCancelledException
+exception PollFinishedFutureException
+exception FutureThreadingException
 
 [<RequireQualifiedAccess>]
 module Future =
@@ -61,3 +67,16 @@ module Future =
         { new Future<_> with
             member _.Poll(ctx) = poll ctx
             member _.Cancel() = cancel () }
+
+[<RequireQualifiedAccess>]
+module Poll =
+    let inline isReady (poll: Poll<'a>) : bool =
+        match poll with Poll.Ready _ -> true | _ -> false
+
+    let inline isPending (poll: Poll<'a>) : bool =
+        match poll with Poll.Pending -> true | _ -> false
+
+    let inline isTransit (poll: Poll<'a>) : bool =
+        match poll with Poll.Transit _ -> true | _ -> false
+
+
