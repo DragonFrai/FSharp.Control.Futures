@@ -17,21 +17,6 @@ type FutureFuseTransitedException() = inherit FutureFuseException("Future was po
 [<RequireQualifiedAccess>]
 module Future =
 
-    let catch (source: Future<'a>) : Future<Result<'a, exn>> =
-        let mutable _source = source // TODO: Make separate class for remove FSharpRef in closure
-        Future.create
-        <| fun ctx ->
-            try
-                pollTransiting _source ctx
-                <| fun x ->
-                    Poll.Ready (Ok x)
-                <| fun () -> Poll.Pending
-                <| fun f -> _source <- f
-            with e ->
-                Poll.Ready (Error e)
-        <| fun () ->
-            cancelIfNotNull _source
-
     type SleepFuture(duration: TimeSpan) =
         let mutable _timer: Timer = Unchecked.defaultof<_>
         let mutable _timeOut = false
@@ -93,7 +78,3 @@ module Future =
     let fuse (fut: Future<'a>) : Future<'a> =
         upcast FuseFuture<'a>(fut)
 
-    /// <summary> Creates a Computation that ignore result of the passed Computation </summary>
-    /// <returns> Computation that ignore result of the passed Computation </returns>
-    let ignore (fut: Future<'a>) : Future<unit> =
-        fut |> Future.map ignore

@@ -62,10 +62,11 @@ module Futures =
                 | NaivePoll.Ready result -> Poll.Transit (binder result)
                 | NaivePoll.Pending -> Poll.Pending
 
-            member this.Cancel() = poller.Cancel()
+            member this.Cancel() =
+                poller.Cancel()
 
     [<Sealed>]
-    type Map<'a, 'b>(mapping: 'a -> 'b, source: Future<'a>) =
+    type Map<'a, 'b>(source: Future<'a>, mapping: 'a -> 'b) =
         let mutable poller = NaivePoller(source)
         interface Future<'b> with
             member this.Poll(ctx) =
@@ -73,7 +74,20 @@ module Futures =
                 | NaivePoll.Ready result -> Poll.Ready (mapping result)
                 | NaivePoll.Pending -> Poll.Pending
 
-            member this.Cancel() = poller.Cancel()
+            member this.Cancel() =
+                poller.Cancel()
+
+    [<Sealed>]
+    type Ignore<'a>(source: Future<'a>) =
+        let mutable poller = NaivePoller(source)
+        interface Future<unit> with
+            member this.Poll(ctx) =
+                match poller.Poll(ctx) with
+                | NaivePoll.Ready _ -> Poll.Ready ()
+                | NaivePoll.Pending -> Poll.Pending
+
+            member this.Cancel() =
+                poller.Cancel()
 
     [<Sealed>]
     type Merge<'a, 'b>(fut1: Future<'a>, fut2: Future<'b>) =
@@ -129,7 +143,8 @@ module Futures =
                 match poller.Poll(ctx) with
                 | NaivePoll.Ready innerFut -> Poll.Transit innerFut
                 | NaivePoll.Pending -> Poll.Pending
-            member this.Cancel() = poller.Cancel()
+            member this.Cancel() =
+                poller.Cancel()
 
     [<Sealed>]
     type Apply<'a, 'b>(fut: Future<'a>, futFun: Future<'a -> 'b>) =
@@ -143,6 +158,30 @@ module Futures =
 
             member _.Cancel() =
                 sMerge.Cancel()
+
+    [<Sealed>]
+    type Try<'a>(body: Future<'a>, handler: exn -> Future<'a>) =
+        let mutable poller = NaivePoller(body)
+        let mutable handler = handler
+
+        interface Future<'a> with
+            member _.Poll(ctx) =
+                try
+                    match poller.Poll(ctx) with
+                    | NaivePoll.Pending -> Poll.Pending
+                    | NaivePoll.Ready x ->
+                        handler <- nullObj
+                        Poll.Ready x
+                with ex ->
+                    poller.Terminate()
+                    let h = handler
+                    handler <- nullObj
+                    Poll.Transit (h ex)
+
+            member _.Cancel() =
+                handler <- nullObj
+                poller.Cancel()
+
 
 [<RequireQualifiedAccess>]
 module Future =
@@ -176,7 +215,7 @@ module Future =
     /// <summary> Creates the Computation, asynchronously applies mapper to result passed Computation </summary>
     /// <returns> Computation, asynchronously applies mapper to result passed Computation </returns>
     let inline map (mapping: 'a -> 'b) (source: Future<'a>) : Future<'b> =
-        upcast Futures.Map(mapping, source)
+        upcast Futures.Map(source, mapping)
 
     /// <summary> Creates the Computation, asynchronously merging the results of passed Computations </summary>
     /// <remarks> If one of the Computations threw an exception, the same exception will be thrown everywhere,
@@ -208,6 +247,12 @@ module Future =
     let inline delay (creator: unit -> Future<'a>) : Future<'a> =
         upcast Futures.Delay(creator)
 
+    let inline tryWith (body: unit -> Future<'a>) (handler: exn -> Future<'a>) : Future<'a> =
+        upcast Futures.Try(Futures.Delay(body), handler)
+
+    let inline catch (source: Future<'a>) : Future<Result<'a, exn>> =
+        upcast Futures.Try(Futures.Map(source, Ok), fun ex -> Futures.Ready(Error ex))
+
     /// <summary> Creates a Computation that returns control flow to the scheduler once </summary>
     /// <returns> Computation that returns control flow to the scheduler once </returns>
     let inline yieldWorkflow () : Future<unit> =
@@ -235,45 +280,10 @@ module Future =
                     readyUnit
             delay (fun () -> iterAsyncEnumerator body (source.GetEnumerator()))
 
-    [<Struct; RequireQualifiedAccess>]
-    type internal TryWithState<'body, 'handler> =
-        | Empty
-        | Body of body: 'body
-        | Handler of handler: 'handler
-        | Cancelled
-
-    let tryWith (body: unit -> Future<'a>) (handler: exn -> Future<'a>) : Future<'a> =
-        let mutable _current = TryWithState.Empty
-        { new Future<_> with
-            member _.Poll(ctx) =
-                let rec pollCurrent () =
-                    match _current with
-                    | TryWithState.Empty ->
-                        _current <- TryWithState.Body (body ())
-                        pollCurrent ()
-                    | TryWithState.Body body ->
-                        try
-                            Future.poll ctx body
-                        with exn ->
-                            _current <- TryWithState.Handler (handler exn)
-                            pollCurrent ()
-                    | TryWithState.Handler handler ->
-                        Future.poll ctx handler
-                    | TryWithState.Cancelled -> raise FutureCancelledException
-                pollCurrent ()
-
-            member _.Cancel() =
-                match _current with
-                | TryWithState.Empty ->
-                    _current <- TryWithState.Cancelled
-                | TryWithState.Body body ->
-                    _current <- TryWithState.Cancelled
-                    cancelIfNotNull body
-                | TryWithState.Handler handler ->
-                    _current <- TryWithState.Cancelled
-                    cancelIfNotNull handler
-                | TryWithState.Cancelled -> do ()
-        }
+    /// <summary> Creates a Computation that ignore result of the passed Computation </summary>
+    /// <returns> Computation that ignore result of the passed Computation </returns>
+    let inline ignore (fut: Future<'a>) : Future<unit> =
+        upcast Futures.Ignore(fut)
 
 // --------
 // Builder
