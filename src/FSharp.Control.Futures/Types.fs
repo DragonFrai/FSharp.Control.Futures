@@ -1,4 +1,4 @@
-namespace FSharp.Control.Futures.Core
+namespace FSharp.Control.Futures.Types
 
 open System
 

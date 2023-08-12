@@ -1,6 +1,6 @@
 namespace FSharp.Control.Futures.Streams.Core
 
-open FSharp.Control.Futures.Core
+open FSharp.Control.Futures.Types
 
 
 [<Struct; RequireQualifiedAccess>]

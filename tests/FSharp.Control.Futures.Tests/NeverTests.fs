@@ -2,7 +2,7 @@ module FSharp.Control.Futures.Tests.NeverTests
 
 open Expecto
 open FSharp.Control.Futures
-open FSharp.Control.Futures.Core
+open FSharp.Control.Futures.Types
 
 
 let neverValueTest = test "Future.never future returns Pending" {

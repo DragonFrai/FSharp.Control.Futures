@@ -3,7 +3,7 @@ module FSharp.Control.Futures.Tests.FuseTests
 open Expecto
 
 open FSharp.Control.Futures
-open FSharp.Control.Futures.Core
+open FSharp.Control.Futures.Types
 
 // TODO: Add messages
 

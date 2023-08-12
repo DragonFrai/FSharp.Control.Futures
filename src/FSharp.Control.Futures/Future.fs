@@ -1,9 +1,9 @@
 namespace FSharp.Control.Futures
 
-open FSharp.Control.Futures.Core
+open FSharp.Control.Futures.Types
 open FSharp.Control.Futures.Internals
 
-type Future<'a> = Core.Future<'a>
+type Future<'a> = Types.Future<'a>
 
 [<RequireQualifiedAccess>]
 module Futures =

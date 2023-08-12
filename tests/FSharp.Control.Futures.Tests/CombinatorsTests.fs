@@ -3,7 +3,7 @@ module FSharp.Control.Futures.Tests.CombinatorsTests
 open System
 open Expecto
 open FSharp.Control.Futures
-open FSharp.Control.Futures.Core
+open FSharp.Control.Futures.Types
 
 let bindRegular = test "Future.bind combine computation" {
     let first = Future.yieldWorkflow () |> Future.bind (fun () -> Future.readyUnit)

@@ -1,6 +1,6 @@
 namespace FSharp.Control.Futures.Streams
 
-open FSharp.Control.Futures.Core
+open FSharp.Control.Futures.Types
 
 type StreamBuilder() =
 
