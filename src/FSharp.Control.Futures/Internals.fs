@@ -1,5 +1,7 @@
 namespace FSharp.Control.Futures.Internals
 
+open System.Diagnostics
+open System.Threading
 open FSharp.Control.Futures.Types
 
 
@@ -13,6 +15,8 @@ module Utils =
     let inline isNull<'a when 'a : not struct> (x: 'a) = refEq x null
     let inline isNotNull<'a when 'a : not struct> (x: 'a) = not (isNull x)
 
+    let inline unreachable () =
+        raise (UnreachableException())
 
 //---------------
 // IntrusiveList
@@ -221,10 +225,10 @@ type NaivePoller<'a> =
 
 // NaivePoll
 // -----------
-// StructuralMerge
+// PrimaryMerge
 
 [<Struct>]
-type StructuralMerge<'a, 'b> =
+type PrimaryMerge<'a, 'b> =
     val mutable _poller1: NaivePoller<'a>
     val mutable _poller2: NaivePoller<'b>
     val mutable _result1: 'a
@@ -279,5 +283,117 @@ type StructuralMerge<'a, 'b> =
         if this._IsNoResult1 then this._poller1.Cancel()
         if this._IsNoResult2 then this._poller2.Cancel()
 
-// StructuralMerge
+// PrimaryMerge
 // ---------------
+// PrimaryNotify
+
+exception MultipleNotifyException
+
+[<RequireQualifiedAccess>]
+module NotifyState =
+    // for operations Poll(P), Cancel(C) and Notify(N) present next transitions on graphiz:
+    // digraph G {
+    //     Zero -> N [label = N]
+    //     W -> N [label = N]
+    //     T -> TN [label = N]
+    //
+    //     Zero -> W [label = P]
+    //     N -> TN [label = P]
+    //     W -> W [label = P]
+    //
+    //     Zero -> T [label = C]
+    //     N -> TN [label = C]
+    //     W -> T [label = C]
+    //
+    //     // T -> TerminatedEx [label = C]
+    //     // TN -> TerminatedEx [label = C]
+    //     // T -> TerminatedEx [label = P]
+    //     // TN -> TerminatedEx [label = P]
+    //     // N -> MultipleNotifyEx [label = N];
+    //     // TN -> MultipleNotifyEx [label = N]
+    // }
+
+    // T -- Terminated : Poll with Ready / Cancel
+    // W -- Waiting : has context
+    // N -- Notified
+    // Zero -- initial state
+    let [<Literal>] Zero = 0
+    let [<Literal>] N = 1
+    let [<Literal>] W = 2
+    let [<Literal>] T = 3
+    let [<Literal>] TN = 4
+
+type [<Struct; NoComparison; NoEquality>] PrimaryNotify =
+    val _sync: SpinLock
+    val mutable _state: int
+    val mutable _context: IContext
+    internal new (_phantom: uint8) = { _sync = SpinLock(false); _state = 0; _context = nullObj }
+    static member Create() : PrimaryNotify = PrimaryNotify(0uy)
+
+    member inline this.Notify() : unit =
+        let mutable hasLock = false
+        this._sync.Enter(&hasLock)
+        match this._state with
+        | NotifyState.N
+        | NotifyState.TN ->
+            if hasLock then this._sync.Exit()
+            raise MultipleNotifyException
+        | NotifyState.Zero ->
+            this._state <- NotifyState.N
+            if hasLock then this._sync.Exit()
+        | NotifyState.T ->
+            this._state <- NotifyState.TN
+            if hasLock then this._sync.Exit()
+        | NotifyState.W ->
+            let context = this._context
+            this._context <- nullObj
+            this._state <- NotifyState.N
+            if hasLock then this._sync.Exit()
+            context.Wake()
+        | _ -> unreachable ()
+
+    /// true ~ Ready () | false ~ Pending
+    member inline this.Poll(ctx: IContext) : bool =
+        let mutable hasLock = false
+        this._sync.Enter(&hasLock)
+        match this._state with
+        | NotifyState.T
+        | NotifyState.TN ->
+            if hasLock then this._sync.Exit()
+            raise FutureTerminatedException
+        | NotifyState.Zero ->
+            this._context <- ctx
+            this._state <- NotifyState.W
+            if hasLock then this._sync.Exit()
+            false
+        | NotifyState.W ->
+            if hasLock then this._sync.Exit()
+            false
+        | NotifyState.N ->
+            this._state <- NotifyState.TN
+            if hasLock then this._sync.Exit()
+            true
+        | _ -> unreachable ()
+
+    member inline this.Cancel() =
+        let mutable hasLock = false
+        this._sync.Enter(&hasLock)
+        match this._state with
+        | NotifyState.T
+        | NotifyState.TN ->
+            if hasLock then this._sync.Exit()
+            raise FutureTerminatedException
+        | NotifyState.Zero ->
+            this._state <- NotifyState.T
+            if hasLock then this._sync.Exit()
+        | NotifyState.W ->
+            this._context <- nullObj
+            this._state <- NotifyState.T
+            if hasLock then this._sync.Exit()
+        | NotifyState.N ->
+            this._state <- NotifyState.TN
+            if hasLock then this._sync.Exit()
+        | _ -> unreachable ()
+
+// PrimaryNotify
+// ----------------

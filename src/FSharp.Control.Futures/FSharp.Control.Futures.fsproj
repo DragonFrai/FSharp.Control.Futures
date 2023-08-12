@@ -21,6 +21,7 @@
         <Compile Include="Future.fs" />
         <Compile Include="Extensions.fs" />
         <Compile Include="Running.fs" />
+        <Compile Include="Sync\Notify.fs" />
         <Compile Include="Sync\IVar.fs" />
         <Compile Include="Sync\Mutex.fs" />
         <Compile Include="Sync\RwLock.fs" />

@@ -4,12 +4,10 @@ open FSharp.Control.Futures
 
 // TODO
 
-// type Mutex<'a>(init: 'a) =
-//     let mutable value = init
-//     let sync = obj()
-//     let mutable hasLock = false
-//
-// type Mutex
+type Mutex<'a>(init: 'a) =
+    let mutable value = init
+    let sync = obj()
+    let mutable hasLock = false
 
 
 //

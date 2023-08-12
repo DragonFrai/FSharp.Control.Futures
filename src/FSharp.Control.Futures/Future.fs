@@ -5,6 +5,7 @@ open FSharp.Control.Futures.Internals
 
 type Future<'a> = Types.Future<'a>
 
+// TODO: maybe move into internal namespace
 [<RequireQualifiedAccess>]
 module Futures =
 
@@ -91,7 +92,7 @@ module Futures =
 
     [<Sealed>]
     type Merge<'a, 'b>(fut1: Future<'a>, fut2: Future<'b>) =
-        let mutable sMerge = StructuralMerge(fut1, fut2)
+        let mutable sMerge = PrimaryMerge(fut1, fut2)
 
         interface Future<'a * 'b> with
             member this.Poll(ctx) =
@@ -148,7 +149,7 @@ module Futures =
 
     [<Sealed>]
     type Apply<'a, 'b>(fut: Future<'a>, futFun: Future<'a -> 'b>) =
-        let mutable sMerge = StructuralMerge(fut, futFun)
+        let mutable sMerge = PrimaryMerge(fut, futFun)
 
         interface Future<'b> with
             member _.Poll(ctx) =
