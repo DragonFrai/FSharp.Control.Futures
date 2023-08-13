@@ -35,11 +35,17 @@ type IntrusiveNode<'self> when 'self :> IIntrusiveNode<'self>() =
             and set v = this.next <- v
 
 module IntrusiveNode =
-    let rec forEach<'a when 'a:> IIntrusiveNode<'a> and 'a: not struct> (f: 'a -> unit) (root: 'a) =
-        if isNull root then ()
-        else
-            f root
-            forEach f root.Next
+    /// <summary>
+    ///
+    /// </summary>
+    /// <param name="f"></param>
+    /// <param name="root"> Может быть null </param>
+    /// <remarks> Может принимать null значение </remarks>
+    let inline forEach<'a when 'a:> IIntrusiveNode<'a> and 'a: not struct> ([<InlineIfLambda>] f: 'a -> unit) (root: 'a) =
+        let mutable node = root
+        while isNotNull node do
+            f node
+            node <- node.Next
 
 /// Односвязный список, элементы которого являются его же узлами.
 /// Может быть полезен для исключения дополнительных аллокаций услов на подобии услов LinkedList.
@@ -48,83 +54,80 @@ module IntrusiveNode =
 type IntrusiveList<'a> when 'a :> IIntrusiveNode<'a> and 'a : not struct =
     val mutable internal startNode: 'a
     val mutable internal endNode: 'a
-    new(init: 'a) = { startNode = init; endNode = init }
+    internal new(init: 'a) = { startNode = init; endNode = init }
 
-type IntrusiveList =
+type IntrusiveList<'a> when 'a :> IIntrusiveNode<'a> and 'a : not struct with
     static member Create(): IntrusiveList<'a> = IntrusiveList(nullObj)
 
     static member Single(x: 'a): IntrusiveList<'a> = IntrusiveList(x)
 
     /// Проверяет список на пустоту
-    static member IsEmpty(list: IntrusiveList<'a> inref): bool =
-        isNull list.startNode
+    member this.IsEmpty: bool =
+        isNull this.startNode
 
     /// Добавляет элемент в конец
-    static member PushBack(list: IntrusiveList<'a> byref, x: 'a): unit =
-        let mutable list = &list
-        if IntrusiveList.IsEmpty(&list) then
-            list.startNode <- x
-            list.endNode <- x
+    member this.PushBack(x: 'a): unit =
+        if this.IsEmpty then
+            this.startNode <- x
+            this.endNode <- x
             x.Next <- nullObj
         else
-            list.endNode.Next <- x
-            list.endNode <- x
+            this.endNode.Next <- x
+            this.endNode <- x
 
     /// Забирает элемент из начала
-    static member PopFront(list: IntrusiveList<'a> byref): 'a =
-        let mutable list = &list
-        if IntrusiveList.IsEmpty(&list)
+    member this.PopFront(): 'a =
+        if this.IsEmpty
         then nullObj
-        elif list.endNode = list.startNode then
-            let r = list.startNode
-            list.startNode <- nullObj
-            list.endNode <- nullObj
+        elif refEq this.endNode this.startNode then
+            let r = this.startNode
+            this.startNode <- nullObj
+            this.endNode <- nullObj
             r
         else
-            let first = list.startNode
-            let second = list.startNode.Next
-            list.startNode <- second
+            let first = this.startNode
+            let second = this.startNode.Next
+            this.startNode <- second
             first
 
     /// Опустошает список и возвращает первую ноду, по которой можно проитерироваться.
     /// Может быть полезно для краткосрочного взятия лока на список.
-    static member Drain(list: IntrusiveList<'a> byref): 'a =
-        let mutable list = &list
-        let root = list.startNode
-        list.startNode <- nullObj
-        list.endNode <- nullObj
+    /// <remarks> Результат может быть null </remarks>
+    member this.Drain(): 'a =
+        let root = this.startNode
+        this.startNode <- nullObj
+        this.endNode <- nullObj
         root
 
     /// Убирает конкретный узел из списка
-    static member Remove(list: IntrusiveList<'a> byref, toRemove: 'a): bool =
-        let mutable list = &list
-        if IntrusiveList.IsEmpty(&list) then
+    member this.Remove(toRemove: 'a): bool =
+        if this.IsEmpty then
             false
-        elif refEq list.startNode toRemove then
-            if refEq list.startNode list.endNode then
-                list.startNode <- nullObj
-                list.endNode <- nullObj
+        elif refEq this.startNode toRemove then
+            if refEq this.startNode this.endNode then
+                this.startNode <- nullObj
+                this.endNode <- nullObj
             else
-                list.startNode <- list.startNode.Next
+                this.startNode <- this.startNode.Next
             true
-        elif refEq list.startNode.Next null then
+        elif refEq this.startNode.Next null then
             let rec findParent (childToRemove: obj) (parent: 'a) (child: 'a) =
                 if refEq childToRemove child then parent
                 elif isNull child.Next then nullObj
                 else findParent childToRemove child child.Next
-            let parent = findParent toRemove list.startNode list.startNode.Next
+            let parent = findParent toRemove this.startNode this.startNode.Next
             if refEq parent null
             then false
             else
                 parent.Next <- parent.Next.Next
                 if isNull parent.Next then // ребенок был последней нодой
-                    list.endNode <- parent
+                    this.endNode <- parent
                 true
         else
             false
 
-    static member ToList(list: IntrusiveList<'a> inref): 'a list =
-        let root = list.startNode
+    member this.ToList(): 'a list =
+        let root = this.startNode
         let rec collect (c: 'a list) (node: 'a) =
             if isNull node then c
             else collect (c @ [node]) node.Next
@@ -193,8 +196,10 @@ type [<Struct; RequireQualifiedAccess>]
     | Ready of result: 'a
     | Pending
 
-/// Утилита автоматически обрабатывающая переход в терминальное состояние для завершения и отмены.
-/// НЕ обрабатывает переход в терминальное состояние при исключении
+/// Утилита автоматически обрабатывающая Transit от опрашиваемой футуры.
+/// На данный момент, один из бонусов -- обработка переходов в терминальное состояние для завершения и отмены.
+/// НЕ обрабатывает переход в терминальное состояние при исключении.
+/// (TODO: если try без фактического исключения абсолютно бесплатен, есть смысл включить его сюда)
 [<Struct>]
 type NaivePoller<'a> =
     val mutable public Internal: Future<'a>
@@ -327,8 +332,9 @@ type [<Struct; NoComparison; NoEquality>] PrimaryNotify =
     val _sync: SpinLock
     val mutable _state: int
     val mutable _context: IContext
-    internal new (_phantom: uint8) = { _sync = SpinLock(false); _state = 0; _context = nullObj }
-    static member Create() : PrimaryNotify = PrimaryNotify(0uy)
+    new (isNotified: bool) =
+        let state = if isNotified then NotifyState.N else NotifyState.Zero
+        { _sync = SpinLock(false); _state = state; _context = nullObj }
 
     member inline this.Notify() : unit =
         let mutable hasLock = false

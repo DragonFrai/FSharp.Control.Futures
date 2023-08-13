@@ -5,9 +5,7 @@ open FSharp.Control.Futures.Types
 open FSharp.Control.Futures.Internals
 
 // type [<Sealed>] NotifyImpl() =
-//     let sync = SpinLock()
-//     let mutable isNotified = false
-//     let mutable context: IContext = nullObj
+//     let primaryNotify = PrimaryNotify(false)
 //
 //     member inline this.Notify() : unit =
 //         //

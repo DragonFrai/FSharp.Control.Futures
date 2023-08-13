@@ -14,40 +14,90 @@ type FutureFuseReadyException() = inherit FutureFuseException("Future was polled
 type FutureFuseCancelledException() = inherit FutureFuseException("Future was polled after being cancelled.")
 type FutureFuseTransitedException() = inherit FutureFuseException("Future was polled after returning Transit.")
 
+
 [<RequireQualifiedAccess>]
 module Future =
 
-    type SleepFuture(duration: TimeSpan) =
-        let mutable _timer: Timer = Unchecked.defaultof<_>
-        let mutable _timeOut = false
-        interface Future<unit> with
-            member _.Poll(ctx) =
-                let inline onWake (context: IContext) _ =
-                    let timer' = _timer
-                    _timer <- Unchecked.defaultof<_>
-                    _timeOut <- true
-                    context.Wake()
-                    timer'.Dispose()
-                let inline createTimer context =
-                    new Timer(onWake context, null, duration, Timeout.InfiniteTimeSpan)
+    [<Literal>] let SleepInit = 0
+    [<Literal>] let SleepWaiting = 1
+    [<Literal>] let SleepTimeout = 2
+    [<Literal>] let SleepCancelled = 2
 
-                if _timeOut then Poll.Ready ()
-                else
-                    _timer <- createTimer ctx
+    type Sleep(duration: TimeSpan) =
+        let mutable _sync = SpinLock(false)
+        let mutable _timer: Timer = nullObj
+        let mutable _context: IContext = nullObj
+        let mutable _state: int = SleepInit
+
+        member internal this.OnWake() : unit =
+            let mutable hasLock = false
+            _sync.Enter(&hasLock)
+            match _state with
+            | SleepWaiting ->
+                let context, timer = _context, _timer
+                _context <- nullObj
+                _timer <- nullObj
+                _state <- SleepTimeout
+                if hasLock then _sync.Exit()
+                context.Wake()
+                timer.Dispose()
+                ()
+            | SleepCancelled ->
+                if hasLock then _sync.Exit()
+                raise FutureTerminatedException
+            | SleepInit
+            | SleepTimeout
+            | _ ->
+                if hasLock then _sync.Exit()
+                unreachable ()
+
+        interface Future<unit> with
+            member this.Poll(ctx) =
+                let mutable hasLock = false
+                _sync.Enter(&hasLock)
+                match _state with
+                | SleepWaiting ->
+                    if hasLock then _sync.Exit()
                     Poll.Pending
+                | SleepInit ->
+                    _context <- ctx
+                    _timer <- new Timer((fun _ -> this.OnWake()), null, duration, Timeout.InfiniteTimeSpan)
+                    _state <- SleepWaiting
+                    if hasLock then _sync.Exit()
+                    Poll.Pending
+                | SleepTimeout ->
+                    if hasLock then _sync.Exit()
+                    Poll.Ready ()
+                | SleepCancelled ->
+                    if hasLock then _sync.Exit()
+                    raise FutureTerminatedException
+                | _ ->
+                    if hasLock then _sync.Exit()
+                    unreachable ()
 
             member _.Cancel() =
-                _timer.Dispose()
+                let mutable hasLock = false
+                _sync.Enter(&hasLock)
+                match _state with
+                | SleepInit ->
+                    _state <- SleepCancelled
+                    if hasLock then _sync.Exit()
+                | SleepTimeout | SleepCancelled ->
+                    if hasLock then _sync.Exit()
+                    raise FutureTerminatedException
+                | SleepWaiting ->
+                    let context, timer = _context, _timer
+                    _context <- nullObj
+                    _timer <- nullObj
+                    _state <- SleepTimeout
+                    timer.Dispose()
+                    if hasLock then _sync.Exit()
+                | _ ->
+                    if hasLock then _sync.Exit()
+                    unreachable ()
 
-    //#region OS
-    let sleep (duration: TimeSpan) : Future<unit> =
-        upcast SleepFuture(duration)
 
-    let sleepMs (millisecondDuration: int) =
-        let duration = TimeSpan(days=0, hours=0, minutes=0, seconds=0, milliseconds=millisecondDuration)
-        sleep duration
-
-    type FuseFuture<'a>(fut: Future<'a>) =
+    type Fuse<'a>(fut: Future<'a>) =
         let mutable isReady = false
         let mutable isCancelled = false
         let mutable isTransited = false
@@ -69,6 +119,15 @@ module Future =
             member _.Cancel() =
                 isCancelled <- true
 
+
+    //#region OS
+    let sleep (duration: TimeSpan) : Future<unit> =
+        upcast Sleep(duration)
+
+    let sleepMs (millisecondDuration: int) =
+        let duration = TimeSpan(days=0, hours=0, minutes=0, seconds=0, milliseconds=millisecondDuration)
+        sleep duration
+
     /// <summary>
     /// Creates a Future that will throw a specific <see cref="FutureFuseException">FutureFuseException</see> if polled after returning Ready or Transit or being cancelled.
     /// </summary>
@@ -76,5 +135,5 @@ module Future =
     /// <exception cref="FutureFuseTransitedException">Throws if Future was polled after returning Transit.</exception>
     /// <exception cref="FutureFuseCancelledException">Throws if Future was polled after being cancelled.</exception>
     let fuse (fut: Future<'a>) : Future<'a> =
-        upcast FuseFuture<'a>(fut)
+        upcast Fuse<'a>(fut)
 

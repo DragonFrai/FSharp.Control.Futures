@@ -3,7 +3,6 @@
 open System
 open System.Diagnostics
 open System.Text
-open System.Threading
 open System.Threading.Tasks
 
 open FSharp.Control.Tasks
@@ -195,8 +194,9 @@ module Fib =
 
 open FSharp.Control.Futures.Transforms.FutureTaskTransforms
 
-let testTasks () =
+open System.Threading
 
+let testTasks () =
     let fut1 = Future.ready "a"
     // let task1 =
     // task {
@@ -222,6 +222,32 @@ let testTasks () =
 
 [<EntryPoint>]
 let main argv =
+
+    let adds (m: Sync.Mutex<int>) = future {
+        printfn "TASK"
+        let rec loop (m: Sync.Mutex<int>) (n: int) = future {
+            if n >= 10_000 then ()
+            else
+                do! Sync.Mutex.lockS (fun x -> x + 1) m
+                do! Future.sleep (TimeSpan.FromMicroseconds(1.0))
+                return! loop m (n+1)
+        }
+        return! loop m 0
+    }
+
+    let mutex = Sync.Mutex(0)
+
+    printfn "spawning futures"
+    let futures = Seq.init 100 (fun i -> (adds mutex))
+    let root = Seq.fold (fun cf f -> Future.merge cf f |> Future.ignore) (Future.unit') futures
+    printfn "join futures"
+
+    let _ = Future.runSync root
+    printfn "printing result"
+    let guard = mutex.BlockingLock()
+    let v = guard.Value
+
+    printfn $"value: {v}"
 
     // let r =
     //     future {
@@ -262,9 +288,9 @@ let main argv =
 
     // testTasks ()
 
-    let n = 2000
-    Fib.testDeep n
-    Fib.testDeep n
+    // let n = 2000
+    // Fib.testDeep n
+    // Fib.testDeep n
 
     // computation {
     //     while true do

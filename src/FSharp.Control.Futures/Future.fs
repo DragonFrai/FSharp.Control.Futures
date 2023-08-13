@@ -195,7 +195,7 @@ module Future =
 
     /// <summary> Create the Computation returned <code>Ready ()</code> when polled</summary>
     /// <returns> Computation returned <code>Ready ()value)</code> when polled </returns>
-    let readyUnit: Future<unit> =
+    let unit': Future<unit> =
         upcast Futures.ReadyUnit.Instance
 
     /// <summary> Creates always pending Computation </summary>
@@ -278,7 +278,7 @@ module Future =
                 if enumerator.MoveNext() then
                     bind (fun () -> iterAsyncEnumerator body enumerator) (body enumerator.Current)
                 else
-                    readyUnit
+                    unit'
             delay (fun () -> iterAsyncEnumerator body (source.GetEnumerator()))
 
     /// <summary> Creates a Computation that ignore result of the passed Computation </summary>
@@ -296,7 +296,7 @@ type FutureBuilder() =
 
     member inline _.Bind(ca: Future<'a>, a2cb: 'a -> Future<'b>) = Future.bind a2cb ca
 
-    member inline _.Zero(): Future<unit> = Future.readyUnit
+    member inline _.Zero(): Future<unit> = Future.unit'
 
     member inline _.ReturnFrom(c: Future<'a>): Future<'a> = c
 

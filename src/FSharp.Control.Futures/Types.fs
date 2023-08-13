@@ -79,4 +79,3 @@ module Poll =
     let inline isTransit (poll: Poll<'a>) : bool =
         match poll with Poll.Transit _ -> true | _ -> false
 
-

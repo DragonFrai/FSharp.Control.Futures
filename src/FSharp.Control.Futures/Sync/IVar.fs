@@ -29,14 +29,14 @@ type IVar<'a>() =
     let mutable _exception: exn = nullObj
     let mutable _waiters: IntrusiveList<IVarReadFuture<'a>> = IntrusiveList.Create()
 
-    member inline internal _.RemoveWaiterNoSync(waiter: IVarReadFuture<'a>) =
+    member inline internal this.RemoveWaiterNoSync(waiter: IVarReadFuture<'a>) =
         if isNotNull waiter.Context then
             waiter.Context <- nullObj
-            IntrusiveList.Remove(&_waiters, waiter) |> ignore
+            _waiters.Remove(waiter) |> ignore
 
     member inline internal _.RegisterWaiterNoSync(waiter: IVarReadFuture<'a>, ctx: IContext) =
         waiter.Context <- ctx
-        IntrusiveList.PushBack(&_waiters, waiter)
+        _waiters.PushBack(waiter)
 
     member inline internal this.PollResult(reader: IVarReadFuture<'a>, ctx: IContext) =
         // TODO: Add a non-blocking branch if a pending branch has not yet been added and a result exists
@@ -61,7 +61,7 @@ type IVar<'a>() =
             let mutable hasLock = false
             _spinLock.Enter(&hasLock)
             reader.Context <- nullObj
-            IntrusiveList.Remove(&_waiters, reader) |> ignore
+            _waiters.Remove(reader) |> ignore
             if hasLock then _spinLock.Exit()
 
     member inline private _.WriteInner(x: 'a, ex: exn): unit =
@@ -77,7 +77,7 @@ type IVar<'a>() =
                 _exception <- ex
                 _state <- State.WrittenFailure
 
-            let root = IntrusiveList.Drain(&_waiters)
+            let root = _waiters.Drain()
             if hasLock then _spinLock.Exit()
 
             let rec wakeLoop (fut: IVarReadFuture<'a>) =
@@ -117,7 +117,6 @@ type IVar<'a>() =
         | State.Written -> _value
         | State.WrittenFailure -> raise _exception
 
-// IAsyncComputation version of IVar
 and [<Sealed>] internal IVarReadFuture<'a>(ivar: IVar<'a>) =
     inherit IntrusiveNode<IVarReadFuture<'a>>()
 

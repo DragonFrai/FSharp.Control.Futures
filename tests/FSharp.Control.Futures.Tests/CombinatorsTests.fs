@@ -6,7 +6,7 @@ open FSharp.Control.Futures
 open FSharp.Control.Futures.Types
 
 let bindRegular = test "Future.bind combine computation" {
-    let first = Future.yieldWorkflow () |> Future.bind (fun () -> Future.readyUnit)
+    let first = Future.yieldWorkflow () |> Future.bind (fun () -> Future.unit')
     let second = Future.yieldWorkflow () |> Future.bind (fun () -> Future.ready 8)
 
     let fut =
@@ -21,7 +21,7 @@ let bindRegular = test "Future.bind combine computation" {
 }
 
 let bindException = test "Future.bind throws exception" {
-    let yielded () = Future.yieldWorkflow () |> Future.bind (fun () -> Future.readyUnit)
+    let yielded () = Future.yieldWorkflow () |> Future.bind (fun () -> Future.unit')
 
     let exInBinder = yielded () |> Future.bind (fun () -> raise (Exception ""); Future.ready 12) |> Future.ignore
     let exInFirst = Future.lazy' (fun () -> raise (Exception "")) |> Future.bind (fun () -> Future.ready 12) |> Future.ignore
