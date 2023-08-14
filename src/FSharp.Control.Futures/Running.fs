@@ -1,6 +1,8 @@
 [<AutoOpen>]
 module FSharp.Control.Futures.Running
 
+open FSharp.Control.Futures.Internals
+
 module Future =
 
     open System.Threading
@@ -22,16 +24,12 @@ module Future =
                 member _.Scheduler = None
             }
 
-        let rec pollWhilePending () =
-            let rec pollTransiting () =
-                match (Future.poll ctx fut) with
-                | Poll.Ready x -> x
-                | Poll.Pending ->
-                    wh.WaitOne() |> ignore
-                    pollWhilePending ()
-                | Poll.Transit f ->
-                    fut <- f
-                    pollTransiting ()
-            pollTransiting ()
+        let rec pollWhilePending (poller: NaivePoller<'a>) =
+            let mutable poller = poller
+            match poller.Poll(ctx) with
+            | NaivePoll.Ready x -> x
+            | NaivePoll.Pending ->
+                wh.WaitOne() |> ignore
+                pollWhilePending (poller)
 
-        pollWhilePending ()
+        pollWhilePending (NaivePoller(fut))
