@@ -188,12 +188,6 @@ module Helpers =
         if isNotNull fut then fut.Cancel()
 
 // Helpers
-// -----------
-// ContextCell
-
-
-
-// ContextCell
 // ---------
 // NaivePoll
 
@@ -339,6 +333,10 @@ type [<Struct; NoComparison; NoEquality>] PrimaryNotify =
         let state = if isNotified then NotifyState.N else NotifyState.W
         { _state = state; _context = nullObj }
 
+    member inline this.IsNotified =
+        let state = this._state
+        state = NotifyState.N || state = NotifyState.TN
+
     // member inline this._ExchangeState(localState: byref<int>, from: int, to': int) : bool =
     //     let state' = Interlocked.CompareExchange(&this._state, to', from)
     //     if state' = from then
@@ -431,3 +429,36 @@ type [<Struct; NoComparison; NoEquality>] PrimaryNotify =
 
 // PrimaryNotify
 // ----------------
+// PrimaryIVar
+
+// One sender, One receiver
+type [<Struct; NoComparison; NoEquality>] PrimaryIVar<'a> =
+    val mutable _notify: PrimaryNotify
+    val mutable _value: 'a
+
+    internal new (notify: PrimaryNotify, value: 'a) = { _notify = notify; _value = value }
+    static member inline New() = PrimaryIVar(PrimaryNotify(false), Unchecked.defaultof<'a>)
+    static member inline WithValue(value: 'a) = PrimaryIVar(PrimaryNotify(true), value)
+
+    member inline this.HasValue = this._notify.IsNotified
+    member inline this.Value = this._value
+
+    member inline this.Put(value: 'a) =
+        this._value <- value
+        let isSuccessful = this._notify.Notify()
+        if not isSuccessful then this._value <- Unchecked.defaultof<'a>
+        isSuccessful
+
+    member inline this.PollGet(ctx: IContext) : NaivePoll<'a> =
+        let isNotified = this._notify.Poll(ctx)
+        match isNotified with
+        | false -> NaivePoll.Pending
+        | true -> NaivePoll.Ready this._value
+
+    member inline this.Get() : ValueOption<'a> =
+        match this.HasValue with
+        | false -> ValueNone
+        | true -> ValueSome this._value
+
+// PrimaryIVar
+// -----------
