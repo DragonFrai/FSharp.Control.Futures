@@ -62,13 +62,13 @@ module internal rec RunnerScheduler =
             try
                 PollTransiting(&fut, context
                 , onReady=fun x ->
-                    IVar.writeValue x ivar
+                    IVar.put x ivar
                     isComplete <- true
                     prevState <- changeState (fun x -> x ||| IsCompleteBit)
                 , onPending=fun () -> ()
                 )
             with e ->
-                IVar.writeFailure e ivar
+                IVar.putExn e ivar
 
             let isWaked = (prevState &&& IsWakedBit) <> 0uL
             if isWaked && not isComplete
@@ -88,7 +88,7 @@ module internal rec RunnerScheduler =
                 ivar.Read() |> Future.runSync
 
             member _.Cancel() =
-                ivar |> IVar.writeFailure FutureCancelledException
+                ivar |> IVar.putExn FutureCancelledException
 
 
     type GlobalThreadPoolTaskRunner() =

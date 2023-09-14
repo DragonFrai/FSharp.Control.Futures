@@ -15,12 +15,14 @@ type internal State =
     | Written
     | WrittenFailure
 
+/// <summary>
 /// An immutable cell to asynchronously wait for a single value.
 /// Represents the pending future in which value can be put.
 /// If you never put a value, you will endlessly wait for it.
 /// Provides a mechanism for dispatching exceptions. It can be expressed through Result and is not recommended.
 /// Of course, unless you cannot live without exceptions or you need to express a really critical case,
 /// which is too expensive to wrap in "(x: IVar<Result<_, _>>) |> Future.raise".
+/// </summary>
 [<Sealed>]
 type IVar<'a>() =
     let _spinLock = SpinLock(false)
@@ -109,9 +111,9 @@ type IVar<'a>() =
     member this.Read() : Future<'a> =
         upcast IVarReadFuture(this)
 
-    member _.HasValue(): bool = _state <> State.Blank
+    member _.IsFull: bool = _state <> State.Blank
 
-    member this.Get(): 'a =
+    member this.Take(): 'a =
         match _state with
         | State.Blank -> raise IVarValueNotWrittenException
         | State.Written -> _value
@@ -132,22 +134,26 @@ and [<Sealed>] internal IVarReadFuture<'a>(ivar: IVar<'a>) =
 
 module IVar =
     /// Create empty IVar instance
-    let inline create () = IVar()
+    let inline create () : IVar<'a> = IVar()
 
     /// Create future that write result of future in target.
     /// When future throw exception catch it and write in target.
     /// Throw exception when duplicate write in IVar
-    let inline write (source: Future<'a>) (ivar: IVar<'a>) = ivar.Write(source)
+    let inline pass (source: Future<'a>) (ivar: IVar<'a>) : Future<unit> = ivar.Write(source)
 
     /// Put a value and if it is already set raise exception
-    let inline writeValue (x: 'a) (ivar: IVar<'a>) = ivar.WriteValue(x)
+    let inline put (x: 'a) (ivar: IVar<'a>) : unit = ivar.WriteValue(x)
 
-    let inline writeFailure (ex: exn) (ivar: IVar<'a>) = ivar.WriteException(ex)
+    let inline putExn (ex: exn) (ivar: IVar<'a>) : unit = ivar.WriteException(ex)
 
     /// <summary> Returns the future pending value. </summary>
-    let inline read (ivar: IVar<'a>) = ivar.Read()
+    let inline get (ivar: IVar<'a>) : Future<'a> = ivar.Read()
 
-    let inline hasValue (ivar: IVar<'a>) : bool = ivar.HasValue()
+    /// <summary> Returns the value or throw exn </summary>
+    let inline tryGet (ivar: IVar<'a>) : 'a option =
+        if ivar.IsFull then Some (ivar.Take()) else None
 
-    let inline get (ivar: IVar<'a>) : 'a = ivar.Get()
+    let inline isFull (ivar: IVar<'a>) : bool = ivar.IsFull
+
+    let inline take (ivar: IVar<'a>) : 'a = ivar.Take()
 

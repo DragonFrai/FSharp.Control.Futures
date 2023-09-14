@@ -9,7 +9,7 @@ open FSharp.Control.Futures.Sync
 let ivarWriteBeforeRead = test "IVar write before read" {
     let ivar = IVar<int>()
 
-    IVar.writeValue 12 ivar
+    IVar.put 12 ivar
     let x = ivar.Read() |> Future.runSync
 
     Expect.equal x 12 "IVar return illegal value"
@@ -18,8 +18,8 @@ let ivarWriteBeforeRead = test "IVar write before read" {
 
 let ivarReadBeforeWrite = test "IVar read before write" {
     let ivar = IVar<int>()
-    let readFut = IVar.read ivar
-    let writeFut = Future.lazy' (fun () -> IVar.writeValue 12 ivar)
+    let readFut = IVar.get ivar
+    let writeFut = Future.lazy' (fun () -> IVar.put 12 ivar)
 
     let fut = Future.merge readFut writeFut
 

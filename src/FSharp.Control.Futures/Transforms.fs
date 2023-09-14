@@ -195,11 +195,11 @@ module FutureTaskTransforms =
                     elif task.IsCanceled then Error task.Exception
                     elif task.IsCompletedSuccessfully then Ok task.Result
                     else invalidOp "Unreachable"
-                IVar.writeValue taskResult ivar
+                IVar.put taskResult ivar
             ) |> ignore
 
             ivar
-            |> IVar.read
+            |> IVar.get
             |> Future.map (function Ok x -> x | Error ex -> raise ex)
 
         let toTaskOn (scheduler: TaskScheduler) (fut: Future<'a>) : Task<'a> =
