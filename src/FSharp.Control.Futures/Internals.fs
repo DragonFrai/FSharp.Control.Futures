@@ -298,12 +298,15 @@ exception MultipleNotifyException
 module NotifyState =
     // for operations Poll(P), Cancel(C) and Notify(N) present next transitions on graphiz:
     // digraph G {
+    //     I -> N [label = N]
     //     W -> N [label = N]
     //     T -> TN [label = N]
     //
+    //     I -> W [label = P]
     //     N -> TN [label = P]
     //     W -> W [label = P]
     //
+    //     I -> T [label = C]
     //     N -> TN [label = C]
     //     W -> T [label = C]
     //
@@ -315,123 +318,135 @@ module NotifyState =
     //     // TN -> MultipleNotifyEx [label = N]
     // }
 
-    // T -- Terminated : Polled with Ready / Cancel
-    // W -- Waiting, not Notified : can has context
-    // N -- Notified, has not context
-    let [<Literal>] W = 0
-    let [<Literal>] N = 1
-    let [<Literal>] T = 2
-    let [<Literal>] TN = 3
-    // The state for the lock for changes that cannot be performed after the fact of the state change
-    let [<Literal>] Lock = 4
+    // I -- Initialized
+    // T -- Terminated: Polled with Ready or Canceled
+    // W -- Waiting: has context
+    // N -- Notified
 
-// Single Notify waiter notify
+    let [<Literal>] I = 0
+    let [<Literal>] W = 1
+    let [<Literal>] N = 2
+    let [<Literal>] T = 3
+    let [<Literal>] TN = 4
+
+/// <summary>
+/// The primitive for synchronizing ONE notifier and ONE notifiable.
+/// SPSC (Single Producer Single Consumer)
+/// </summary>
 type [<Struct; NoComparison; NoEquality>] PrimaryNotify =
     val mutable _state: int
     val mutable _context: IContext
     new (isNotified: bool) =
-        let state = if isNotified then NotifyState.N else NotifyState.W
+        let state = if isNotified then NotifyState.N else NotifyState.I
         { _state = state; _context = nullObj }
 
     member inline this.IsNotified =
         let state = this._state
         state = NotifyState.N || state = NotifyState.TN
 
-    // member inline this._ExchangeState(localState: byref<int>, from: int, to': int) : bool =
-    //     let state' = Interlocked.CompareExchange(&this._state, to', from)
-    //     if state' = from then
-    //         localState <- state'
-    //         true
-    //     else
-    //         false
+    member inline this.IsTerminated =
+        let state = this._state
+        state = NotifyState.T || state = NotifyState.TN
 
-    /// Returns: true when not terminated future was notified
-    ///
+    /// <summary>
     /// This can be used to undo the effect produced before the notification starts.
     /// For example, remove the previously set value.
-    /// This only works if one thread calls the Notify and the other Poll
+    /// </summary>
+    /// <returns> true when not terminated future was notified </returns>
+    /// <remarks> The return value can be used to manually clean up external resources after notification </remarks>
     member inline this.Notify() : bool =
         let mutable doLoop = true
         let mutable state = this._state
         let mutable result = false
         while doLoop do
             match state with
+            | NotifyState.I ->
+                let state' = Interlocked.CompareExchange(&this._state, NotifyState.N, state)
+                if state <> state' then state <- state'
+                else doLoop <- false; result <- true
             | NotifyState.W ->
-                let state' = Interlocked.CompareExchange(&this._state, NotifyState.Lock, state)
+                let state' = Interlocked.CompareExchange(&this._state, NotifyState.N, state)
                 if state <> state' then state <- state'
                 else
                     let ctx = this._context
-                    if isNotNull ctx then
-                        Volatile.Write(&this._context, nullObj)
-                        ctx.Wake()
-                    Volatile.Write(&this._state, NotifyState.N)
+                    this._context <- nullObj
+                    ctx.Wake()
                     doLoop <- false; result <- true
             | NotifyState.T ->
                 let state' = Interlocked.CompareExchange(&this._state, NotifyState.TN, state)
-                if state = state'
-                then doLoop <- false; result <- false
-                else state <- state'
+                if state <> state' then state <- state'
+                else doLoop <- false; result <- false
             | NotifyState.N
             | NotifyState.TN -> raise MultipleNotifyException
             | _ -> unreachable ()
         result
 
-    /// true ~ Ready () | false ~ Pending
+    /// <summary>
+    /// Polls notify
+    /// </summary>
+    /// <param name="ctx"> Current async context </param>
+    /// <returns> true if notified </returns>
     member inline this.Poll(ctx: IContext) : bool =
         let mutable doLoop = true
         let mutable state = this._state
         let mutable result = false
         while doLoop do
             match state with
-            | NotifyState.W when this._context <> ctx ->
-                let state' = Interlocked.CompareExchange(&this._state, NotifyState.Lock, state)
+            | NotifyState.I ->
+                this._context <- ctx
+                let state' = Interlocked.CompareExchange(&this._state, NotifyState.W, state)
                 if state <> state' then state <- state'
-                else
-                    Volatile.Write(&this._context, ctx)
-                    Volatile.Write(&this._state, NotifyState.W)
-                    doLoop <- false; result <- true
-            | NotifyState.W when this._context = ctx ->
+                else doLoop <- false; result <- false
+            | NotifyState.W ->
+                if this._context <> ctx then unreachable ()
                 doLoop <- false; result <- false
             | NotifyState.N ->
                 let state' = Interlocked.CompareExchange(&this._state, NotifyState.TN, state)
-                if state = state'
-                then doLoop <- false; result <- true
-                else state <- state'
+                if state <> state' then state <- state'
+                else doLoop <- false; result <- true
             | NotifyState.T
             | NotifyState.TN -> raise FutureTerminatedException
             | _ -> unreachable ()
         result
 
-    member inline this.Cancel() =
+    /// <summary>
+    /// Cancel waiting notification
+    /// </summary>
+    /// <returns> true if notified </returns>
+    /// <remarks> The return value can be used to manually clean up external resources after cancellation </remarks>
+    member inline this.Cancel() : bool =
         let mutable doLoop = true
+        let mutable result = false
         let mutable state = this._state
         while doLoop do
             match state with
+            | NotifyState.I ->
+                let state' = Interlocked.CompareExchange(&this._state, NotifyState.T, state)
+                if state <> state' then state <- state'
+                else doLoop <- false; result <- false
             | NotifyState.W ->
-                let state' = Interlocked.CompareExchange(&this._state, NotifyState.Lock, state)
+                let state' = Interlocked.CompareExchange(&this._state, NotifyState.T, state)
                 if state <> state' then state <- state'
                 else
                     let ctx = this._context
-                    Volatile.Write(&this._context, nullObj)
-                    Volatile.Write(&this._state, NotifyState.T)
-                    if isNotNull ctx then
-                        ctx.Wake()
-                    doLoop <- false
+                    this._context <- nullObj
+                    doLoop <- false; result <- false
             | NotifyState.N ->
                 let state' = Interlocked.CompareExchange(&this._state, NotifyState.TN, state)
-                if state = state'
-                then doLoop <- false
-                else state <- state'
+                if state <> state' then state <- state'
+                else doLoop <- false; result <- true
             | NotifyState.T
             | NotifyState.TN -> raise FutureTerminatedException
             | _ -> unreachable ()
-        ()
+        result
 
 // PrimaryNotify
 // ----------------
 // PrimaryIVar
 
-// One sender, One receiver
+/// <summary>
+/// A primitive for synchronizing ONE value sender and ONE value receiver
+/// </summary>
 type [<Struct; NoComparison; NoEquality>] PrimaryIVar<'a> =
     val mutable _notify: PrimaryNotify
     val mutable _value: 'a
@@ -445,9 +460,8 @@ type [<Struct; NoComparison; NoEquality>] PrimaryIVar<'a> =
 
     member inline this.Put(value: 'a) =
         this._value <- value
-        let isSuccessful = this._notify.Notify()
-        if not isSuccessful then this._value <- Unchecked.defaultof<'a>
-        isSuccessful
+        if not (this._notify.Notify())
+        then this._value <- Unchecked.defaultof<'a>
 
     member inline this.PollGet(ctx: IContext) : NaivePoll<'a> =
         let isNotified = this._notify.Poll(ctx)
@@ -459,6 +473,10 @@ type [<Struct; NoComparison; NoEquality>] PrimaryIVar<'a> =
         match this.HasValue with
         | false -> ValueNone
         | true -> ValueSome this._value
+
+    member inline this.Cancel() =
+        if this._notify.Cancel()
+        then this._value <- Unchecked.defaultof<'a>
 
 // PrimaryIVar
 // -----------
