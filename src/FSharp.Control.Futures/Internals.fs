@@ -336,9 +336,14 @@ module NotifyState =
 type [<Struct; NoComparison; NoEquality>] PrimaryNotify =
     val mutable _state: int
     val mutable _context: IContext
+
     new (isNotified: bool) =
         let state = if isNotified then NotifyState.N else NotifyState.I
         { _state = state; _context = nullObj }
+
+    member inline this.IsWaiting =
+        let state = this._state
+        state = NotifyState.W
 
     member inline this.IsNotified =
         let state = this._state
@@ -452,8 +457,8 @@ type [<Struct; NoComparison; NoEquality>] PrimaryIVar<'a> =
     val mutable _value: 'a
 
     internal new (notify: PrimaryNotify, value: 'a) = { _notify = notify; _value = value }
-    static member inline New() = PrimaryIVar(PrimaryNotify(false), Unchecked.defaultof<'a>)
-    static member inline WithValue(value: 'a) = PrimaryIVar(PrimaryNotify(true), value)
+    new ((): unit) = { _notify = PrimaryNotify(false); _value = Unchecked.defaultof<'a> }
+    static member WithValue(value: 'a) = PrimaryIVar(PrimaryNotify(true), value)
 
     member inline this.HasValue = this._notify.IsNotified
     member inline this.Value = this._value

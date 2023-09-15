@@ -10,7 +10,7 @@ let ivarWriteBeforeRead = test "IVar write before read" {
     let ivar = IVar<int>()
 
     IVar.put 12 ivar
-    let x = ivar.Read() |> Future.runSync
+    let x = ivar.Get() |> Future.runSync
 
     Expect.equal x 12 "IVar return illegal value"
     ()

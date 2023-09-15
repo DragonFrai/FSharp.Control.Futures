@@ -82,10 +82,10 @@ module internal rec RunnerScheduler =
         interface IJoinHandle<'a> with
 
             member _.Await() =
-                ivar.Read()
+                ivar.Get()
 
             member _.Join() =
-                ivar.Read() |> Future.runSync
+                ivar.Get() |> Future.runSync
 
             member _.Cancel() =
                 ivar |> IVar.putExn FutureCancelledException
