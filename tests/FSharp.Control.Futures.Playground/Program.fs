@@ -9,7 +9,6 @@ open FSharp.Control.Tasks
 open Hopac
 open Hopac.Infixes
 
-open FSharp.Control.Futures.Types
 open FSharp.Control.Futures
 open FSharp.Control.Futures.Scheduling
 

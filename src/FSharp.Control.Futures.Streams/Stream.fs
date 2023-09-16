@@ -1,7 +1,6 @@
 namespace FSharp.Control.Futures.Streams
 
 open FSharp.Control.Futures
-open FSharp.Control.Futures.Types
 open FSharp.Control.Futures.Streams.Core
 
 
@@ -187,7 +186,7 @@ module Stream =
             source.Close()
             match _currFut with
             | ValueSome fut ->
-                fut.Cancel()
+                fut.Drop()
                 _currFut <- ValueNone
             | ValueNone -> ()
 

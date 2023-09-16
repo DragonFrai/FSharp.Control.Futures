@@ -3,7 +3,6 @@ module FSharp.Control.Futures.Tests.FuseTests
 open Expecto
 
 open FSharp.Control.Futures
-open FSharp.Control.Futures.Types
 
 // TODO: Add messages
 
@@ -40,7 +39,7 @@ let fuseThrowsCancelled = test "Future.fuse throws FutureFuseCancelledException 
     let sourceFut = Future.ready 1
     let fusedFut = Future.fuse sourceFut
 
-    fusedFut |> Future.cancel
+    fusedFut |> Future.drop
 
     Expect.throwsT<FutureFuseCancelledException>
         (fun () -> Future.poll mockContext fusedFut |> ignore)

@@ -1,7 +1,6 @@
 [<AutoOpen>]
 module Utils
 
-open FSharp.Control.Futures.Types
 open FSharp.Control.Futures
 
 

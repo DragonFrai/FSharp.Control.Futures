@@ -5,7 +5,6 @@ open System
 open System.Threading
 
 open FSharp.Control.Futures
-open FSharp.Control.Futures.Types
 open FSharp.Control.Futures.Internals
 
 
@@ -36,8 +35,8 @@ module Future =
                         _timer <- new Timer((fun _ -> this.OnWake()), null, duration, Timeout.InfiniteTimeSpan)
                     Poll.Pending
 
-            member _.Cancel() =
-                let isNotified = _notify.Cancel()
+            member _.Drop() =
+                let isNotified = _notify.Drop()
                 if isNotified then
                     if isNotNull _timer then
                         _timer <- nullObj
@@ -61,7 +60,7 @@ module Future =
                     | Poll.Transit f ->
                         isTransited <- true
                         Poll.Transit f
-            member _.Cancel() =
+            member _.Drop() =
                 isCancelled <- true
 
 

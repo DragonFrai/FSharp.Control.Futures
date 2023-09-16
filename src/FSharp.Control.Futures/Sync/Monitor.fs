@@ -3,7 +3,7 @@ namespace rec FSharp.Control.Futures.Sync
 open System.Threading
 open FSharp.Control.Futures
 open FSharp.Control.Futures.Internals
-open FSharp.Control.Futures.Types
+open FSharp.Control.Futures
 
 
 exception MonitorAlreadyUnlockedException
@@ -83,7 +83,7 @@ type MonitorWaiter =
                 this._monitor <- nullObj
                 Poll.Ready ()
 
-        member this.Cancel() =
+        member this.Drop() =
             if isNull this._monitor then raise FutureTerminatedException
             let monitor = this._monitor
             let mutable hasLock = false

@@ -3,7 +3,6 @@ module FSharp.Control.Futures.Tests.IVarTests
 open System
 open Expecto
 open FSharp.Control.Futures
-open FSharp.Control.Futures.Types
 open FSharp.Control.Futures.Sync
 
 

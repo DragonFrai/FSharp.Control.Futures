@@ -2,7 +2,6 @@ namespace rec FSharp.Control.Futures.Sync
 
 open FSharp.Control.Futures
 open FSharp.Control.Futures.Internals
-open FSharp.Control.Futures.Types
 
 
 exception MutexGuardMultipleUnlockException

@@ -3,7 +3,6 @@ namespace FSharp.Control.Futures.Scheduling
 open System.Threading
 
 open FSharp.Control.Futures
-open FSharp.Control.Futures.Types
 open FSharp.Control.Futures.Internals
 open FSharp.Control.Futures.Sync
 

@@ -6,7 +6,7 @@ open FSharp.Control.Futures.Internals
 module Future =
 
     open System.Threading
-    open FSharp.Control.Futures.Types
+    open FSharp.Control.Futures
 
     /// Spawn a Future on current thread and synchronously waits for its Ready
     /// The simplest implementation of the Future scheduler.

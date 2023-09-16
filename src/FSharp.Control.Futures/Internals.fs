@@ -2,7 +2,7 @@ namespace FSharp.Control.Futures.Internals
 
 open System.Diagnostics
 open System.Threading
-open FSharp.Control.Futures.Types
+open FSharp.Control.Futures
 open System.Threading
 
 [<AutoOpen>]
@@ -18,7 +18,24 @@ module Utils =
     let inline unreachable () =
         raise (UnreachableException())
 
-//---------------
+
+//---------------------------
+// Future low level functions
+
+[<RequireQualifiedAccess>]
+module Future =
+
+    let inline drop (comp: Future<'a>) = comp.Drop()
+
+    let inline poll context (comp: Future<'a>) = comp.Poll(context)
+
+    let inline create ([<InlineIfLambda>] poll) ([<InlineIfLambda>] drop) =
+        { new Future<_> with
+            member _.Poll(ctx) = poll ctx
+            member _.Drop() = drop () }
+
+// Future low level functions
+//---------------------------
 // IntrusiveList
 
 [<AllowNullLiteral>]
@@ -185,7 +202,7 @@ module Helpers =
         pollTransiting fut
 
     let inline cancelIfNotNull (fut: Future<'a>) =
-        if isNotNull fut then fut.Cancel()
+        if isNotNull fut then fut.Drop()
 
 // Helpers
 // ---------
@@ -197,10 +214,10 @@ type [<Struct; RequireQualifiedAccess>]
     | Pending
 
 /// Утилита автоматически обрабатывающая Transit от опрашиваемой футуры.
-/// На данный момент, один из бонусов -- обработка переходов в терминальное состояние для завершения и отмены.
-/// НЕ обрабатывает переход в терминальное состояние при исключении.
-/// (TODO: если try без фактического исключения абсолютно бесплатен, есть смысл включить его сюда)
-[<Struct>]
+/// На данный момент, один из бонусов -- обработка переходов в терминальное состояние
+/// для завершения с результатом или исключением и отмены.
+/// (TODO: try без фактического исключения не абсолютно бесплатен, есть смысл убрать его отсюда)
+[<Struct; NoComparison; NoEquality>]
 type NaivePoller<'a> =
     val mutable public Internal: Future<'a>
     new(fut: Future<'a>) = { Internal = fut }
@@ -210,22 +227,24 @@ type NaivePoller<'a> =
 
     member inline this.Poll(ctx: IContext) : NaivePoll<'a> =
         let mutable result = Unchecked.defaultof<_>
-        let mutable makePoll = true
-        while makePoll do
-            match this.Internal.Poll(ctx) with
+        let mutable doLoop = true
+        while doLoop do
+            let poll =
+                try this.Internal.Poll(ctx)
+                with e -> this.Terminate(); raise e
+
+            match poll with
             | Poll.Ready r ->
-                result <- NaivePoll.Ready r
-                makePoll <- false
                 this.Internal <- nullObj
+                doLoop <- false; result <- NaivePoll.Ready r
             | Poll.Pending ->
-                result <- NaivePoll.Pending
-                makePoll <- false
+                doLoop <- false; result <- NaivePoll.Pending
             | Poll.Transit transitTo ->
                 this.Internal <- transitTo
         result
 
-    member inline this.Cancel() : unit =
-        this.Internal.Cancel()
+    member inline this.Drop() : unit =
+        this.Internal.Drop()
         this.Internal <- nullObj
 
 // NaivePoll
@@ -267,7 +286,7 @@ type PrimaryMerge<'a, 'b> =
                 | NaivePoll.Pending -> ()
             with ex ->
                 this._poller1.Terminate()
-                this._poller2.Cancel()
+                this._poller2.Drop()
                 raise ex
         if this._IsNoResult2 then
             try
@@ -276,17 +295,17 @@ type PrimaryMerge<'a, 'b> =
                 | NaivePoll.Pending -> ()
             with ex ->
                 this._poller2.Terminate()
-                this._poller1.Cancel()
+                this._poller1.Drop()
                 raise ex
 
         if this._HasAllResults
         then NaivePoll.Ready (struct (this._result1, this._result2))
         else NaivePoll.Pending
 
-    member inline this.Cancel() =
+    member inline this.Drop() =
         // Отсутствие результата также означает, что Future должна быть не терминальна
-        if this._IsNoResult1 then this._poller1.Cancel()
-        if this._IsNoResult2 then this._poller2.Cancel()
+        if this._IsNoResult1 then this._poller1.Drop()
+        if this._IsNoResult2 then this._poller2.Drop()
 
 // PrimaryMerge
 // ---------------
@@ -420,7 +439,7 @@ type [<Struct; NoComparison; NoEquality>] PrimaryNotify =
     /// </summary>
     /// <returns> true if notified </returns>
     /// <remarks> The return value can be used to manually clean up external resources after cancellation </remarks>
-    member inline this.Cancel() : bool =
+    member inline this.Drop() : bool =
         let mutable doLoop = true
         let mutable result = false
         let mutable state = this._state
@@ -480,9 +499,194 @@ type [<Struct; NoComparison; NoEquality>] PrimaryIVar<'a> =
         | false -> ValueNone
         | true -> ValueSome this._value
 
-    member inline this.Cancel() =
-        if this._notify.Cancel()
+    member inline this.Drop() =
+        if this._notify.Drop()
         then this._value <- Unchecked.defaultof<'a>
 
 // PrimaryIVar
 // -----------
+// Futures
+
+[<RequireQualifiedAccess>]
+module Futures =
+
+    [<Sealed>]
+    type Ready<'a>(value: 'a) =
+        interface Future<'a> with
+            member this.Poll(_ctx) = Poll.Ready value
+            member this.Drop() = ()
+
+    [<Sealed>]
+    type ReadyUnit internal () =
+        static member Instance : ReadyUnit = ReadyUnit()
+        interface Future<unit> with
+            member this.Poll(_ctx) = Poll.Ready ()
+            member this.Drop() = ()
+
+    let ReadyUnit : ReadyUnit= ReadyUnit()
+
+    [<Sealed>]
+    type Never<'a> internal () =
+        interface Future<'a> with
+            member this.Poll(_ctx) = Poll.Pending
+            member this.Drop() = ()
+
+    let Never<'a> : Never<'a> = Never()
+
+    [<Sealed>]
+    type Lazy<'a>(lazy': unit -> 'a) =
+        interface Future<'a> with
+            member this.Poll(_ctx) = Poll.Ready (lazy' ())
+            member this.Drop() = ()
+
+    [<Sealed>]
+    type Delay<'a>(delay: unit -> Future<'a>) =
+        interface Future<'a> with
+            member this.Poll(_ctx) = Poll.Transit (delay ())
+            member this.Drop() = ()
+
+    [<Sealed>]
+    type Yield() =
+        let mutable isYielded = false
+        interface Future<unit> with
+            member this.Poll(ctx) =
+                if isYielded
+                then Poll.Ready ()
+                else
+                    isYielded <- true
+                    ctx.Wake()
+                    Poll.Pending
+            member this.Drop() = ()
+
+    [<Sealed>]
+    type Bind<'a, 'b>(source: Future<'a>, binder: 'a -> Future<'b>) =
+        let mutable poller = NaivePoller(source)
+        interface Future<'b> with
+            member this.Poll(ctx) =
+                match poller.Poll(ctx) with
+                | NaivePoll.Ready result -> Poll.Transit (binder result)
+                | NaivePoll.Pending -> Poll.Pending
+
+            member this.Drop() =
+                poller.Drop()
+
+    [<Sealed>]
+    type Map<'a, 'b>(source: Future<'a>, mapping: 'a -> 'b) =
+        let mutable poller = NaivePoller(source)
+        interface Future<'b> with
+            member this.Poll(ctx) =
+                match poller.Poll(ctx) with
+                | NaivePoll.Ready result -> Poll.Ready (mapping result)
+                | NaivePoll.Pending -> Poll.Pending
+
+            member this.Drop() =
+                poller.Drop()
+
+    [<Sealed>]
+    type Ignore<'a>(source: Future<'a>) =
+        let mutable poller = NaivePoller(source)
+        interface Future<unit> with
+            member this.Poll(ctx) =
+                match poller.Poll(ctx) with
+                | NaivePoll.Ready _ -> Poll.Ready ()
+                | NaivePoll.Pending -> Poll.Pending
+
+            member this.Drop() =
+                poller.Drop()
+
+    [<Sealed>]
+    type Merge<'a, 'b>(fut1: Future<'a>, fut2: Future<'b>) =
+        let mutable sMerge = PrimaryMerge(fut1, fut2)
+
+        interface Future<'a * 'b> with
+            member this.Poll(ctx) =
+                match sMerge.Poll(ctx) with
+                | NaivePoll.Ready (struct (a, b)) -> Poll.Ready (a, b)
+                | NaivePoll.Pending -> Poll.Pending
+
+            member this.Drop() =
+                sMerge.Drop()
+
+    [<Sealed>]
+    type First<'a>(fut1: Future<'a>, fut2: Future<'a>) =
+        let mutable poller1 = NaivePoller(fut1)
+        let mutable poller2 = NaivePoller(fut2)
+
+        interface Future<'a> with
+            member _.Poll(ctx) =
+                try
+                    match poller1.Poll(ctx) with
+                    | NaivePoll.Ready result ->
+                        poller2.Drop()
+                        Poll.Ready result
+                    | NaivePoll.Pending ->
+                        try
+                            match poller2.Poll(ctx) with
+                            | NaivePoll.Ready result ->
+                                poller1.Drop()
+                                Poll.Ready result
+                            | NaivePoll.Pending ->
+                                Poll.Pending
+                        with ex ->
+                            poller2.Terminate()
+                            poller1.Drop()
+                            raise ex
+                with ex ->
+                    poller1.Terminate()
+                    poller2.Drop()
+                    raise ex
+
+            member _.Drop() =
+                poller1.Drop()
+                poller2.Drop()
+
+    [<Sealed>]
+    type Join<'a>(source: Future<Future<'a>>) =
+        let mutable poller = NaivePoller(source)
+        interface Future<'a> with
+            member this.Poll(ctx) =
+                match poller.Poll(ctx) with
+                | NaivePoll.Ready innerFut -> Poll.Transit innerFut
+                | NaivePoll.Pending -> Poll.Pending
+            member this.Drop() =
+                poller.Drop()
+
+    [<Sealed>]
+    type Apply<'a, 'b>(fut: Future<'a>, futFun: Future<'a -> 'b>) =
+        let mutable sMerge = PrimaryMerge(fut, futFun)
+
+        interface Future<'b> with
+            member _.Poll(ctx) =
+                match sMerge.Poll(ctx) with
+                | NaivePoll.Ready (struct (x, f)) -> Poll.Ready (f x)
+                | NaivePoll.Pending -> Poll.Pending
+
+            member _.Drop() =
+                sMerge.Drop()
+
+    [<Sealed>]
+    type Try<'a>(body: Future<'a>, handler: exn -> Future<'a>) =
+        let mutable poller = NaivePoller(body)
+        let mutable handler = handler
+
+        interface Future<'a> with
+            member _.Poll(ctx) =
+                try
+                    match poller.Poll(ctx) with
+                    | NaivePoll.Pending -> Poll.Pending
+                    | NaivePoll.Ready x ->
+                        handler <- nullObj
+                        Poll.Ready x
+                with ex ->
+                    poller.Terminate()
+                    let h = handler
+                    handler <- nullObj
+                    Poll.Transit (h ex)
+
+            member _.Drop() =
+                handler <- nullObj
+                poller.Drop()
+
+// Futures
+//---------
+//

@@ -5,7 +5,6 @@ open Expecto
 open FsCheck
 
 open FSharp.Control.Futures
-open FSharp.Control.Futures.Types
 
 
 module Gen =

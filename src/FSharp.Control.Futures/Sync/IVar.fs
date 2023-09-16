@@ -1,7 +1,6 @@
 namespace rec FSharp.Control.Futures.Sync
 
 open System.Threading
-open FSharp.Control.Futures.Types
 open FSharp.Control.Futures
 open FSharp.Control.Futures.Internals
 
@@ -71,7 +70,7 @@ type [<Sealed>] internal IVarGetFuture<'a> =
 
     interface Future<'a> with
         member this.Poll(ctx) = Impl.PollGet(this.ivar, this, ctx)
-        member this.Cancel() = Impl.CancelGet(this.ivar, this)
+        member this.Drop() = Impl.DropGet(this.ivar, this)
 
 // TODO: Make Impl members inline
 type [<Sealed>] internal Impl =
@@ -119,15 +118,15 @@ type [<Sealed>] internal Impl =
                 finally
                     if hasLock then ivar.spinLock.Exit()
 
-    static member internal CancelGet(ivar: IVar<'a>, reader: IVarGetFuture<'a>) : unit =
+    static member internal DropGet(ivar: IVar<'a>, reader: IVarGetFuture<'a>) : unit =
         if reader.notify.IsWaiting then
             let mutable hasLock = false
             ivar.spinLock.Enter(&hasLock)
-            reader.notify.Cancel() |> ignore
+            reader.notify.Drop() |> ignore
             ivar.waiters.Remove(reader) |> ignore
             if hasLock then ivar.spinLock.Exit()
         else
-            reader.notify.Cancel() |> ignore
+            reader.notify.Drop() |> ignore
 
 module IVar =
     /// Create empty IVar instance

@@ -4,7 +4,6 @@ module FSharp.Control.Futures.Transforms
 open System
 open System.Threading
 open FSharp.Control.Futures
-open FSharp.Control.Futures.Types
 open FSharp.Control.Futures.Internals
 
 
@@ -41,7 +40,7 @@ module FutureAsyncTransforms =
                     | AsyncResult.Completed result -> Poll.Ready result
                     | AsyncResult.Cancelled ec -> raise ec //Poll.Ready ^ MaybeCancel.Cancelled ec
                     | AsyncResult.Errored e -> raise e
-                member _.Cancel() =
+                member _.Drop() =
                     cts.Cancel()
                     ()
 
@@ -71,7 +70,7 @@ module FutureAsyncTransforms =
                 )
 
             async {
-                let! disp = Async.OnCancel(fun () -> fut.Cancel())
+                let! disp = Async.OnCancel(fun () -> fut.Drop())
                 let! r = wait ()
                 disp.Dispose()
                 return r
@@ -105,8 +104,10 @@ module FutureApmTransforms =
                     else
                         Poll.Ready (endMethod asyncResult)
 
-                member this.Cancel() =
-                    raise (NotSupportedException("APM based Futures don't support cancellation"))
+                member this.Drop() =
+                    // raise (NotSupportedException("APM based Futures don't support cancellation"))
+                    // Ignore unsupported cancellation
+                    ()
 
         let ofBeginEnd (beginMethod: AsyncCallback -> obj -> IAsyncResult) (endMethod: IAsyncResult -> 'a) : Future<'a> =
             upcast ApmFuture<'a>(beginMethod, endMethod)

@@ -1,6 +1,9 @@
-namespace FSharp.Control.Futures.Types
+namespace FSharp.Control.Futures
 
 open System
+
+// ==========
+// Core types
 
 /// <summary> Current state of a AsyncComputation </summary>
 type [<Struct; RequireQualifiedAccess>]
@@ -15,15 +18,13 @@ and IFuture<'a> =
     /// <summary> Poll the state </summary>
     /// <param name="context"> Current Computation context </param>
     /// <returns> Current state </returns>
-    //[<EditorBrowsable(EditorBrowsableState.Advanced)>]
     abstract Poll: context: IContext -> Poll<'a>
 
-    /// <summary> Cancel asynchronously Computation computation </summary>
-    /// <remarks> Notifies internal asynchronous operations of Computation cancellations. </remarks>
-    //[<EditorBrowsable(EditorBrowsableState.Advanced)>]
-    abstract Cancel: unit -> unit
-
-and Future<'a> = IFuture<'a>
+    /// <summary> Cancel Future and clean resources </summary>
+    /// <remarks> It should always be called if the result of Future is no longer needed, and it is not yet terminal.
+    /// It is a necessary requirement not to leave hanging futures and not to create conditions of eternal waiting.
+    /// For example, merge should not leave a hanging Future if the second one throws an exception. </remarks>
+    abstract Drop: unit -> unit
 
 /// <summary> The context of the running computation.
 /// Allows the computation to signal its ability to move forward (awake) through the Wake method </summary>
@@ -38,33 +39,38 @@ and IContext =
 and IScheduler =
     inherit IDisposable
 
-    abstract Spawn: Future<'a> -> IJoinHandle<'a>
+    abstract Spawn: IFuture<'a> -> IJoinHandle<'a>
 
 /// <summary> Allows to cancel and wait (asynchronously or synchronously) for a spawned Future. </summary>
 and IJoinHandle<'a> =
     abstract Cancel: unit -> unit
     abstract Join: unit -> 'a
-    abstract Await: unit -> Future<'a>
+    abstract Await: unit -> IFuture<'a>
+
+// Core types
+// ==========
+// Aliases
+
+type Future<'a> = IFuture<'a>
+
+// Aliases
+// ==========
+// Exceptions
 
 /// Exception is thrown when future is in a terminated state:
 /// Completed, Completed with exception, Canceled
-// TODO: Maybe add reason
-exception FutureTerminatedException
-
+type FutureTerminatedException internal () = inherit Exception()
+type FutureCancelledException internal () = inherit FutureTerminatedException()
 exception FutureThreadingException
 
+[<AutoOpen>]
+module Exceptions =
+    let FutureTerminatedException : FutureTerminatedException = FutureTerminatedException()
+    let FutureCancelledException : FutureCancelledException = FutureCancelledException()
 
-[<RequireQualifiedAccess>]
-module Future =
-
-    let inline cancel (comp: Future<'a>) = comp.Cancel()
-
-    let inline poll context (comp: Future<'a>) = comp.Poll(context)
-
-    let inline create ([<InlineIfLambda>] poll) ([<InlineIfLambda>] cancel) =
-        { new Future<_> with
-            member _.Poll(ctx) = poll ctx
-            member _.Cancel() = cancel () }
+// Exceptions
+// ==========
+// Poll utils
 
 [<RequireQualifiedAccess>]
 module Poll =
@@ -77,3 +83,5 @@ module Poll =
     let inline isTransit (poll: Poll<'a>) : bool =
         match poll with Poll.Transit _ -> true | _ -> false
 
+// Poll utils
+// ==========

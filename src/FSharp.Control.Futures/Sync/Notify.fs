@@ -1,7 +1,7 @@
 namespace FSharp.Control.Futures.Sync
 
 open System.Threading
-open FSharp.Control.Futures.Types
+open FSharp.Control.Futures
 open FSharp.Control.Futures.Internals
 
 // type [<Sealed>] NotifyImpl() =
