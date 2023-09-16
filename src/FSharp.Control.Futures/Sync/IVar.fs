@@ -25,11 +25,11 @@ type State<'a> =
 /// </summary>
 type [<Sealed>] IVar<'a> =
 
-    val spinLock: SpinLock
-    val mutable state: State<'a>
-    val mutable value: 'a
-    val mutable exnValue: exn
-    val mutable waiters: IntrusiveList<IVarGetFuture<'a>> // not empty only on Blank state
+    val internal spinLock: SpinLock
+    val mutable internal state: State<'a>
+    val mutable internal value: 'a
+    val mutable internal exnValue: exn
+    val mutable internal waiters: IntrusiveList<IVarGetFuture<'a>> // not empty only on Blank state
 
     new() =
         { spinLock = SpinLock(false)
@@ -60,11 +60,11 @@ type [<Sealed>] IVar<'a> =
     member this.TryGet() : 'a option =
         if this.IsFull then Some (this.Take()) else None
 
-type [<Sealed>] IVarGetFuture<'a> =
+type [<Sealed>] internal IVarGetFuture<'a> =
     inherit IntrusiveNode<IVarGetFuture<'a>>
 
-    val mutable ivar: IVar<'a>
-    val mutable notify: PrimaryNotify
+    val mutable internal ivar: IVar<'a>
+    val mutable internal notify: PrimaryNotify
 
     new (ivar: IVar<'a>) =
         { inherit IntrusiveNode<IVarGetFuture<'a>>(); ivar = ivar; notify = PrimaryNotify(false) }
