@@ -1,6 +1,7 @@
 [<AutoOpen>]
 module Utils
 
+open FSharp.Control.Futures
 open System.Collections.Concurrent
 
 type OrderChecker() =
