@@ -353,11 +353,12 @@ type [<Struct; NoComparison; NoEquality>] PrimaryNotify =
         let state = this._state
         state = NotifyState.T || state = NotifyState.TN
 
+    // TODO: Replace bool to struct DU ?
     /// <summary>
     /// This can be used to undo the effect produced before the notification starts.
     /// For example, remove the previously set value.
     /// </summary>
-    /// <returns> true when not terminated future was notified </returns>
+    /// <returns> true when future already was cancelled (terminated, but ready unreachable without notify) </returns>
     /// <remarks> The return value can be used to manually clean up external resources after notification </remarks>
     member inline this.Notify() : bool =
         let mutable doLoop = true
@@ -368,7 +369,7 @@ type [<Struct; NoComparison; NoEquality>] PrimaryNotify =
             | NotifyState.I ->
                 let state' = Interlocked.CompareExchange(&this._state, NotifyState.N, state)
                 if state <> state' then state <- state'
-                else doLoop <- false; result <- true
+                else doLoop <- false; result <- false
             | NotifyState.W ->
                 let state' = Interlocked.CompareExchange(&this._state, NotifyState.N, state)
                 if state <> state' then state <- state'
@@ -376,11 +377,11 @@ type [<Struct; NoComparison; NoEquality>] PrimaryNotify =
                     let ctx = this._context
                     this._context <- nullObj
                     ctx.Wake()
-                    doLoop <- false; result <- true
+                    doLoop <- false; result <- false
             | NotifyState.T ->
                 let state' = Interlocked.CompareExchange(&this._state, NotifyState.TN, state)
                 if state <> state' then state <- state'
-                else doLoop <- false; result <- false
+                else doLoop <- false; result <- true
             | NotifyState.N
             | NotifyState.TN -> raise MultipleNotifyException
             | _ -> unreachable ()
@@ -465,7 +466,7 @@ type [<Struct; NoComparison; NoEquality>] PrimaryIVar<'a> =
 
     member inline this.Put(value: 'a) =
         this._value <- value
-        if not (this._notify.Notify())
+        if this._notify.Notify()
         then this._value <- Unchecked.defaultof<'a>
 
     member inline this.PollGet(ctx: IContext) : NaivePoll<'a> =

@@ -74,8 +74,8 @@ type [<Sealed>] IVarGetFuture<'a> =
         member this.Cancel() = Impl.CancelGet(this.ivar, this)
 
 // TODO: Make Impl members inline
-type [<Sealed>] Impl =
-    static member inline PutNoSync(ivar: IVar<'a>, value: 'a, ex: exn) : unit =
+type [<Sealed>] internal Impl =
+    static member inline internal PutNoSync(ivar: IVar<'a>, value: 'a, ex: exn) : unit =
         if isNull ex
         then
             ivar.value <- value
@@ -84,7 +84,7 @@ type [<Sealed>] Impl =
             ivar.exnValue <- ex
             ivar.state <- State.WrittenFailure
 
-    static member Put(ivar: IVar<'a>, value: 'a, ex: exn) : unit =
+    static member internal Put(ivar: IVar<'a>, value: 'a, ex: exn) : unit =
         let mutable hasLock = false
         ivar.spinLock.Enter(&hasLock)
         match ivar.state with
@@ -97,7 +97,7 @@ type [<Sealed>] Impl =
             if hasLock then ivar.spinLock.Exit()
             raise IVarDoublePutException
 
-    static member PollGet(ivar: IVar<'a>, reader: IVarGetFuture<'a>, ctx: IContext) : Poll<'a> =
+    static member internal PollGet(ivar: IVar<'a>, reader: IVarGetFuture<'a>, ctx: IContext) : Poll<'a> =
         match ivar.state with
         | State.Written -> Poll.Ready ivar.value
         | State.WrittenFailure -> raise ivar.exnValue
@@ -119,7 +119,7 @@ type [<Sealed>] Impl =
                 finally
                     if hasLock then ivar.spinLock.Exit()
 
-    static member CancelGet(ivar: IVar<'a>, reader: IVarGetFuture<'a>) : unit =
+    static member internal CancelGet(ivar: IVar<'a>, reader: IVarGetFuture<'a>) : unit =
         if reader.notify.IsWaiting then
             let mutable hasLock = false
             ivar.spinLock.Enter(&hasLock)

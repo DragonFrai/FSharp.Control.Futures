@@ -18,84 +18,29 @@ type FutureFuseTransitedException() = inherit FutureFuseException("Future was po
 [<RequireQualifiedAccess>]
 module Future =
 
-    [<Literal>] let SleepInit = 0
-    [<Literal>] let SleepWaiting = 1
-    [<Literal>] let SleepTimeout = 2
-    [<Literal>] let SleepCancelled = 2
-
     type Sleep(duration: TimeSpan) =
-        let mutable _sync = SpinLock(false)
         let mutable _timer: Timer = nullObj
-        let mutable _context: IContext = nullObj
-        let mutable _state: int = SleepInit
+        let mutable _notify: PrimaryNotify = PrimaryNotify(false)
 
         member internal this.OnWake() : unit =
-            let mutable hasLock = false
-            _sync.Enter(&hasLock)
-            match _state with
-            | SleepWaiting ->
-                let context, timer = _context, _timer
-                _context <- nullObj
-                _timer <- nullObj
-                _state <- SleepTimeout
-                if hasLock then _sync.Exit()
-                context.Wake()
-                timer.Dispose()
-                ()
-            | SleepCancelled ->
-                if hasLock then _sync.Exit()
-                raise FutureTerminatedException
-            | SleepInit
-            | SleepTimeout
-            | _ ->
-                if hasLock then _sync.Exit()
-                unreachable ()
+            let _isCancelled = _notify.Notify()
+            _timer <- nullObj
 
         interface Future<unit> with
             member this.Poll(ctx) =
-                let mutable hasLock = false
-                _sync.Enter(&hasLock)
-                match _state with
-                | SleepWaiting ->
-                    if hasLock then _sync.Exit()
-                    Poll.Pending
-                | SleepInit ->
-                    _context <- ctx
-                    _timer <- new Timer((fun _ -> this.OnWake()), null, duration, Timeout.InfiniteTimeSpan)
-                    _state <- SleepWaiting
-                    if hasLock then _sync.Exit()
-                    Poll.Pending
-                | SleepTimeout ->
-                    if hasLock then _sync.Exit()
+                let isNotified = _notify.Poll(ctx)
+                if isNotified then
                     Poll.Ready ()
-                | SleepCancelled ->
-                    if hasLock then _sync.Exit()
-                    raise FutureTerminatedException
-                | _ ->
-                    if hasLock then _sync.Exit()
-                    unreachable ()
+                else
+                    if isNull _timer then
+                        _timer <- new Timer((fun _ -> this.OnWake()), null, duration, Timeout.InfiniteTimeSpan)
+                    Poll.Pending
 
             member _.Cancel() =
-                let mutable hasLock = false
-                _sync.Enter(&hasLock)
-                match _state with
-                | SleepInit ->
-                    _state <- SleepCancelled
-                    if hasLock then _sync.Exit()
-                | SleepTimeout | SleepCancelled ->
-                    if hasLock then _sync.Exit()
-                    raise FutureTerminatedException
-                | SleepWaiting ->
-                    let context, timer = _context, _timer
-                    _context <- nullObj
-                    _timer <- nullObj
-                    _state <- SleepTimeout
-                    timer.Dispose()
-                    if hasLock then _sync.Exit()
-                | _ ->
-                    if hasLock then _sync.Exit()
-                    unreachable ()
-
+                let isNotified = _notify.Cancel()
+                if isNotified then
+                    if isNotNull _timer then
+                        _timer <- nullObj
 
     type Fuse<'a>(fut: Future<'a>) =
         let mutable isReady = false

@@ -10,8 +10,7 @@ type [<Struct; RequireQualifiedAccess>]
     | Transit of transitTo: IFuture<'a>
 
 /// # Future poll schema
-/// [ Poll.Pending -> ... -> Poll.Pending ] -> Poll.Ready x1 -> ... -> Poll.Ready xn
-///  x1 == x2 == ... == xn
+/// [ Poll.Pending -> ... -> Poll.Pending ] -> Poll.Ready x -> [ ! FutureTerminatedException ]
 and IFuture<'a> =
     /// <summary> Poll the state </summary>
     /// <param name="context"> Current Computation context </param>
@@ -38,7 +37,7 @@ and IContext =
 /// (for example, on its own or shared thread pool or on the current thread).  </summary>
 and IScheduler =
     inherit IDisposable
-    /// IScheduler.Spawn принимает Future, так как вызов Future.RunComputation является частью асинхронного вычисления.
+
     abstract Spawn: Future<'a> -> IJoinHandle<'a>
 
 /// <summary> Allows to cancel and wait (asynchronously or synchronously) for a spawned Future. </summary>
@@ -49,12 +48,11 @@ and IJoinHandle<'a> =
 
 /// Exception is thrown when future is in a terminated state:
 /// Completed, Completed with exception, Canceled
+// TODO: Maybe add reason
 exception FutureTerminatedException
 
-/// Exception is thrown when re-polling after cancellation (assuming IAsyncComputation is tracking such an invalid call)
-exception FutureCancelledException
-exception PollFinishedFutureException
 exception FutureThreadingException
+
 
 [<RequireQualifiedAccess>]
 module Future =

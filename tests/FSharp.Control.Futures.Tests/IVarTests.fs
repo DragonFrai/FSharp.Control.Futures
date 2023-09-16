@@ -1,5 +1,6 @@
 module FSharp.Control.Futures.Tests.IVarTests
 
+open System
 open Expecto
 open FSharp.Control.Futures
 open FSharp.Control.Futures.Types
@@ -29,9 +30,25 @@ let ivarReadBeforeWrite = test "IVar read before write" {
     ()
 }
 
+let ivarReadExn = test "IVar read exn" {
+    let ivar = IVar<int>()
+    let readFut = IVar.get ivar
+    let writeFut = Future.lazy' (fun () -> IVar.putExn (Exception("error")) ivar)
+
+    let fut = Future.merge readFut writeFut
+
+    try
+        let x, _ = fut |> Future.runSync
+        failwith "Error not writed"
+    with
+    | e ->
+        ()
+}
+
 [<Tests>]
 let tests =
     testList "IVar" [
         ivarWriteBeforeRead
         ivarReadBeforeWrite
+        ivarReadExn
     ]

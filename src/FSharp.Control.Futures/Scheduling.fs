@@ -88,7 +88,7 @@ module internal rec RunnerScheduler =
                 ivar.Get() |> Future.runSync
 
             member _.Cancel() =
-                ivar |> IVar.putExn FutureCancelledException
+                ivar |> IVar.putExn FutureTerminatedException
 
 
     type GlobalThreadPoolTaskRunner() =
