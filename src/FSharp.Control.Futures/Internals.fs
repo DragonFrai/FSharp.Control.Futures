@@ -223,7 +223,7 @@ module NaivePoll =
 /// Утилита автоматически обрабатывающая Transit от опрашиваемой футуры.
 /// На данный момент, один из бонусов -- обработка переходов в терминальное состояние
 /// для завершения с результатом или исключением и отмены.
-/// (TODO: try без фактического исключения не абсолютно бесплатен, есть смысл убрать его отсюда)
+/// (TODO: если try без фактического исключения не абсолютно бесплатен, есть смысл убрать его отсюда)
 [<Struct; NoComparison; NoEquality>]
 type NaivePoller<'a> =
     val mutable public Internal: Future<'a>
@@ -683,7 +683,7 @@ module Futures =
                 sMerge.Drop()
 
     [<Sealed>]
-    type Try<'a>(body: Future<'a>, handler: exn -> Future<'a>) =
+    type TryWith<'a>(body: Future<'a>, handler: exn -> Future<'a>) =
         let mutable poller = NaivePoller(body)
         let mutable handler = handler
 
@@ -704,6 +704,10 @@ module Futures =
             member _.Drop() =
                 handler <- nullObj
                 poller.Drop()
+
+    // TODO: TryFinally<'a>
+    // [<Sealed>]
+    // type TryFinally<'a>(body: Future<'a>, finalizer: unit -> unit) =
 
 // Futures
 //---------

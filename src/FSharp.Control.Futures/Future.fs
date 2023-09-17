@@ -68,14 +68,23 @@ module Future =
     let inline delay (creator: unit -> Future<'a>) : Future<'a> =
         upcast Futures.Delay(creator)
 
-    let inline tryWith (body: unit -> Future<'a>) (handler: exn -> Future<'a>) : Future<'a> =
-        upcast Futures.Try(Futures.Delay(body), handler)
-
     let inline catch (source: Future<'a>) : Future<Result<'a, exn>> =
-        upcast Futures.Try(Futures.Map(source, Ok), fun ex -> Futures.Ready(Error ex))
+        upcast Futures.TryWith(Futures.Map(source, Ok), fun ex -> Futures.Ready(Error ex))
 
-    let inline raise (source: Future<Result<'a, exn>>) : Future<'a> =
-        upcast Futures.Map(source, function Ok r -> r | Error ex -> raise ex)
+    // TODO: Rename one of inspect* functions
+    let inline inspectM (inspector: 'a -> Future<unit>) (fut: Future<'a>) : Future<'a> =
+        fut |> bind (fun x -> inspector x |> bind (fun () -> ready x))
+
+    let inline inspect (inspector: 'a -> unit) (fut: Future<'a>) : Future<'a> =
+        fut |> inspectM (fun x -> lazy' (fun () -> inspector x))
+
+    let inline tryWith (body: Future<'a>) (handler: exn -> Future<'a>) : Future<'a> =
+        upcast Futures.TryWith(body, handler)
+
+    let inline tryFinally (body: Future<'a>) (finalizer: unit -> unit): Future<'a> =
+        catch body
+        |> inspect (fun _ -> do finalizer ())
+        |> map (fun x -> match x with Ok r -> r | Error ex -> raise ex)
 
     /// <summary> Creates a Future that returns control flow to the scheduler once </summary>
     /// <returns> Future that returns control flow to the scheduler once </returns>
@@ -103,6 +112,9 @@ module Future =
                 else
                     unit'
             delay (fun () -> iterAsyncEnumerator body (source.GetEnumerator()))
+
+    let inline raise (source: Future<Result<'a, exn>>) : Future<'a> =
+        upcast Futures.Map(source, function Ok r -> r | Error ex -> raise ex)
 
     /// <summary> Creates a Future that ignore result of the passed Future </summary>
     /// <returns> Future that ignore result of the passed Future </returns>
@@ -136,8 +148,11 @@ type FutureBuilder() =
         let whileSeq = seq { while cond () do yield () }
         this.For(whileSeq, body)
 
-    member _.TryWith(body, handler): Future<'a> =
-        Future.tryWith body handler
+    member inline _.TryWith(body: unit -> Future<'a>, handler: exn -> Future<'a>): Future<'a> =
+        Future.tryWith (Future.delay body) handler
+
+    member inline _.TryFinally(body: unit -> Future<'a>, finalizer: unit -> unit): Future<'a> =
+        Future.tryFinally (Future.delay body) finalizer
 
     member inline _.Run(u2c: unit -> Future<'a>): Future<'a> = Future.delay u2c
 

@@ -84,50 +84,58 @@ module Mutex =
     let inline unlock (guard: MutexGuard<'a>) : unit =
         MutexGuard.unlock guard
 
-    // let read (f: 'a -> 'b) (mutex: Mutex<'a>) : Future<'b> = future {
-    //     let! guard = mutex.Lock()
-    //     let! b = f guard.Value
-    //     guard.Unlock()
-    //     return b
-    // }
-    //
-    // let write (replacement: 'a) (mutex: Mutex<'a>) : Future<unit> = future {
-    //     let! guard = mutex.Lock()
-    //     guard.SetValue(replacement)
-    //     guard.Unlock()
-    // }
+    let read (f: 'a -> 'b) (mutex: Mutex<'a>) : Future<'b> = future {
+        let! guard = mutex.Lock()
+        try
+            let! b = f guard.Value
+            return b
+        finally
+            guard.Unlock()
+    }
+
+    let write (replacement: 'a) (mutex: Mutex<'a>) : Future<unit> = future {
+        let! guard = mutex.Lock()
+        guard.SetValue(replacement)
+        guard.Unlock()
+    }
 
     // TODO: Add try in all update*
     let update (f: 'a -> Future<'a>) (mutex: Mutex<'a>) : Future<unit> = future {
         let! guard = mutex.Lock()
-        let! a = f guard.Value
-        guard.SetValue(a)
-        guard.Unlock()
-        ()
+        try
+            let! a = f guard.Value
+            guard.SetValue(a)
+        finally
+            guard.Unlock()
     }
 
     let updateR (f: 'a -> Future<'a * 'r>) (mutex: Mutex<'a>) : Future<'r> = future {
         let! guard = mutex.Lock()
-        let! (a, r) = f guard.Value
-        guard.SetValue(a)
-        guard.Unlock()
-        return r
+        try
+            let! (a, r) = f guard.Value
+            guard.SetValue(a)
+            return r
+        finally
+            guard.Unlock()
     }
 
     let updateSync (f: 'a -> 'a) (mutex: Mutex<'a>) : Future<unit> = future {
         let! guard = mutex.Lock()
-        let a = f guard.Value
-        guard.SetValue(a)
-        guard.Unlock()
-        ()
+        try
+            let a = f guard.Value
+            guard.SetValue(a)
+        finally
+            guard.Unlock()
     }
 
     let updateSyncR (f: 'a -> 'a * 'r) (mutex: Mutex<'a>) : Future<'r> = future {
         let! guard = mutex.Lock()
-        let (a, r) = f guard.Value
-        guard.SetValue(a)
-        guard.Unlock()
-        return r
+        try
+            let (a, r) = f guard.Value
+            guard.SetValue(a)
+            return r
+        finally
+            guard.Unlock()
     }
 
 // modules
