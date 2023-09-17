@@ -4,7 +4,7 @@ open System.Threading
 
 open FSharp.Control.Futures
 open FSharp.Control.Futures.Internals
-open FSharp.Control.Futures.Sync
+open FSharp.Control.Futures.Lock
 
 
 // -------------------

@@ -39,6 +39,7 @@ module Future =
                 let isNotified = _notify.Drop()
                 if isNotified then
                     if isNotNull _timer then
+                        _timer.Dispose()
                         _timer <- nullObj
 
     type Fuse<'a>(fut: Future<'a>) =
@@ -71,6 +72,10 @@ module Future =
     let sleepMs (millisecondDuration: int) =
         let duration = TimeSpan(days=0, hours=0, minutes=0, seconds=0, milliseconds=millisecondDuration)
         sleep duration
+
+    // TODO: Use DU instead standard exception
+    let timeout (duration: TimeSpan) (fut: Future<'a>) : Future<Result<'a, TimeoutException>> =
+        Future.first (fut |> Future.map Ok) (sleep duration |> Future.map (fun _ -> Error (TimeoutException())))
 
     /// <summary>
     /// Creates a Future that will throw a specific <see cref="FutureFuseException">FutureFuseException</see> if polled after returning Ready or Transit or being cancelled.

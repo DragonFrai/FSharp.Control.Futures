@@ -185,7 +185,7 @@ module FutureTaskTransforms =
     [<RequireQualifiedAccess>]
     module Future =
 
-        open FSharp.Control.Futures.Sync
+        open FSharp.Control.Futures.Lock
 
         let ofTask (task: Task<'a>) : Future<'a> =
             let ivar = IVar.create ()

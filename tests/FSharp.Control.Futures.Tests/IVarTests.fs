@@ -3,7 +3,7 @@ module FSharp.Control.Futures.Tests.IVarTests
 open System
 open Expecto
 open FSharp.Control.Futures
-open FSharp.Control.Futures.Sync
+open FSharp.Control.Futures.Lock
 
 
 let ivarWriteBeforeRead = test "IVar write before read" {

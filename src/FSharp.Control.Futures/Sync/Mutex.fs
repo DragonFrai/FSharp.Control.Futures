@@ -1,10 +1,14 @@
-namespace rec FSharp.Control.Futures.Sync
+namespace rec FSharp.Control.Futures.Lock
 
 open FSharp.Control.Futures
 open FSharp.Control.Futures.Internals
 
 
+// =======
+// classes
+
 exception MutexGuardMultipleUnlockException
+exception MutexAlreadyUnlockedException
 
 [<Sealed>]
 type Mutex<'a> =
@@ -39,10 +43,10 @@ type MutexGuard<'a> =
 
     member this.Value
         with get () =
-            if isNull this.mutex then raise MutexGuardMultipleUnlockException
+            if isNull this.mutex then raise MutexAlreadyUnlockedException
             this.mutex.value
         and set (value) =
-            if isNull this.mutex then raise MutexGuardMultipleUnlockException
+            if isNull this.mutex then raise MutexAlreadyUnlockedException
             this.mutex.value <- value
 
     member inline this.SetValue(value): unit =
@@ -55,6 +59,10 @@ type MutexGuard<'a> =
     member this.Unlock() : unit =
         this.mutex.UnlockUnchecked()
         this.mutex <- nullObj
+
+// classes
+// =======
+// modules
 
 module MutexGuard =
     let inline unlock (guard: MutexGuard<'a>) : unit =
@@ -73,15 +81,24 @@ module Mutex =
     let inline blockingLock (mutex: Mutex<'a>) : MutexGuard<'a> =
         mutex.BlockingLock()
 
-    let lockMR (f: 'a -> Future<'a * 'r>) (mutex: Mutex<'a>) : Future<'r> = future {
-        let! guard = mutex.Lock()
-        let! (a, r) = f guard.Value
-        guard.SetValue(a)
-        guard.Unlock()
-        return r
-    }
+    let inline unlock (guard: MutexGuard<'a>) : unit =
+        MutexGuard.unlock guard
 
-    let lockM (f: 'a -> Future<'a>) (mutex: Mutex<'a>) : Future<unit> = future {
+    // let read (f: 'a -> 'b) (mutex: Mutex<'a>) : Future<'b> = future {
+    //     let! guard = mutex.Lock()
+    //     let! b = f guard.Value
+    //     guard.Unlock()
+    //     return b
+    // }
+    //
+    // let write (replacement: 'a) (mutex: Mutex<'a>) : Future<unit> = future {
+    //     let! guard = mutex.Lock()
+    //     guard.SetValue(replacement)
+    //     guard.Unlock()
+    // }
+
+    // TODO: Add try in all update*
+    let update (f: 'a -> Future<'a>) (mutex: Mutex<'a>) : Future<unit> = future {
         let! guard = mutex.Lock()
         let! a = f guard.Value
         guard.SetValue(a)
@@ -89,10 +106,29 @@ module Mutex =
         ()
     }
 
-    let lockS (f: 'a -> 'a) (mutex: Mutex<'a>) : Future<unit> = future {
+    let updateR (f: 'a -> Future<'a * 'r>) (mutex: Mutex<'a>) : Future<'r> = future {
+        let! guard = mutex.Lock()
+        let! (a, r) = f guard.Value
+        guard.SetValue(a)
+        guard.Unlock()
+        return r
+    }
+
+    let updateSync (f: 'a -> 'a) (mutex: Mutex<'a>) : Future<unit> = future {
         let! guard = mutex.Lock()
         let a = f guard.Value
         guard.SetValue(a)
         guard.Unlock()
         ()
     }
+
+    let updateSyncR (f: 'a -> 'a * 'r) (mutex: Mutex<'a>) : Future<'r> = future {
+        let! guard = mutex.Lock()
+        let (a, r) = f guard.Value
+        guard.SetValue(a)
+        guard.Unlock()
+        return r
+    }
+
+// modules
+// =======

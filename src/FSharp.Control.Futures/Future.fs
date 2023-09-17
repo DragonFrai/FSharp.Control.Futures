@@ -74,6 +74,9 @@ module Future =
     let inline catch (source: Future<'a>) : Future<Result<'a, exn>> =
         upcast Futures.Try(Futures.Map(source, Ok), fun ex -> Futures.Ready(Error ex))
 
+    let inline raise (source: Future<Result<'a, exn>>) : Future<'a> =
+        upcast Futures.Map(source, function Ok r -> r | Error ex -> raise ex)
+
     /// <summary> Creates a Future that returns control flow to the scheduler once </summary>
     /// <returns> Future that returns control flow to the scheduler once </returns>
     let inline yieldWorkflow () : Future<unit> =

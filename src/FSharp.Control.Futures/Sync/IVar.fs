@@ -1,4 +1,4 @@
-namespace rec FSharp.Control.Futures.Sync
+namespace rec FSharp.Control.Futures.Lock
 
 open System.Threading
 open FSharp.Control.Futures
@@ -9,7 +9,7 @@ exception IVarDoublePutException
 exception IVarEmptyException
 
 [<Struct; RequireQualifiedAccess>]
-type State<'a> =
+type internal State<'a> =
     | Blank
     | Written
     | WrittenFailure

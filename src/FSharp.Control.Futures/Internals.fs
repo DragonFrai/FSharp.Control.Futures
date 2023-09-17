@@ -1,5 +1,6 @@
 namespace FSharp.Control.Futures.Internals
 
+open System
 open System.Diagnostics
 open System.Threading
 open FSharp.Control.Futures
@@ -213,6 +214,12 @@ type [<Struct; RequireQualifiedAccess>]
     | Ready of result: 'a
     | Pending
 
+module NaivePoll =
+    let inline toPoll (naivePoll: NaivePoll<'a>) : Poll<'a> =
+        match naivePoll with
+        | NaivePoll.Ready result -> Poll.Ready result
+        | NaivePoll.Pending -> Poll.Pending
+
 /// Утилита автоматически обрабатывающая Transit от опрашиваемой футуры.
 /// На данный момент, один из бонусов -- обработка переходов в терминальное состояние
 /// для завершения с результатом или исключением и отмены.
@@ -360,6 +367,10 @@ type [<Struct; NoComparison; NoEquality>] PrimaryNotify =
         let state = if isNotified then NotifyState.N else NotifyState.I
         { _state = state; _context = nullObj }
 
+    member inline this.IsInitOnly =
+        let state = this._state
+        state = NotifyState.I
+
     member inline this.IsWaiting =
         let state = this._state
         state = NotifyState.W
@@ -371,6 +382,12 @@ type [<Struct; NoComparison; NoEquality>] PrimaryNotify =
     member inline this.IsTerminated =
         let state = this._state
         state = NotifyState.T || state = NotifyState.TN
+
+    member inline this.TerminateForInit() =
+        if this._state = NotifyState.I then
+            this._state <- NotifyState.TN
+        else
+            raise (InvalidOperationException())
 
     // TODO: Replace bool to struct DU ?
     /// <summary>
@@ -478,6 +495,7 @@ type [<Struct; NoComparison; NoEquality>] PrimaryIVar<'a> =
 
     internal new (notify: PrimaryNotify, value: 'a) = { _notify = notify; _value = value }
     new ((): unit) = { _notify = PrimaryNotify(false); _value = Unchecked.defaultof<'a> }
+    static member Empty() = PrimaryIVar(PrimaryNotify(false), Unchecked.defaultof<'a>)
     static member WithValue(value: 'a) = PrimaryIVar(PrimaryNotify(true), value)
 
     member inline this.HasValue = this._notify.IsNotified
