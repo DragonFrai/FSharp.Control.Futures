@@ -1,4 +1,4 @@
-namespace FSharp.Control.Futures.Sync
+namespace FSharp.Control.Futures.Mailbox
 
 open System.Threading
 open FSharp.Control.Futures
@@ -24,7 +24,15 @@ type [<Sealed>] Mailbox<'a> =
         this.receiver
 
     member this.Post(msg: 'a): unit =
-        Impl.MailboxPost(this, msg)
+        OnceVarImpl.MailboxPost(this, msg)
+
+    member this.PostWithReply<'r>(msgBuilder: Reply<'r> -> 'a): Future<'r> = future {
+        let reply = Reply()
+        let msg = msgBuilder reply
+        this.Post(msg)
+        let! r = reply
+        return r
+    }
 
 and internal MailboxReceiver<'a> =
     val mutable internal mailbox: Mailbox<'a>
@@ -33,13 +41,13 @@ and internal MailboxReceiver<'a> =
 
     interface Future<'a> with
         member this.Poll(ctx: IContext): Poll<'a> =
-            Impl.ReceiverPoll(this.mailbox, this, ctx) |> NaivePoll.toPoll
+            OnceVarImpl.ReceiverPoll(this.mailbox, this, ctx) |> NaivePoll.toPoll
 
         member this.Drop() =
-            Impl.ReceiverDrop(this.mailbox, this)
+            OnceVarImpl.ReceiverDrop(this.mailbox, this)
 
 // TODO: Make inline
-and [<RequireQualifiedAccess>] Impl =
+and [<RequireQualifiedAccess>] OnceVarImpl =
 
     static member internal ReceiverPoll(inbox: Mailbox<'a>, receiver: MailboxReceiver<'a>, ctx: IContext): NaivePoll<'a> =
         let mutable hasLock = false

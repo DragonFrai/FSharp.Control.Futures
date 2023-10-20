@@ -1,16 +1,20 @@
-namespace FSharp.Control.Futures.Sync
+namespace FSharp.Control.Futures.Mailbox
 
 open FSharp.Control.Futures
 open FSharp.Control.Futures.Internals
 
 
-/// Single Produces Single Consumer (SPSC)
+/// <summary>
+/// Single Produces Single Consumer (SPSC) for only one msg
+/// </summary>
 type Reply<'a> =
-    val mutable pIVar: PrimaryIVar<'a>
-    new () = { pIVar = PrimaryIVar<'a>.Empty() }
+    val mutable internal pIVar: PrimaryOnceCell<'a>
+    new () = { pIVar = PrimaryOnceCell<'a>.Empty() }
 
     member this.Reply(msg: 'a) : unit =
         this.pIVar.Put(msg)
+
+    member inline this.AsFuture() : Future<'a> = this
 
     interface Future<'a> with
         member this.Poll(ctx: IContext) : Poll<'a> =

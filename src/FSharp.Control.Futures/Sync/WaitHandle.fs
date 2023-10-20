@@ -1,8 +1,10 @@
-namespace FSharp.Control.Futures.Lock
+namespace FSharp.Control.Futures.Sync
 
 open System.Threading
 open FSharp.Control.Futures
 open FSharp.Control.Futures.Internals
+
+type WaitHandle() = class end
 
 // type [<Sealed>] NotifyImpl() =
 //     let primaryNotify = PrimaryNotify(false)

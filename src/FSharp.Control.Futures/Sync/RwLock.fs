@@ -1,3 +1,3 @@
-namespace FSharp.Control.Futures.Lock
+namespace FSharp.Control.Futures.Sync
 
 // TODO

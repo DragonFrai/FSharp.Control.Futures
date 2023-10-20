@@ -1,4 +1,4 @@
-namespace rec FSharp.Control.Futures.Lock
+namespace rec FSharp.Control.Futures.Sync
 
 open FSharp.Control.Futures
 open FSharp.Control.Futures.Internals
@@ -53,10 +53,11 @@ type MutexGuard<'a> =
         this.Value <- value
 
     member this.Mutex: Mutex<'a> =
-        if isNull this.mutex then raise MutexGuardMultipleUnlockException
+        if isNull this.mutex then raise MutexAlreadyUnlockedException
         this.mutex
 
     member this.Unlock() : unit =
+        if isNull this.mutex then raise MutexGuardMultipleUnlockException
         this.mutex.UnlockUnchecked()
         this.mutex <- nullObj
 
@@ -99,7 +100,6 @@ module Mutex =
         guard.Unlock()
     }
 
-    // TODO: Add try in all update*
     let update (f: 'a -> Future<'a>) (mutex: Mutex<'a>) : Future<unit> = future {
         let! guard = mutex.Lock()
         try

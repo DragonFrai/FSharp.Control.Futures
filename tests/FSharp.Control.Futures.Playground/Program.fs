@@ -227,7 +227,7 @@ let main argv =
         let rec loop (m: Sync.Mutex<int>) (n: int) = future {
             if n >= 10_000 then ()
             else
-                do! Sync.Mutex.lockS (fun x -> x + 1) m
+                do! Sync.Mutex.updateSync (fun x -> x + 1) m
                 do! Future.sleep (TimeSpan.FromMicroseconds(1.0))
                 return! loop m (n+1)
         }

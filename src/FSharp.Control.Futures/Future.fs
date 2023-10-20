@@ -71,7 +71,7 @@ module Future =
     let inline catch (source: Future<'a>) : Future<Result<'a, exn>> =
         upcast Futures.TryWith(Futures.Map(source, Ok), fun ex -> Futures.Ready(Error ex))
 
-    // TODO: Rename one of inspect* functions
+    // TODO: Rename one of inspect* functions (maybe watch)
     let inline inspectM (inspector: 'a -> Future<unit>) (fut: Future<'a>) : Future<'a> =
         fut |> bind (fun x -> inspector x |> bind (fun () -> ready x))
 

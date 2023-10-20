@@ -4,7 +4,7 @@ open System.Threading
 
 open FSharp.Control.Futures
 open FSharp.Control.Futures.Internals
-open FSharp.Control.Futures.Lock
+open FSharp.Control.Futures.Sync
 
 
 // -------------------
@@ -25,7 +25,7 @@ module internal rec RunnerScheduler =
 
     type RunnerTask<'a>(fut: Future<'a>, runner: ITaskRunner) as this =
 
-        let mutable ivar = IVar<'a>()
+        let mutable ivar = OnceVar<'a>()
         let mutable state = 0uL
 
         let mutable fut = fut
@@ -49,7 +49,6 @@ module internal rec RunnerScheduler =
                     let complete = (prevState &&& IsCompleteBit) <> 0uL
                     let shouldRun = ((not alreadyRun) && (not complete))
                     if shouldRun then runner.RunTask(this)
-                override _.Scheduler = runner.Scheduler
             }
 
         // Метод обработки таски. Засчет флагов не должен вызываться одновременно более 1 раза

@@ -1,4 +1,4 @@
-namespace rec FSharp.Control.Futures.Lock
+namespace rec FSharp.Control.Futures.Sync
 
 open System.Threading
 open FSharp.Control.Futures

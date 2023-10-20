@@ -12,8 +12,13 @@ type [<Struct; RequireQualifiedAccess>]
     | Pending
     | Transit of transitTo: IFuture<'a>
 
-/// # Future poll schema
-/// [ Poll.Pending -> ... -> Poll.Pending ] -> Poll.Ready x -> [ ! FutureTerminatedException ]
+/// # Ideal Future poll schema:
+/// 1. Complete with result:
+///   [ Poll.Pending -> ... -> Poll.Pending ] -> Poll.Ready x -> [ ! FutureTerminatedException ]
+/// 2. Complete with transit
+///   [ Poll.Pending -> ... -> Poll.Pending ] -> Poll.Transit f -> [ ! FutureTerminatedException ]
+/// 3. Complete with exception (~ complete with result)
+///   [ Poll.Pending -> ... -> Poll.Pending ] -> raise exn -> [ ! FutureTerminatedException ]
 and IFuture<'a> =
     /// <summary> Poll the state </summary>
     /// <param name="context"> Current Computation context </param>
@@ -31,11 +36,9 @@ and IFuture<'a> =
 and IContext =
     /// <summary> Wake up assigned Future </summary>
     abstract Wake: unit -> unit
-    /// Current scheduler
-    abstract Scheduler: IScheduler option
 
 /// <summary> Scheduler Future. Allows the Future to run for execution
-/// (for example, on its own or shared thread pool or on the current thread).  </summary>
+/// (for example, on its own or shared thread pool or on the current thread). </summary>
 and IScheduler =
     inherit IDisposable
 
@@ -60,13 +63,13 @@ type Future<'a> = IFuture<'a>
 /// Exception is thrown when future is in a terminated state:
 /// Completed, Completed with exception, Canceled
 type FutureTerminatedException internal () = inherit Exception()
-type FutureCancelledException internal () = inherit FutureTerminatedException()
+type FutureDroppedException internal () = inherit FutureTerminatedException()
 exception FutureThreadingException
 
 [<AutoOpen>]
 module Exceptions =
     let FutureTerminatedException : FutureTerminatedException = FutureTerminatedException()
-    let FutureCancelledException : FutureCancelledException = FutureCancelledException()
+    let FutureCancelledException : FutureDroppedException = FutureDroppedException()
 
 // Exceptions
 // ==========

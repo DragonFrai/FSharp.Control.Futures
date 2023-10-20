@@ -4,7 +4,6 @@ open System
 open System.Diagnostics
 open System.Threading
 open FSharp.Control.Futures
-open System.Threading
 
 [<AutoOpen>]
 module Utils =
@@ -238,7 +237,7 @@ type NaivePoller<'a> =
         while doLoop do
             let poll =
                 try this.Internal.Poll(ctx)
-                with e -> this.Terminate(); raise e
+                with e -> this.Terminate(); reraise ()
 
             match poll with
             | Poll.Ready r ->
@@ -470,7 +469,6 @@ type [<Struct; NoComparison; NoEquality>] PrimaryNotify =
                 let state' = Interlocked.CompareExchange(&this._state, NotifyState.T, state)
                 if state <> state' then state <- state'
                 else
-                    let ctx = this._context
                     this._context <- nullObj
                     doLoop <- false; result <- false
             | NotifyState.N ->
@@ -484,19 +482,19 @@ type [<Struct; NoComparison; NoEquality>] PrimaryNotify =
 
 // PrimaryNotify
 // ----------------
-// PrimaryIVar
+// PrimaryOnceCell
 
 /// <summary>
 /// A primitive for synchronizing ONE value sender and ONE value receiver
 /// </summary>
-type [<Struct; NoComparison; NoEquality>] PrimaryIVar<'a> =
+type [<Struct; NoComparison; NoEquality>] PrimaryOnceCell<'a> =
     val mutable _notify: PrimaryNotify
     val mutable _value: 'a
 
     internal new (notify: PrimaryNotify, value: 'a) = { _notify = notify; _value = value }
     new ((): unit) = { _notify = PrimaryNotify(false); _value = Unchecked.defaultof<'a> }
-    static member Empty() = PrimaryIVar(PrimaryNotify(false), Unchecked.defaultof<'a>)
-    static member WithValue(value: 'a) = PrimaryIVar(PrimaryNotify(true), value)
+    static member Empty() = PrimaryOnceCell(PrimaryNotify(false), Unchecked.defaultof<'a>)
+    static member WithValue(value: 'a) = PrimaryOnceCell(PrimaryNotify(true), value)
 
     member inline this.HasValue = this._notify.IsNotified
     member inline this.Value = this._value
@@ -521,7 +519,7 @@ type [<Struct; NoComparison; NoEquality>] PrimaryIVar<'a> =
         if this._notify.Drop()
         then this._value <- Unchecked.defaultof<'a>
 
-// PrimaryIVar
+// PrimaryOnceCell
 // -----------
 // Futures
 
@@ -541,7 +539,7 @@ module Futures =
             member this.Poll(_ctx) = Poll.Ready ()
             member this.Drop() = ()
 
-    let ReadyUnit : ReadyUnit= ReadyUnit()
+    let ReadyUnit : ReadyUnit = ReadyUnit()
 
     [<Sealed>]
     type Never<'a> internal () =
@@ -649,10 +647,10 @@ module Futures =
                             poller2.Terminate()
                             poller1.Drop()
                             raise ex
-                with ex ->
+                with _ ->
                     poller1.Terminate()
                     poller2.Drop()
-                    raise ex
+                    reraise ()
 
             member _.Drop() =
                 poller1.Drop()
@@ -710,5 +708,48 @@ module Futures =
     // type TryFinally<'a>(body: Future<'a>, finalizer: unit -> unit) =
 
 // Futures
-//---------
-//
+// --------
+
+
+// [Fuse future]
+[<AutoOpen>]
+module FuseFuture =
+
+    type FutureFuseException(message: string) = inherit Exception(message)
+    type FutureFuseReadyException() = inherit FutureFuseException("Future was polled after returning Ready.")
+    type FutureFuseCancelledException() = inherit FutureFuseException("Future was polled after being cancelled.")
+    type FutureFuseTransitedException() = inherit FutureFuseException("Future was polled after returning Transit.")
+
+    [<RequireQualifiedAccess>]
+    module Future =
+        type internal Fuse<'a>(fut: Future<'a>) =
+            let mutable isReady = false
+            let mutable isCancelled = false
+            let mutable isTransited = false
+            interface Future<'a> with
+                member _.Poll(ctx) =
+                    if isReady then raise (FutureFuseReadyException())
+                    elif isCancelled then raise (FutureFuseCancelledException())
+                    elif isTransited then raise (FutureFuseTransitedException())
+                    else
+                        let p = Future.poll ctx fut
+                        match p with
+                        | Poll.Pending -> Poll.Pending
+                        | Poll.Ready x ->
+                            isReady <- true
+                            Poll.Ready x
+                        | Poll.Transit f ->
+                            isTransited <- true
+                            Poll.Transit f
+                member _.Drop() =
+                    isCancelled <- true
+
+
+        /// <summary>
+        /// Creates a Future that will throw a specific <see cref="FutureFuseException">FutureFuseException</see> if polled after returning Ready or Transit or being cancelled.
+        /// </summary>
+        /// <exception cref="FutureFuseReadyException">Throws if Future was polled after returning Ready.</exception>
+        /// <exception cref="FutureFuseTransitedException">Throws if Future was polled after returning Transit.</exception>
+        /// <exception cref="FutureFuseCancelledException">Throws if Future was polled after being cancelled.</exception>
+        let fuse (fut: Future<'a>) : Future<'a> =
+            upcast Fuse<'a>(fut)

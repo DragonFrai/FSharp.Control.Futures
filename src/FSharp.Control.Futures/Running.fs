@@ -19,10 +19,7 @@ module Future =
         use wh = new EventWaitHandle(false, EventResetMode.AutoReset)
         let mutable fut = fut
         let ctx =
-            { new IContext with
-                member _.Wake() = wh.Set() |> ignore
-                member _.Scheduler = None
-            }
+            { new IContext with member _.Wake() = wh.Set() |> ignore }
 
         let rec pollWhilePending (poller: NaivePoller<'a>) =
             let mutable poller = poller

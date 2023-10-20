@@ -54,7 +54,6 @@ module FutureAsyncTransforms =
             let ctx =
                 { new IContext with
                     member _.Wake() = wh.Set() |> ignore
-                    member _.Scheduler = None
                 }
 
             let mutable fut = fut
@@ -161,7 +160,7 @@ module FutureApmTransforms =
                         member this.Wake() =
                             if asyncResult.IsCompleted then invalidOp "Cannot call Wait when Future is Ready"
                             startPollOnContext this
-                        member _.Scheduler = None }
+                    }
 
                 startPollOnContext ctx
 
@@ -185,7 +184,7 @@ module FutureTaskTransforms =
     [<RequireQualifiedAccess>]
     module Future =
 
-        open FSharp.Control.Futures.Lock
+        open FSharp.Control.Futures.Sync
 
         let ofTask (task: Task<'a>) : Future<'a> =
             let ivar = IVar.create ()
