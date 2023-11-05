@@ -1,14 +1,9 @@
-namespace FSharp.Control.Futures.Scheduling
+namespace FSharp.Control.Futures.Scheduling.RunnerScheduler
 
 open System.Threading
-
 open FSharp.Control.Futures
 open FSharp.Control.Futures.Internals
 open FSharp.Control.Futures.Sync
-
-
-// -------------------
-// ThreadPollScheduler
 
 module internal rec RunnerScheduler =
 
@@ -21,14 +16,13 @@ module internal rec RunnerScheduler =
 
     type ITaskRunner =
         abstract RunTask: RunnerTask<'a> -> unit
-        abstract Scheduler: IScheduler option
 
     type RunnerTask<'a>(fut: Future<'a>, runner: ITaskRunner) as this =
 
         let mutable ivar = OnceVar<'a>()
         let mutable state = 0uL
 
-        let mutable fut = fut
+        let mutable fut = NaiveFuture(fut)
 
         let changeState (f: uint64 -> uint64) : uint64 =
             let mutable prevState = 0uL
@@ -58,13 +52,12 @@ module internal rec RunnerScheduler =
 
             let mutable isComplete = false
             try
-                PollTransiting(&fut, context
-                , onReady=fun x ->
+                match fut.Poll(context) with
+                | NaivePoll.Pending -> ()
+                | NaivePoll.Ready x ->
                     IVar.put x ivar
                     isComplete <- true
                     prevState <- changeState (fun x -> x ||| IsCompleteBit)
-                , onPending=fun () -> ()
-                )
             with e ->
                 IVar.putExn e ivar
 
@@ -77,7 +70,7 @@ module internal rec RunnerScheduler =
             changeState (fun x -> x ||| IsRunBit ||| IsWakedBit) |> ignore
             runner.RunTask(this)
 
-        interface IJoinHandle<'a> with
+        interface IFutureTask<'a> with
 
             member _.Await() =
                 ivar.Get()
@@ -87,38 +80,3 @@ module internal rec RunnerScheduler =
 
             member _.Cancel() =
                 ivar |> IVar.putExn FutureTerminatedException
-
-
-    type GlobalThreadPoolTaskRunner() =
-        interface ITaskRunner with
-            member _.RunTask(task) =
-                ThreadPool.QueueUserWorkItem(fun _ -> do task.Run()) |> ignore
-            member _.Scheduler = Some globalThreadPoolScheduler
-
-    type GlobalThreadPoolScheduler() =
-        interface IScheduler with
-            member this.Spawn(fut: Future<'a>) =
-                let task = RunnerTask<'a>(fut, globalThreadPoolTaskRunner)
-                task.InitialRun()
-                task :> IJoinHandle<'a>
-
-            member _.Dispose() = ()
-
-    let globalThreadPoolTaskRunner = GlobalThreadPoolTaskRunner()
-    let globalThreadPoolScheduler: IScheduler = upcast new GlobalThreadPoolScheduler()
-
-
-[<RequireQualifiedAccess>]
-module Schedulers =
-    let threadPool: IScheduler = RunnerScheduler.globalThreadPoolScheduler
-
-
-[<RequireQualifiedAccess>]
-module Scheduler =
-
-    /// <summary> Run Future on passed scheduler </summary>
-    /// <returns> Return Future waited result passed Future </returns>
-    let spawnOn (scheduler: IScheduler) (fut: Future<'a>) = scheduler.Spawn(fut)
-    /// <summary> Run Future on thread pool scheduler </summary>
-    /// <returns> Return Future waited result passed Future </returns>
-    let spawnOnThreadPool fut = spawnOn Schedulers.threadPool fut

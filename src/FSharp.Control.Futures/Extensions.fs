@@ -11,6 +11,7 @@ open FSharp.Control.Futures.Internals
 [<RequireQualifiedAccess>]
 module Future =
 
+    // TODO: move to internal internals module
     type internal Sleep(duration: TimeSpan) =
         let mutable _timer: Timer = nullObj
         let mutable _notify: PrimaryNotify = PrimaryNotify(false)
@@ -36,7 +37,33 @@ module Future =
                         _timer.Dispose()
                         _timer <- nullObj
 
+    // [run]
+
+    /// Spawn a Future on current thread and synchronously waits for its Ready
+    /// The simplest implementation of the Future scheduler.
+    /// Equivalent to `(Scheduler.spawnOn anyScheduler).Join()`,
+    /// but without the cost of complex general purpose scheduler synchronization
+    let runSync (fut: Future<'a>) : 'a =
+        // The simplest implementation of the Future scheduler.
+        // Based on a polling cycle (polling -> waiting for awakening -> awakening -> polling -> ...)
+        // until the point with the result is reached
+        use wh = new EventWaitHandle(false, EventResetMode.AutoReset)
+        let mutable fut = fut
+        let ctx =
+            { new IContext with member _.Wake() = wh.Set() |> ignore }
+
+        let rec pollWhilePending (poller: NaiveFuture<'a>) =
+            let mutable poller = poller
+            match poller.Poll(ctx) with
+            | NaivePoll.Ready x -> x
+            | NaivePoll.Pending ->
+                wh.WaitOne() |> ignore
+                pollWhilePending poller
+
+        pollWhilePending (NaiveFuture(fut))
+
     // [runtime based]
+
     let sleep (duration: TimeSpan) : Future<unit> =
         Sleep(duration)
 
@@ -46,6 +73,3 @@ module Future =
 
     let timeout (duration: TimeSpan) (fut: Future<'a>) : Future<Result<'a, TimeoutException>> =
         Future.first (fut |> Future.map Ok) (sleep duration |> Future.map (fun _ -> Error (TimeoutException())))
-
-
-

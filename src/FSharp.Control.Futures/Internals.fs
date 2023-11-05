@@ -224,7 +224,7 @@ module NaivePoll =
 /// для завершения с результатом или исключением и отмены.
 /// (TODO: если try без фактического исключения не абсолютно бесплатен, есть смысл убрать его отсюда)
 [<Struct; NoComparison; NoEquality>]
-type NaivePoller<'a> =
+type NaiveFuture<'a> =
     val mutable public Internal: Future<'a>
     new(fut: Future<'a>) = { Internal = fut }
 
@@ -259,15 +259,15 @@ type NaivePoller<'a> =
 
 [<Struct>]
 type PrimaryMerge<'a, 'b> =
-    val mutable _poller1: NaivePoller<'a>
-    val mutable _poller2: NaivePoller<'b>
+    val mutable _poller1: NaiveFuture<'a>
+    val mutable _poller2: NaiveFuture<'b>
     val mutable _result1: 'a
     val mutable _result2: 'b
     val mutable _resultsBits: int // bitflag: r1 = 1 | r2 = 2
 
     new (fut1: Future<'a>, fut2: Future<'b>) =
-        { _poller1 = NaivePoller(fut1)
-          _poller2 = NaivePoller(fut2)
+        { _poller1 = NaiveFuture(fut1)
+          _poller2 = NaiveFuture(fut2)
           _result1 = Unchecked.defaultof<_>
           _result2 = Unchecked.defaultof<_>
           _resultsBits = 0 }
@@ -576,7 +576,7 @@ module Futures =
 
     [<Sealed>]
     type Bind<'a, 'b>(source: Future<'a>, binder: 'a -> Future<'b>) =
-        let mutable poller = NaivePoller(source)
+        let mutable poller = NaiveFuture(source)
         interface Future<'b> with
             member this.Poll(ctx) =
                 match poller.Poll(ctx) with
@@ -588,7 +588,7 @@ module Futures =
 
     [<Sealed>]
     type Map<'a, 'b>(source: Future<'a>, mapping: 'a -> 'b) =
-        let mutable poller = NaivePoller(source)
+        let mutable poller = NaiveFuture(source)
         interface Future<'b> with
             member this.Poll(ctx) =
                 match poller.Poll(ctx) with
@@ -600,7 +600,7 @@ module Futures =
 
     [<Sealed>]
     type Ignore<'a>(source: Future<'a>) =
-        let mutable poller = NaivePoller(source)
+        let mutable poller = NaiveFuture(source)
         interface Future<unit> with
             member this.Poll(ctx) =
                 match poller.Poll(ctx) with
@@ -625,8 +625,8 @@ module Futures =
 
     [<Sealed>]
     type First<'a>(fut1: Future<'a>, fut2: Future<'a>) =
-        let mutable poller1 = NaivePoller(fut1)
-        let mutable poller2 = NaivePoller(fut2)
+        let mutable poller1 = NaiveFuture(fut1)
+        let mutable poller2 = NaiveFuture(fut2)
 
         interface Future<'a> with
             member _.Poll(ctx) =
@@ -658,7 +658,7 @@ module Futures =
 
     [<Sealed>]
     type Join<'a>(source: Future<Future<'a>>) =
-        let mutable poller = NaivePoller(source)
+        let mutable poller = NaiveFuture(source)
         interface Future<'a> with
             member this.Poll(ctx) =
                 match poller.Poll(ctx) with
@@ -682,7 +682,7 @@ module Futures =
 
     [<Sealed>]
     type TryWith<'a>(body: Future<'a>, handler: exn -> Future<'a>) =
-        let mutable poller = NaivePoller(body)
+        let mutable poller = NaiveFuture(body)
         let mutable handler = handler
 
         interface Future<'a> with

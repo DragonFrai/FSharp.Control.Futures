@@ -1,9 +1,13 @@
 namespace FSharp.Control.Futures
 
+// Модуль содержит определения самых базовых типов
+// с минимумом функционала, достаточно няпрямую следующими из их определения.
+// Определение достаточно расплывчатое, но, к примеру, прямые вызовы функций сюда подходит
+// А вот комбинаторы Future, даже самые фундаментальные, нет
+
 open System
 
-// ==========
-// Core types
+// [Core types]
 
 /// <summary> Current state of a AsyncComputation </summary>
 type [<Struct; RequireQualifiedAccess>]
@@ -42,23 +46,19 @@ and IContext =
 and IScheduler =
     inherit IDisposable
 
-    abstract Spawn: IFuture<'a> -> IJoinHandle<'a>
+    abstract Spawn: IFuture<'a> -> IFutureTask<'a>
 
 /// <summary> Allows to cancel and wait (asynchronously or synchronously) for a spawned Future. </summary>
-and IJoinHandle<'a> =
+and IFutureTask<'a> =
     abstract Cancel: unit -> unit
-    abstract Join: unit -> 'a
-    abstract Await: unit -> IFuture<'a>
+    abstract Await: unit -> IFuture<'a> // WaitAsync
+    abstract WaitBlocking: unit -> 'a
 
-// Core types
-// ==========
-// Aliases
+// [Aliases]
 
 type Future<'a> = IFuture<'a>
 
-// Aliases
-// ==========
-// Exceptions
+// [Exceptions]
 
 /// Exception is thrown when future is in a terminated state:
 /// Completed, Completed with exception, Canceled
@@ -66,14 +66,16 @@ type FutureTerminatedException internal () = inherit Exception()
 type FutureDroppedException internal () = inherit FutureTerminatedException()
 exception FutureThreadingException
 
+exception FutureTaskAbortedException
+
 [<AutoOpen>]
 module Exceptions =
     let FutureTerminatedException : FutureTerminatedException = FutureTerminatedException()
     let FutureCancelledException : FutureDroppedException = FutureDroppedException()
 
-// Exceptions
-// ==========
-// Poll utils
+
+// [Modules]
+// [Modules / Poll]
 
 [<RequireQualifiedAccess>]
 module Poll =
@@ -86,5 +88,18 @@ module Poll =
     let inline isTransit (poll: Poll<'a>) : bool =
         match poll with Poll.Transit _ -> true | _ -> false
 
-// Poll utils
-// ==========
+// [Modules / Future]
+module Future =
+    // Poll и Drop не являются первостепенными функциями пользовательского пространства,
+    // поэтому не могут быть отражены в этом модуле.
+    // Рассмотрите возможность использования Internals
+    ()
+
+// [Modules / Scheduler]
+module Scheduler =
+    let spawn (fut: Future<'a>) (scheduler: IScheduler) : IFutureTask<'a> = scheduler.Spawn(fut)
+
+// [Modules / FutureTask]
+module FutureTask =
+    let await (futTask: IFutureTask<'a>) : Future<'a> = futTask.Await()
+    let cancel (futTask: IFutureTask<'a>) : unit = futTask.Cancel()

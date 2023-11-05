@@ -24,7 +24,6 @@
         <Compile Include="Internals.fs" />
         <Compile Include="Future.fs" />
         <Compile Include="Extensions.fs" />
-        <Compile Include="Running.fs" />
         <Compile Include="Mailbox\Reply.fs" />
         <Compile Include="Mailbox\Mailbox.fs" />
         <Compile Include="Sync\Namespace.fs" />
@@ -35,7 +34,10 @@
         <Compile Include="Sync\Mutex.fs" />
         <Compile Include="Sync\RwLock.fs" />
         <Compile Include="Sync\OnceVar.fs" />
-        <Compile Include="Scheduling.fs" />
+        <Compile Include="Scheduling\RunnerScheduler.fs" />
+        <Compile Include="Scheduling\GlobalThreadPoolScheduler.fs" />
+        <Compile Include="Scheduling\SingleThreadScheduler.fs" />
+        <Compile Include="Scheduling\Scheduling.fs" />
         <Compile Include="Transforms.fs" />
         <Compile Include="IO.fs" />
     </ItemGroup>
