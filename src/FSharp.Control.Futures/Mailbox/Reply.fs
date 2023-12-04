@@ -18,7 +18,7 @@ type Reply<'a> =
 
     interface Future<'a> with
         member this.Poll(ctx: IContext) : Poll<'a> =
-            this.pIVar.PollGet(ctx) |> NaivePoll.toPoll
+            this.pIVar.Poll(ctx) |> NaivePoll.toPoll
 
         member this.Drop() : unit =
             this.pIVar.Drop()

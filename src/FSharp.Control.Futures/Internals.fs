@@ -205,6 +205,15 @@ module Helpers =
         if isNotNull fut then fut.Drop()
 
 // Helpers
+// --------
+
+// [ EnxResult ]
+
+type [<Struct>] ExnResult<'a>(value: 'a, ex: exn) =
+    static member inline Ok(v) = ExnResult(v, Unchecked.defaultof<_>)
+    static member inline Exn(e) = ExnResult(Unchecked.defaultof<_>, e)
+    member inline _.Value = if isNull ex then value else raise ex
+
 // ---------
 // NaivePoll
 
@@ -218,6 +227,12 @@ module NaivePoll =
         match naivePoll with
         | NaivePoll.Ready result -> Poll.Ready result
         | NaivePoll.Pending -> Poll.Pending
+
+    let inline toPollExn (naivePoll: NaivePoll<ExnResult<'a>>) : Poll<'a> =
+        match naivePoll with
+        | NaivePoll.Ready result -> Poll.Ready result.Value
+        | NaivePoll.Pending -> Poll.Pending
+
 
 /// Утилита автоматически обрабатывающая Transit от опрашиваемой футуры.
 /// На данный момент, один из бонусов -- обработка переходов в терминальное состояние
@@ -504,7 +519,7 @@ type [<Struct; NoComparison; NoEquality>] PrimaryOnceCell<'a> =
         if this._notify.Notify()
         then this._value <- Unchecked.defaultof<'a>
 
-    member inline this.PollGet(ctx: IContext) : NaivePoll<'a> =
+    member inline this.Poll(ctx: IContext) : NaivePoll<'a> =
         let isNotified = this._notify.Poll(ctx)
         match isNotified with
         | false -> NaivePoll.Pending

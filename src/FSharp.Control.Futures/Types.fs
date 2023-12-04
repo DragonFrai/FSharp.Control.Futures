@@ -41,18 +41,6 @@ and IContext =
     /// <summary> Wake up assigned Future </summary>
     abstract Wake: unit -> unit
 
-/// <summary> Scheduler Future. Allows the Future to run for execution
-/// (for example, on its own or shared thread pool or on the current thread). </summary>
-and IScheduler =
-    inherit IDisposable
-
-    abstract Spawn: IFuture<'a> -> IFutureTask<'a>
-
-/// <summary> Allows to cancel and wait (asynchronously or synchronously) for a spawned Future. </summary>
-and IFutureTask<'a> =
-    abstract Cancel: unit -> unit
-    abstract Await: unit -> IFuture<'a> // WaitAsync
-    abstract WaitBlocking: unit -> 'a
 
 // [Aliases]
 
@@ -63,19 +51,12 @@ type Future<'a> = IFuture<'a>
 /// Exception is thrown when future is in a terminated state:
 /// Completed, Completed with exception, Canceled
 type FutureTerminatedException internal () = inherit Exception()
-type FutureDroppedException internal () = inherit FutureTerminatedException()
-exception FutureThreadingException
-
-exception FutureTaskAbortedException
 
 [<AutoOpen>]
 module Exceptions =
     let FutureTerminatedException : FutureTerminatedException = FutureTerminatedException()
-    let FutureCancelledException : FutureDroppedException = FutureDroppedException()
-
 
 // [Modules]
-// [Modules / Poll]
 
 [<RequireQualifiedAccess>]
 module Poll =
@@ -88,18 +69,8 @@ module Poll =
     let inline isTransit (poll: Poll<'a>) : bool =
         match poll with Poll.Transit _ -> true | _ -> false
 
-// [Modules / Future]
 module Future =
     // Poll и Drop не являются первостепенными функциями пользовательского пространства,
     // поэтому не могут быть отражены в этом модуле.
     // Рассмотрите возможность использования Internals
     ()
-
-// [Modules / Scheduler]
-module Scheduler =
-    let spawn (fut: Future<'a>) (scheduler: IScheduler) : IFutureTask<'a> = scheduler.Spawn(fut)
-
-// [Modules / FutureTask]
-module FutureTask =
-    let await (futTask: IFutureTask<'a>) : Future<'a> = futTask.Await()
-    let cancel (futTask: IFutureTask<'a>) : unit = futTask.Cancel()
