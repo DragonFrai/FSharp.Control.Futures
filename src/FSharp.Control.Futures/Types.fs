@@ -16,13 +16,15 @@ type [<Struct; RequireQualifiedAccess>]
     | Pending
     | Transit of transitTo: IFuture<'a>
 
-/// # Ideal Future poll schema:
+/// <summary>
+///# Ideal Future poll schema:
 /// 1. Complete with result:
 ///   [ Poll.Pending -> ... -> Poll.Pending ] -> Poll.Ready x -> [ ! FutureTerminatedException ]
 /// 2. Complete with transit
 ///   [ Poll.Pending -> ... -> Poll.Pending ] -> Poll.Transit f -> [ ! FutureTerminatedException ]
 /// 3. Complete with exception (~ complete with result)
 ///   [ Poll.Pending -> ... -> Poll.Pending ] -> raise exn -> [ ! FutureTerminatedException ]
+/// </summary>
 and IFuture<'a> =
     /// <summary> Poll the state </summary>
     /// <param name="context"> Current Computation context </param>
@@ -35,8 +37,10 @@ and IFuture<'a> =
     /// For example, merge should not leave a hanging Future if the second one throws an exception. </remarks>
     abstract Drop: unit -> unit
 
-/// <summary> The context of the running computation.
-/// Allows the computation to signal its ability to move forward (awake) through the Wake method </summary>
+/// <summary>
+/// The context of the running Future.
+/// Allows the Future to signal its ability to move forward (awake) through the Wake method
+/// </summary>
 and IContext =
     /// <summary> Wake up assigned Future </summary>
     abstract Wake: unit -> unit
@@ -68,9 +72,3 @@ module Poll =
 
     let inline isTransit (poll: Poll<'a>) : bool =
         match poll with Poll.Transit _ -> true | _ -> false
-
-module Future =
-    // Poll и Drop не являются первостепенными функциями пользовательского пространства,
-    // поэтому не могут быть отражены в этом модуле.
-    // Рассмотрите возможность использования Internals
-    ()

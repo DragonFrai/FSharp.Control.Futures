@@ -20,14 +20,11 @@ type OrderChecker() =
 
 let nonAwakenedContext: IContext =
     { new IContext with
-        member _.Wake() = invalidOp "Context was wake"
-        member _.Scheduler = None }
+        member _.Wake() = invalidOp "Context was wake" }
 let mockContext: IContext =
     { new IContext with
-        member _.Wake() = do ()
-        member _.Scheduler = None }
+        member _.Wake() = do () }
 let mockContextWithWake (wake: unit -> unit) =
     { new IContext with
-        member _.Wake() = wake ()
-        member _.Scheduler = None }
+        member _.Wake() = wake () }
 

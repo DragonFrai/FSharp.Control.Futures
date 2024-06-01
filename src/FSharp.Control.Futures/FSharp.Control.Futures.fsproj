@@ -21,7 +21,16 @@
     
     <ItemGroup>
         <Compile Include="Types.fs" />
-        <Compile Include="Internals.fs" />
+        <Compile Include="Internals\Utils.fs" />
+        <Compile Include="Internals\Future.fs" />
+        <Compile Include="Internals\IntrusiveList.fs" />
+        <Compile Include="Internals\Helpers.fs" />
+        <Compile Include="Internals\NaiveFuture.fs" />
+        <Compile Include="Internals\PrimaryMerge.fs" />
+        <Compile Include="Internals\PrimaryNotify.fs" />
+        <Compile Include="Internals\PrimaryOnceCell.fs" />
+        <Compile Include="Internals\Futures.fs" />
+        <Compile Include="Internals\FuseFuture.fs" />
         <Compile Include="Future.fs" />
         <Compile Include="Extensions.fs" />
         <Compile Include="Mailbox\Reply.fs" />
@@ -36,7 +45,7 @@
         <Compile Include="Sync\OnceVar.fs" />
         <Compile Include="Executing\Types.fs" />
         <Compile Include="Executing\TaskId.fs" />
-        <Compile Include="Executing\Scheduler.fs" />
+        <Compile Include="Executing\Scheduling\Scheduler.fs" />
         <Compile Include="Executing\ThreadPool.fs" />
         <Compile Include="Executing\SingleThreadScheduler.fs" />
         <Compile Include="Executing\Scheduling.fs" />

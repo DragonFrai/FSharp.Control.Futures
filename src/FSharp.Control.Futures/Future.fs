@@ -4,6 +4,13 @@ open FSharp.Control.Futures
 open FSharp.Control.Futures.Internals
 
 
+/// <summary>
+///
+/// </summary>
+/// <remarks>
+/// `poll` and `drop` are not userspace functions.
+/// Low-level functions must be defined in there namespace: <see cref="FSharp.Control.Futures.Internals"/>.
+/// </remarks>
 [<RequireQualifiedAccess>]
 module Future =
 

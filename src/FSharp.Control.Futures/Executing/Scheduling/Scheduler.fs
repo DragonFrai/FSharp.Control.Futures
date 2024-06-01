@@ -13,7 +13,7 @@ open FSharp.Control.Futures.Internals
 // proxy for calling task method for processing work from scheduler
 // Я пытался сделать это абстрактным классом. Честно. Я прогирал F#'у
 type [<Interface>] ITaskSchedulerAgent =
-    abstract Id: TaskId
+    abstract Id: FutureTaskId
 
     /// <summary>
     /// Производит работу, которая была запрошена через <c>Context.Wake</c>, <c>IFutureTask.Abort</c>
@@ -95,7 +95,7 @@ type SchedulerTask<'a> =
 
     // [ ITaskSchedulerAgent + IContext part ]
     val mutable scheduler: IScheduler
-    val mutable taskId: TaskId // Id on current scheduler
+    val mutable taskId: FutureTaskId // Id on current scheduler
     val mutable work: NaiveFuture<'a>
 
     // [ IFutureTask part ]
@@ -105,7 +105,7 @@ type SchedulerTask<'a> =
     // [ Future part ]
     val mutable resultCell: PrimaryOnceCell<ExnResult<'a>>
 
-    new (scheduler: IScheduler, id: TaskId, fut: Future<'a>) =
+    new (scheduler: IScheduler, id: FutureTaskId, fut: Future<'a>) =
         { state = TaskState.Initial
           scheduler = scheduler
           taskId = id
