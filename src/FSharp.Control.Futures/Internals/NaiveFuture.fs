@@ -43,9 +43,11 @@ type NaiveFuture<'a> =
             match poll with
             | Poll.Ready r ->
                 this.Internal <- nullObj
-                doLoop <- false; result <- NaivePoll.Ready r
+                doLoop <- false
+                result <- NaivePoll.Ready r
             | Poll.Pending ->
-                doLoop <- false; result <- NaivePoll.Pending
+                doLoop <- false
+                result <- NaivePoll.Pending
             | Poll.Transit transitTo ->
                 this.Internal <- transitTo
         result

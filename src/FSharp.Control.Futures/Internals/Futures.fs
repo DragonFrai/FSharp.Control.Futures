@@ -103,6 +103,7 @@ module Futures =
             member this.Drop() =
                 sMerge.Drop()
 
+    // TODO: PrimaryFirst
     [<Sealed>]
     type First<'a>(fut1: Future<'a>, fut2: Future<'a>) =
         let mutable poller1 = NaiveFuture(fut1)
