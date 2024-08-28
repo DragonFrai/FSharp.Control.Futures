@@ -1,7 +1,7 @@
 namespace FSharp.Control.Futures.Mailbox
 
 open FSharp.Control.Futures
-open FSharp.Control.Futures.Internals
+open FSharp.Control.Futures.LowLevel
 
 
 /// <summary>

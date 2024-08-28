@@ -2,7 +2,7 @@ module FSharp.Control.Futures.Tests.ReadyTests
 
 open Expecto
 open FSharp.Control.Futures
-open FSharp.Control.Futures.Internals
+open FSharp.Control.Futures.LowLevel
 
 
 let readyValueTest = test "Future.ready future returns passed arg" {

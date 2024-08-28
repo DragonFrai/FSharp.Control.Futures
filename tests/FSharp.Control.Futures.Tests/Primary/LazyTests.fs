@@ -2,7 +2,7 @@ module FSharp.Control.Futures.Tests.LazyTests
 
 open Expecto
 open FSharp.Control.Futures
-open FSharp.Control.Futures.Internals
+open FSharp.Control.Futures.LowLevel
 
 let lazyCallFuncOnceTest = test "Future.lazy' correct call passed function order" {
     let checker = OrderChecker()

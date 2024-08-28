@@ -21,16 +21,16 @@
     
     <ItemGroup>
         <Compile Include="Types.fs" />
-        <Compile Include="Internals\Utils.fs" />
-        <Compile Include="Internals\Future.fs" />
-        <Compile Include="Internals\IntrusiveList.fs" />
-        <Compile Include="Internals\Helpers.fs" />
-        <Compile Include="Internals\NaiveFuture.fs" />
-        <Compile Include="Internals\PrimaryMerge.fs" />
-        <Compile Include="Internals\PrimaryNotify.fs" />
-        <Compile Include="Internals\PrimaryOnceCell.fs" />
-        <Compile Include="Internals\Futures.fs" />
-        <Compile Include="Internals\FuseFuture.fs" />
+        <Compile Include="LowLevel\Utils.fs" />
+        <Compile Include="LowLevel\Future.fs" />
+        <Compile Include="LowLevel\IntrusiveList.fs" />
+        <Compile Include="LowLevel\Helpers.fs" />
+        <Compile Include="LowLevel\NaiveFuture.fs" />
+        <Compile Include="LowLevel\PrimaryMerge.fs" />
+        <Compile Include="LowLevel\PrimaryNotify.fs" />
+        <Compile Include="LowLevel\PrimaryOnceCell.fs" />
+        <Compile Include="LowLevel\Futures.fs" />
+        <Compile Include="LowLevel\FuseFuture.fs" />
         <Compile Include="Future.fs" />
         <Compile Include="Extensions.fs" />
         <Compile Include="Mailbox\Reply.fs" />

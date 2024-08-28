@@ -3,7 +3,7 @@ namespace FSharp.Control.Futures.Runtime.LowLevel
 open System
 open System.Diagnostics
 open FSharp.Control.Futures
-open FSharp.Control.Futures.Internals
+open FSharp.Control.Futures.LowLevel
 open FSharp.Control.Futures.Runtime.LowLevel
 open FSharp.Control.Futures.Runtime
 open Microsoft.FSharp.Core

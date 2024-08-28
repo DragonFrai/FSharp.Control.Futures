@@ -1,4 +1,4 @@
-namespace FSharp.Control.Futures.Internals
+namespace FSharp.Control.Futures.LowLevel
 
 open System
 open FSharp.Control.Futures

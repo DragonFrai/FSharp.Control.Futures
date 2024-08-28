@@ -1,4 +1,4 @@
-namespace FSharp.Control.Futures.Internals
+namespace FSharp.Control.Futures.LowLevel
 
 open System.Diagnostics
 
@@ -16,6 +16,9 @@ module Utils =
 
     let inline unreachable () =
         raise (UnreachableException())
+
+    let inline unreachableS msg =
+        raise (UnreachableException(msg))
 
 
 type [<Struct>] ExnResult<'a> =

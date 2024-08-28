@@ -2,7 +2,7 @@ namespace FSharp.Control.Futures.Mailbox
 
 open System.Threading
 open FSharp.Control.Futures
-open FSharp.Control.Futures.Internals
+open FSharp.Control.Futures.LowLevel
 
 
 exception MailboxMultipleReceiveAtSameTimeException

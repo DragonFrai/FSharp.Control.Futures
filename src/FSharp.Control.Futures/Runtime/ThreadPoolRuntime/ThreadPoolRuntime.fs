@@ -1,4 +1,4 @@
-namespace rec FSharp.Control.Futures.Runtime.ThreadPoolRuntime
+namespace FSharp.Control.Futures.Runtime.ThreadPoolRuntime
 
 open System
 open System.Diagnostics
@@ -9,6 +9,7 @@ open FSharp.Control.Futures.Runtime.LowLevel
 
 
 [<Class>]
+[<Sealed>]
 type ThreadPoolFutureTask<'a>(fut: Future<'a>) =
     inherit AbstractFutureTask<'a>(fut)
 
@@ -22,6 +23,7 @@ type ThreadPoolFutureTask<'a>(fut: Future<'a>) =
 
 
 [<Class>]
+[<Sealed>]
 type ThreadPoolRuntime private () =
 
     static member Instance: IRuntime = new ThreadPoolRuntime()
