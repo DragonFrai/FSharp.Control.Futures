@@ -5,12 +5,13 @@ open System.Diagnostics
 open System.Text
 open System.Threading.Tasks
 
+open FSharp.Control.Futures.Playground
+open FSharp.Control.Futures.Runtime.ThreadPoolRuntime
 open FSharp.Control.Tasks
 open Hopac
 open Hopac.Infixes
 
 open FSharp.Control.Futures
-open FSharp.Control.Futures.Scheduling
 
 
 let inline ( ^ ) f x = f x
@@ -130,14 +131,14 @@ module Fib =
 
         printfn "Test deep computation..."
         sw.Restart()
-        for i in 1..20 do deepFutureComputation n |> Future.runSync |> ignore
+        for i in 1..20 do deepFutureComputation n |> Future.runBlocking |> ignore
         printfn $"Total {sw.ElapsedMilliseconds} ms"
 
 
     let runPrimeTest n =
         let sw = Stopwatch()
 
-        let scheduler = Schedulers.threadPool
+        let scheduler = ThreadPoolRuntime.Instance
 
         printfn "Test with n = %d" n
 
@@ -149,7 +150,7 @@ module Fib =
 
         printf "Test Computation... "
         sw.Restart()
-        for i in 1..20 do fibFuture n |> Future.runSync |> ignore
+        for i in 1..20 do fibFuture n |> Future.runBlocking |> ignore
         let ms = sw.ElapsedMilliseconds
         printfn "Total %i ms" ms
 
@@ -222,31 +223,33 @@ let testTasks () =
 [<EntryPoint>]
 let main argv =
 
-    let adds (m: Sync.Mutex<int>) = future {
-        printfn "TASK"
-        let rec loop (m: Sync.Mutex<int>) (n: int) = future {
-            if n >= 10_000 then ()
-            else
-                do! Sync.Mutex.updateSync (fun x -> x + 1) m
-                do! Future.sleep (TimeSpan.FromMicroseconds(1.0))
-                return! loop m (n+1)
-        }
-        return! loop m 0
-    }
+    RuntimeExamples.simpleExample ()
 
-    let mutex = Sync.Mutex(0)
-
-    printfn "spawning futures"
-    let futures = Seq.init 100 (fun i -> (adds mutex))
-    let root = Seq.fold (fun cf f -> Future.merge cf f |> Future.ignore) (Future.unit') futures
-    printfn "join futures"
-
-    let _ = Future.runSync root
-    printfn "printing result"
-    let guard = mutex.BlockingLock()
-    let v = guard.Value
-
-    printfn $"value: {v}"
+    // let adds (m: Sync.Mutex<int>) = future {
+    //     printfn "TASK"
+    //     let rec loop (m: Sync.Mutex<int>) (n: int) = future {
+    //         if n >= 10_000 then ()
+    //         else
+    //             do! Sync.Mutex.updateSync (fun x -> x + 1) m
+    //             do! Future.sleep (TimeSpan.FromMicroseconds(1.0))
+    //             return! loop m (n+1)
+    //     }
+    //     return! loop m 0
+    // }
+    //
+    // let mutex = Sync.Mutex(0)
+    //
+    // printfn "spawning futures"
+    // let futures = Seq.init 100 (fun i -> (adds mutex))
+    // let root = Seq.fold (fun cf f -> Future.merge cf f |> Future.ignore) (Future.unit') futures
+    // printfn "join futures"
+    //
+    // let _ = Future.runSync root
+    // printfn "printing result"
+    // let guard = mutex.BlockingLock()
+    // let v = guard.Value
+    //
+    // printfn $"value: {v}"
 
     // let r =
     //     future {

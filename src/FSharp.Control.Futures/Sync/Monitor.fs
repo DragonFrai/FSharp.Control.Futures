@@ -36,7 +36,7 @@ type Monitor =
 
     member this.Lock() : Future<unit> = MonitorWaiter(this)
 
-    member this.BlockingLock() : unit = this.Lock() |> Future.runSync
+    member this.BlockingLock() : unit = this.Lock() |> Future.runBlocking
 
     member this.Unlock() : unit =
         let mutable hasLock = false
@@ -63,7 +63,7 @@ type MonitorWaiter =
 
     interface Future<unit> with
         member this.Poll(ctx) =
-            if isNull this._monitor then raise FutureTerminatedException
+            if isNull this._monitor then raise (FutureTerminatedException())
             let monitor = this._monitor
             let mutable hasLock = false
             monitor._sync.Enter(&hasLock)
@@ -84,7 +84,7 @@ type MonitorWaiter =
                 Poll.Ready ()
 
         member this.Drop() =
-            if isNull this._monitor then raise FutureTerminatedException
+            if isNull this._monitor then raise (FutureTerminatedException())
             let monitor = this._monitor
             let mutable hasLock = false
             monitor._sync.Enter(&hasLock)

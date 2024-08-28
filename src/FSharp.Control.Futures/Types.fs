@@ -12,7 +12,7 @@ open System
 /// <summary> Current state of a AsyncComputation </summary>
 type [<Struct; RequireQualifiedAccess>]
     Poll<'a> =
-    | Ready of result: 'a
+    | Ready of value: 'a
     | Pending
     | Transit of transitTo: IFuture<'a>
 
@@ -37,6 +37,8 @@ and IFuture<'a> =
     /// For example, merge should not leave a hanging Future if the second one throws an exception. </remarks>
     abstract Drop: unit -> unit
 
+and Future<'a> = IFuture<'a>
+
 /// <summary>
 /// The context of the running Future.
 /// Allows the Future to signal its ability to move forward (awake) through the Wake method
@@ -46,19 +48,14 @@ and IContext =
     abstract Wake: unit -> unit
 
 
-// [Aliases]
-
-type Future<'a> = IFuture<'a>
-
 // [Exceptions]
 
 /// Exception is thrown when future is in a terminated state:
-/// Completed, Completed with exception, Canceled
-type FutureTerminatedException internal () = inherit Exception()
-
-[<AutoOpen>]
-module Exceptions =
-    let FutureTerminatedException : FutureTerminatedException = FutureTerminatedException()
+/// Ready, Polled with exception, Dropped
+type FutureTerminatedException =
+    inherit Exception
+    new() = { inherit Exception() }
+    new(message: string) = { inherit Exception(message) }
 
 // [Modules]
 

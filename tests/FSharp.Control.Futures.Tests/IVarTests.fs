@@ -10,7 +10,7 @@ let ivarWriteBeforeRead = test "IVar write before read" {
     let ivar = OnceVar<int>()
 
     IVar.put 12 ivar
-    let x = ivar.Get() |> Future.runSync
+    let x = ivar.Get() |> Future.runBlocking
 
     Expect.equal x 12 "IVar return illegal value"
     ()
@@ -23,7 +23,7 @@ let ivarReadBeforeWrite = test "IVar read before write" {
 
     let fut = Future.merge readFut writeFut
 
-    let x, _ = fut |> Future.runSync
+    let x, _ = fut |> Future.runBlocking
 
     Expect.equal x 12 "IVar return illegal value"
     ()
@@ -37,7 +37,7 @@ let ivarReadExn = test "IVar read exn" {
     let fut = Future.merge readFut writeFut
 
     try
-        let x, _ = fut |> Future.runSync
+        let x, _ = fut |> Future.runBlocking
         failwith "Error not writed"
     with
     | e ->

@@ -9,6 +9,7 @@ module Utils =
     let inline internal ( ^ ) f x = f x
 
     let inline refEq (a: obj) (b: obj) = obj.ReferenceEquals(a, b)
+    let inline refNotEq (a: obj) (b: obj) = not (obj.ReferenceEquals(a, b))
     let inline nullObj<'a when 'a : not struct> = Unchecked.defaultof<'a>
     let inline isNull<'a when 'a : not struct> (x: 'a) = refEq x null
     let inline isNotNull<'a when 'a : not struct> (x: 'a) = not (isNull x)

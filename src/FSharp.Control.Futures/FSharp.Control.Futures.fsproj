@@ -43,12 +43,12 @@
         <Compile Include="Sync\Mutex.fs" />
         <Compile Include="Sync\RwLock.fs" />
         <Compile Include="Sync\OnceVar.fs" />
-        <Compile Include="Executing\Types.fs" />
-        <Compile Include="Executing\TaskId.fs" />
-        <Compile Include="Executing\Scheduling\Scheduler.fs" />
-        <Compile Include="Executing\ThreadPool.fs" />
-        <Compile Include="Executing\SingleThreadScheduler.fs" />
-        <Compile Include="Executing\Scheduling.fs" />
+        <Compile Include="Runtime\Types.fs" />
+        <Compile Include="Runtime\TaskId.fs" />
+        <Compile Include="Runtime\LowLevel\FutureTaskState.fs" />
+        <Compile Include="Runtime\LowLevel\AbstractFutureTask.fs" />
+        <Compile Include="Runtime\ThreadPoolRuntime\ThreadPoolRuntime.fs" />
+        <Compile Include="Runtime\Runtimes.fs" />
         <Compile Include="Transforms.fs" />
         <Compile Include="IO.fs" />
     </ItemGroup>

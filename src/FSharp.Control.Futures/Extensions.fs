@@ -40,17 +40,15 @@ module Future =
     // [run]
 
     /// Spawn a Future on current thread and synchronously waits for its Ready
-    /// The simplest implementation of the Future scheduler.
-    /// Equivalent to `(Scheduler.spawnOn anyScheduler).Join()`,
+    /// The simplest implementation of the Future runtime.
+    /// Equivalent to `(Runtime.spawnOn anyRuntime).Join()`,
     /// but without the cost of complex general purpose scheduler synchronization
-    let runSync (fut: Future<'a>) : 'a =
+    let runBlocking (fut: Future<'a>) : 'a =
         // The simplest implementation of the Future scheduler.
         // Based on a polling cycle (polling -> waiting for awakening -> awakening -> polling -> ...)
         // until the point with the result is reached
         use wh = new EventWaitHandle(false, EventResetMode.AutoReset)
-        let mutable fut = fut
-        let ctx =
-            { new IContext with member _.Wake() = wh.Set() |> ignore }
+        let ctx = { new IContext with member _.Wake() = wh.Set() |> ignore }
 
         let rec pollWhilePending (poller: NaiveFuture<'a>) =
             let mutable poller = poller

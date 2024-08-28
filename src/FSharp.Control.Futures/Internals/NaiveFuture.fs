@@ -5,7 +5,7 @@ open FSharp.Control.Futures
 
 type [<Struct; RequireQualifiedAccess>]
     NaivePoll<'a> =
-    | Ready of result: 'a
+    | Ready of value: 'a
     | Pending
 
 module NaivePoll =
@@ -53,5 +53,7 @@ type NaiveFuture<'a> =
         result
 
     member inline this.Drop() : unit =
-        this.Internal.Drop()
+        // Set null before drop call, because drop can throw exception
+        let internal' = this.Internal
         this.Internal <- nullObj
+        internal'.Drop()
