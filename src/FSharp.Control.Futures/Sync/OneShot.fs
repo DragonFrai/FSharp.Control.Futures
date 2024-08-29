@@ -1,4 +1,4 @@
-namespace FSharp.Control.Futures.Mailbox
+namespace FSharp.Control.Futures.Sync
 
 open FSharp.Control.Futures
 open FSharp.Control.Futures.LowLevel

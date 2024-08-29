@@ -1,4 +1,4 @@
-namespace FSharp.Control.Futures.Mailbox
+namespace FSharp.Control.Futures.Sync
 
 open System.Threading
 open FSharp.Control.Futures
@@ -20,7 +20,7 @@ type [<Sealed>] Mailbox<'a> =
 
     member this.Receive(): Future<'a> =
         if isNotNull this.receiver then raise MailboxMultipleReceiveAtSameTimeException
-        let rx = MailboxReceiver<'a>(this)
+        this.receiver <- MailboxReceiver<'a>(this)
         this.receiver
 
     member this.Post(msg: 'a): unit =
