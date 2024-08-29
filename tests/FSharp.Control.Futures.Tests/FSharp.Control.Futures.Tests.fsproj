@@ -18,6 +18,7 @@
         <Compile Include="FutureProperties\Combinators.fs" />
         <Compile Include="Runtime\LowLevelStateTests.fs" />
         <Compile Include="Runtime\ThreadPoolRuntimeTests.fs" />
+        <Compile Include="SemaphoreTests.fs" />
         <Compile Include="Main.fs" />
     </ItemGroup>
 

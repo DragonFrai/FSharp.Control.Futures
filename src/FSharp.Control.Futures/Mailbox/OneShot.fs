@@ -7,7 +7,7 @@ open FSharp.Control.Futures.LowLevel
 /// <summary>
 /// Single Produces Single Consumer (SPSC) for only one msg
 /// </summary>
-type Reply<'a> =
+type OneShot<'a> =
     val mutable internal pIVar: PrimaryOnceCell<'a>
     new () = { pIVar = PrimaryOnceCell<'a>.Empty() }
 

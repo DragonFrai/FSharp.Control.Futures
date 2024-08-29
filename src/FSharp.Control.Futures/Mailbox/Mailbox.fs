@@ -26,8 +26,8 @@ type [<Sealed>] Mailbox<'a> =
     member this.Post(msg: 'a): unit =
         OnceVarImpl.MailboxPost(this, msg)
 
-    member this.PostWithReply<'r>(msgBuilder: Reply<'r> -> 'a): Future<'r> = future {
-        let reply = Reply()
+    member this.PostWithReply<'r>(msgBuilder: OneShot<'r> -> 'a): Future<'r> = future {
+        let reply = OneShot()
         let msg = msgBuilder reply
         this.Post(msg)
         let! r = reply

@@ -4,7 +4,37 @@ open System.Threading
 open FSharp.Control.Futures
 open FSharp.Control.Futures.LowLevel
 
-type WaitHandle() = class end
+
+
+
+
+// type internal WaitHandleWaiter =
+//     inherit IntrusiveNode<WaitHandleWaiter>
+//     val mutable primaryNotify: PrimaryNotify
+//
+// type WaitHandle =
+//     val mutable internal state: int
+//     val mutable internal lock: SpinLock
+//     val mutable internal waiters: IntrusiveList<WaitHandleWaiter>
+//
+//     new() =
+//         { state = 0
+//           lock = SpinLock()
+//           waiters = IntrusiveList.Create() }
+//
+//     member inline private this.IncNotifications(): unit =
+//         Interlocked.
+//
+//     member this.Notify()
+
+
+
+
+
+
+// type WaitHandle =
+//     val mutable primary: PrimaryNotify
+//     val autoReset
 
 // type [<Sealed>] NotifyImpl() =
 //     let primaryNotify = PrimaryNotify(false)

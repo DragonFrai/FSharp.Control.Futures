@@ -2,17 +2,10 @@ namespace FSharp.Control.Futures.LowLevel
 
 
 [<AllowNullLiteral>]
-type IIntrusiveNode<'a> when 'a :> IIntrusiveNode<'a> =
-    abstract Next: 'a with get, set
-
-[<AllowNullLiteral>]
-type IntrusiveNode<'self> when 'self :> IIntrusiveNode<'self>() =
+[<Class>]
+type IntrusiveNode<'self> when 'self :> IntrusiveNode<'self>() =
     [<DefaultValue>]
     val mutable next: 'self
-    interface IIntrusiveNode<'self> with
-        member this.Next
-            with get () = this.next
-            and set v = this.next <- v
 
 module IntrusiveNode =
     /// <summary>
@@ -21,22 +14,22 @@ module IntrusiveNode =
     /// <param name="f"></param>
     /// <param name="root"> Может быть null </param>
     /// <remarks> Может принимать null значение </remarks>
-    let inline forEach<'a when 'a:> IIntrusiveNode<'a> and 'a: not struct> ([<InlineIfLambda>] f: 'a -> unit) (root: 'a) =
+    let inline forEach<'a when 'a:> IntrusiveNode<'a> and 'a: not struct> ([<InlineIfLambda>] f: 'a -> unit) (root: 'a) =
         let mutable node = root
         while isNotNull node do
             f node
-            node <- node.Next
+            node <- node.next
 
 /// Односвязный список, элементы которого являются его же узлами.
 /// Может быть полезен для исключения дополнительных аллокаций услов на подобии услов LinkedList.
 /// Например, список ожидающих Context или ожидающих значение 'w: Future
 [<Struct>]
-type IntrusiveList<'a> when 'a :> IIntrusiveNode<'a> and 'a : not struct =
+type IntrusiveList<'a> when 'a :> IntrusiveNode<'a> and 'a : not struct =
     val mutable internal startNode: 'a
     val mutable internal endNode: 'a
     internal new(init: 'a) = { startNode = init; endNode = init }
 
-type IntrusiveList<'a> when 'a :> IIntrusiveNode<'a> and 'a : not struct with
+type IntrusiveList<'a> when 'a :> IntrusiveNode<'a> and 'a : not struct with
     static member Create(): IntrusiveList<'a> = IntrusiveList(nullObj)
 
     static member Single(x: 'a): IntrusiveList<'a> = IntrusiveList(x)
@@ -50,9 +43,9 @@ type IntrusiveList<'a> when 'a :> IIntrusiveNode<'a> and 'a : not struct with
         if this.IsEmpty then
             this.startNode <- x
             this.endNode <- x
-            x.Next <- nullObj
+            x.next <- nullObj
         else
-            this.endNode.Next <- x
+            this.endNode.next <- x
             this.endNode <- x
 
     /// Забирает элемент из начала
@@ -66,7 +59,7 @@ type IntrusiveList<'a> when 'a :> IIntrusiveNode<'a> and 'a : not struct with
             r
         else
             let first = this.startNode
-            let second = this.startNode.Next
+            let second = this.startNode.next
             this.startNode <- second
             first
 
@@ -88,19 +81,19 @@ type IntrusiveList<'a> when 'a :> IIntrusiveNode<'a> and 'a : not struct with
                 this.startNode <- nullObj
                 this.endNode <- nullObj
             else
-                this.startNode <- this.startNode.Next
+                this.startNode <- this.startNode.next
             true
-        elif refEq this.startNode.Next null then
+        elif refEq this.startNode.next null then
             let rec findParent (childToRemove: obj) (parent: 'a) (child: 'a) =
                 if refEq childToRemove child then parent
-                elif isNull child.Next then nullObj
-                else findParent childToRemove child child.Next
-            let parent = findParent toRemove this.startNode this.startNode.Next
+                elif isNull child.next then nullObj
+                else findParent childToRemove child child.next
+            let parent = findParent toRemove this.startNode this.startNode.next
             if refEq parent null
             then false
             else
-                parent.Next <- parent.Next.Next
-                if isNull parent.Next then // ребенок был последней нодой
+                parent.next <- parent.next.next
+                if isNull parent.next then // ребенок был последней нодой
                     this.endNode <- parent
                 true
         else
@@ -110,5 +103,5 @@ type IntrusiveList<'a> when 'a :> IIntrusiveNode<'a> and 'a : not struct with
         let root = this.startNode
         let rec collect (c: 'a list) (node: 'a) =
             if isNull node then c
-            else collect (c @ [node]) node.Next
+            else collect (c @ [node]) node.next
         collect [] root
