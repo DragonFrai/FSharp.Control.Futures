@@ -1,5 +1,6 @@
 namespace FSharp.Control.Futures
 
+open System
 open FSharp.Control.Futures
 open FSharp.Control.Futures.LowLevel
 
@@ -160,6 +161,14 @@ type FutureBuilder() =
 
     member inline _.TryFinally(body: unit -> Future<'a>, finalizer: unit -> unit): Future<'a> =
         Future.tryFinally (Future.delay body) finalizer
+
+    member inline _.Using<'d, 'a when 'd :> IDisposable>(disposable: 'd, body: 'd -> Future<'a>): Future<'a> =
+        let body' = fun () -> body disposable
+        let disposer = fun () ->
+            match disposable with
+            | null -> ()
+            | disposable -> disposable.Dispose()
+        Future.tryFinally (Future.delay body') disposer
 
     member inline _.Run(u2c: unit -> Future<'a>): Future<'a> = Future.delay u2c
 
