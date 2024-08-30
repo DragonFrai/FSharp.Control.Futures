@@ -47,8 +47,8 @@ module Gen =
 module Expect =
     module Future =
         let equal (actual: Future<'a>) (expected: Future<'a>) (message: string) : unit =
-            let actualResult = Future.runSync actual
-            let expectedResult = Future.runSync expected
+            let actualResult = Future.runBlocking actual
+            let expectedResult = Future.runBlocking expected
             Expect.equal actualResult expectedResult message
 
 
@@ -59,8 +59,8 @@ module TestHelpers =
 
 
 let futureEquals fut1 fut2 =
-    let r1 = Future.runSync fut1
-    let r2 = Future.runSync fut2
+    let r1 = Future.runBlocking fut1
+    let r2 = Future.runBlocking fut2
     r1 = r2
 
 

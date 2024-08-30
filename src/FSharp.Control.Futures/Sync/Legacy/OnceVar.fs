@@ -1,8 +1,9 @@
-namespace rec FSharp.Control.Futures.Sync
+namespace rec FSharp.Control.Futures.Sync.Legacy
 
 open System.Threading
 open FSharp.Control.Futures
-open FSharp.Control.Futures.Internals
+open FSharp.Control.Futures.Sync
+open FSharp.Control.Futures.LowLevel
 
 
 exception IVarDoublePutException

@@ -1,7 +1,7 @@
 <Project>
 
     <PropertyGroup>
-        <BumpedVersion>0.5.0-alpha</BumpedVersion>
+        <BumpedVersion>0.6.0-alpha</BumpedVersion>
     </PropertyGroup>
 
 </Project>

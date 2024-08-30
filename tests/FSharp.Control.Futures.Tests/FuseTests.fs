@@ -3,11 +3,13 @@ module FSharp.Control.Futures.Tests.FuseTests
 open Expecto
 
 open FSharp.Control.Futures
-open FSharp.Control.Futures.Internals
+open FSharp.Control.Futures.LowLevel
+open Xunit
 
 // TODO: Add messages
 
-let fuseThrowsReady = test "Future.fuse throws FutureFuseReadyException if polled after returning Ready" {
+[<Fact>]
+let ``Future.fuse throws FutureFuseReadyException if polled after returning Ready``() =
     let sourceFut = Future.ready 1
     let fusedFut = Future.fuse sourceFut
 
@@ -17,9 +19,9 @@ let fuseThrowsReady = test "Future.fuse throws FutureFuseReadyException if polle
     Expect.throwsT<FutureFuseReadyException>
         (fun () -> Future.poll mockContext fusedFut |> ignore)
         ""
-}
 
-let fuseThrowsTransited = test "Future.fuse throws FutureFuseTransitedException if polled after returning Transit" {
+[<Fact>]
+let ``Future.fuse throws FutureFuseTransitedException if polled after returning Transit``() =
     let transitingFut = Future.ready 1
     let sourceFut =
         Future.create
@@ -34,9 +36,9 @@ let fuseThrowsTransited = test "Future.fuse throws FutureFuseTransitedException 
     Expect.throwsT<FutureFuseTransitedException>
         (fun () -> Future.poll mockContext fusedFut |> ignore)
         ""
-}
 
-let fuseThrowsCancelled = test "Future.fuse throws FutureFuseCancelledException if polled after being cancelled" {
+[<Fact>]
+let ``Future.fuse throws FutureFuseCancelledException if polled after being cancelled``() =
     let sourceFut = Future.ready 1
     let fusedFut = Future.fuse sourceFut
 
@@ -45,12 +47,3 @@ let fuseThrowsCancelled = test "Future.fuse throws FutureFuseCancelledException 
     Expect.throwsT<FutureFuseCancelledException>
         (fun () -> Future.poll mockContext fusedFut |> ignore)
         ""
-}
-
-[<Tests>]
-let tests =
-    testList "Future.fuse" [
-        fuseThrowsReady
-        fuseThrowsTransited
-        fuseThrowsCancelled
-    ]

@@ -13,6 +13,7 @@
         <Compile Include="QuotationPrinting.fs" />
         <Compile Include="SimpleRGrep.fs" />
         <Compile Include="Example.fs" />
+        <Compile Include="RuntimeExamples.fs" />
         <Compile Include="Program.fs" />
     </ItemGroup>
 

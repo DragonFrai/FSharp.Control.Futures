@@ -1,6 +1,14 @@
-﻿module FSharp.Control.Futures.Tests.Main
+﻿namespace FSharp.Control.Futures.Tests
 open Expecto
+open Xunit
 
-[<EntryPoint>]
-let main argv =
-    Tests.runTestsInAssembly defaultConfig argv
+
+module ExpectoProxy =
+    [<Fact>]
+    let ``Expecto tests``() =
+        Tests.runTestsInAssembly defaultConfig [||]
+
+module Program =
+    [<EntryPoint>]
+    let main _argv =
+        failwith "For run Expecto tests, run relevant xUnit test"

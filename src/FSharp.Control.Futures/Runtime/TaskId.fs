@@ -1,12 +1,14 @@
-namespace FSharp.Control.Futures.Executing.Scheduling
+namespace FSharp.Control.Futures.Runtime
 
 open System.Threading
 
 
 // [ Global TaskId ]
 [<Struct; StructuralComparison; StructuralEquality>]
-type TaskId = TaskId of uint32
+type FutureTaskId =
+    TaskId of uint32
+    with member inline this.Inner = let (TaskId tid) = this in tid
 
-module TaskId =
+module FutureTaskId =
     let mutable current: uint32 = 0u
     let inline generate () = Interlocked.Increment(&current) |> TaskId

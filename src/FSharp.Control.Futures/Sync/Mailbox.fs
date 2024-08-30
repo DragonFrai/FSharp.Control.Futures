@@ -1,11 +1,20 @@
-namespace FSharp.Control.Futures.Mailbox
+namespace FSharp.Control.Futures.Sync
 
 open System.Threading
 open FSharp.Control.Futures
-open FSharp.Control.Futures.Internals
+open FSharp.Control.Futures.LowLevel
 
 
 exception MailboxMultipleReceiveAtSameTimeException
+
+[<Struct>]
+type Reply<'a> =
+    val private tx: OneShot<'a>
+    internal new(tx: OneShot<'a>) = { tx = tx }
+    member this.IsNeedsReply: bool =
+        not this.tx.IsClosed
+    member this.Reply(reply: 'a): unit =
+        this.tx.Send(reply) |> ignore
 
 /// <summary> Multiple Producer Single Consumer (MPSC) synchronisation channel designed like F# MailboxProcessor </summary>
 /// <remarks> It is planned that this will be the only type of channels within the framework of the usual Future.
@@ -20,17 +29,17 @@ type [<Sealed>] Mailbox<'a> =
 
     member this.Receive(): Future<'a> =
         if isNotNull this.receiver then raise MailboxMultipleReceiveAtSameTimeException
-        let rx = MailboxReceiver<'a>(this)
+        this.receiver <- MailboxReceiver<'a>(this)
         this.receiver
 
     member this.Post(msg: 'a): unit =
         OnceVarImpl.MailboxPost(this, msg)
 
     member this.PostWithReply<'r>(msgBuilder: Reply<'r> -> 'a): Future<'r> = future {
-        let reply = Reply()
-        let msg = msgBuilder reply
+        let oneshot = OneShot.create()
+        let msg = msgBuilder (Reply(oneshot))
         this.Post(msg)
-        let! r = reply
+        let! r = oneshot
         return r
     }
 
