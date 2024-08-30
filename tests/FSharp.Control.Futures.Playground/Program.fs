@@ -7,6 +7,7 @@ open System.Threading.Tasks
 
 open FSharp.Control.Futures.Playground
 open FSharp.Control.Futures.Runtime.ThreadPoolRuntime
+open FSharp.Control.Futures.Sync
 open FSharp.Control.Tasks
 open Hopac
 open Hopac.Infixes
@@ -220,10 +221,36 @@ let testTasks () =
 
     ()
 
+module Result =
+    let get (r: Result<'a, 'e>) : 'a =
+        match r with
+        | Ok r -> r
+        | Error e -> failwith $"{e}"
+
 [<EntryPoint>]
 let main argv =
 
-    RuntimeExamples.simpleExample ()
+    let ch = OneShot()
+
+    let receiver = future {
+        let! msg = ch
+        printfn $"Hello, {msg}"
+        ()
+    }
+
+    let sender = future {
+        do! Future.sleepMs 1000
+        do ch.Send("World") |> ignore
+    }
+
+    let fTaskRx, fTaskTx =
+        ThreadPoolRuntime.Instance.Spawn(receiver), ThreadPoolRuntime.Instance.Spawn(sender)
+
+    fTaskRx.Await() |> Future.runBlocking |> Result.get
+    fTaskTx.Await() |> Future.runBlocking |> Result.get
+
+
+    // RuntimeExamples.simpleExample ()
 
     // let adds (m: Sync.Mutex<int>) = future {
     //     printfn "TASK"

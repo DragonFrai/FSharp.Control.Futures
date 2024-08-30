@@ -17,7 +17,7 @@ module Future =
         let mutable _notify: PrimaryNotify = PrimaryNotify(false)
 
         member internal this.OnWake() : unit =
-            let _isCancelled = _notify.Notify()
+            let _isSuccess = _notify.Notify()
             _timer <- nullObj
 
         interface Future<unit> with

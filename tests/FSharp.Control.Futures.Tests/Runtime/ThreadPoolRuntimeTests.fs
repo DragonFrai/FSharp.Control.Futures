@@ -5,9 +5,11 @@ open System.Threading
 open Expecto
 open FSharp.Control.Futures
 open FSharp.Control.Futures.Runtime
+open Xunit
 
 
-let threadPoolRuntimeWorks = test "ThreadPoolRuntime regular path" {
+[<Fact>]
+let ``ThreadPoolRuntime regular path``() =
 
     let fut = future {
         let! a = Future.ready 1
@@ -19,9 +21,9 @@ let threadPoolRuntimeWorks = test "ThreadPoolRuntime regular path" {
     let fTask = ThreadPoolRuntime.spawn fut
     let result = fTask.Await() |> Future.runBlocking |> Result.get
     Expect.equal result 3 "Result not expected"
-}
 
-let threadPoolRuntimeAbortingWorks = test "ThreadPoolRuntime aborting" {
+[<Fact>]
+let ``ThreadPoolRuntime aborting``() =
     use wh = new EventWaitHandle(false, EventResetMode.AutoReset)
     let mutable isCompleted = false
     let fut = future {
@@ -38,11 +40,3 @@ let threadPoolRuntimeAbortingWorks = test "ThreadPoolRuntime aborting" {
 
     Expect.equal result (Error AwaitError.Aborted) "Result not expected"
     Expect.equal isCompleted false "Aborted future completed"
-}
-
-[<Tests>]
-let tests =
-    testList "ThreadPoolRuntime" [
-        threadPoolRuntimeWorks
-        threadPoolRuntimeAbortingWorks
-    ]

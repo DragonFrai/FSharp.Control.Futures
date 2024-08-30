@@ -20,15 +20,24 @@ type Mutex =
         this.Lock() |> Future.runBlocking
 
     member this.Unlock(): unit =
-        // TODO: Not correct checking invalid mutext usage
+        // TODO: Not correct checking invalid mutex usage
         if this.semaphore.AvailablePermits > 0 then invalidOp "Unlocking not locked mutex"
         this.semaphore.Release()
 
 
 [<RequireQualifiedAccess>]
 module Mutex =
-    let inline create () = Mutex()
-    let inline lock (mutex: Mutex) : Future<unit> = mutex.Lock()
-    let inline tryLock (mutex: Mutex) : bool = mutex.TryLock()
-    let inline lockBlocking (mutex: Mutex) : unit = mutex.LockBlocking()
-    let inline unblock (mutex: Mutex) : unit = mutex.Unlock()
+    let inline create () =
+        Mutex()
+
+    let inline lock (mutex: Mutex) : Future<unit> =
+        mutex.Lock()
+
+    let inline tryLock (mutex: Mutex) : bool =
+        mutex.TryLock()
+
+    let inline lockBlocking (mutex: Mutex) : unit =
+        mutex.LockBlocking()
+
+    let inline unlock (mutex: Mutex) : unit =
+        mutex.Unlock()

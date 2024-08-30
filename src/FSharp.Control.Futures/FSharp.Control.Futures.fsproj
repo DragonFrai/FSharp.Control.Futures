@@ -35,8 +35,8 @@
         <Compile Include="Extensions.fs" />
         <Compile Include="Sync\Semaphore.fs" />
         <Compile Include="Sync\Barrier.fs" />
-        <Compile Include="Sync\Notify.fs" />
         <Compile Include="Sync\Mutex.fs" />
+        <Compile Include="Sync\Notify.fs" />
         <Compile Include="Sync\OneShot.fs" />
         <Compile Include="Sync\Mailbox.fs" />
         <Compile Include="Sync\Legacy\Monitor.fs" />

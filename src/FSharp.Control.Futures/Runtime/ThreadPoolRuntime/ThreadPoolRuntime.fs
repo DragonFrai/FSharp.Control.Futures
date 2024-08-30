@@ -1,4 +1,4 @@
-namespace FSharp.Control.Futures.Runtime.ThreadPoolRuntime
+namespace FSharp.Control.Futures.Runtime
 
 open System
 open System.Diagnostics
@@ -10,7 +10,7 @@ open FSharp.Control.Futures.Runtime.LowLevel
 
 [<Class>]
 [<Sealed>]
-type ThreadPoolFutureTask<'a>(fut: Future<'a>) =
+type private ThreadPoolFutureTask<'a>(fut: Future<'a>) =
     inherit AbstractFutureTask<'a>(fut)
 
     override this.Schedule(): unit =
@@ -25,7 +25,6 @@ type ThreadPoolFutureTask<'a>(fut: Future<'a>) =
 [<Class>]
 [<Sealed>]
 type ThreadPoolRuntime private () =
-
     static member Instance: IRuntime = new ThreadPoolRuntime()
 
     interface IRuntime with
@@ -38,3 +37,8 @@ type ThreadPoolRuntime private () =
             let task = ThreadPoolFutureTask(fut)
             do task.Start()
             task :> IFutureTask<'a>
+
+[<RequireQualifiedAccess>]
+module ThreadPoolRuntime =
+    let instance = ThreadPoolRuntime.Instance
+    let inline spawn fut = Runtime.spawn ThreadPoolRuntime.Instance fut

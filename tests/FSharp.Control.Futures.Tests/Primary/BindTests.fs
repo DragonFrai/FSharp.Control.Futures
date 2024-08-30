@@ -3,8 +3,10 @@ module FSharp.Control.Futures.Tests.BindTests
 open System
 open Expecto
 open FSharp.Control.Futures
+open Xunit
 
-let bindRegular = test "Future.bind combine computation" {
+[<Fact>]
+let ``Future.bind combine computation``() =
     let first = Future.yieldWorkflow () |> Future.bind (fun () -> Future.unit')
     let second = Future.yieldWorkflow () |> Future.bind (fun () -> Future.ready 8)
 
@@ -17,9 +19,9 @@ let bindRegular = test "Future.bind combine computation" {
 
     Expect.equal x 64 "bindRegular return illegal value"
     ()
-}
 
-let bindException = test "Future.bind throws exception" {
+[<Fact>]
+let ``Future.bind throws exception``() =
     let yielded () = Future.yieldWorkflow () |> Future.bind (fun () -> Future.unit')
 
     let exInBinder = yielded () |> Future.bind (fun () -> raise (Exception ""); Future.ready 12) |> Future.ignore
@@ -30,11 +32,3 @@ let bindException = test "Future.bind throws exception" {
     Expect.throws (fun () -> Future.runBlocking exInFirst) "Exception in source future not throws"
     Expect.throws (fun () -> Future.runBlocking exInSecond) "Exception in binder future not throws"
     ()
-}
-
-[<Tests>]
-let testsBind =
-    testList "bind" [
-        bindRegular
-        bindException
-    ]

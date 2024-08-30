@@ -20,7 +20,7 @@ type [<Struct; NoComparison; NoEquality>] PrimaryOnceCell<'a> =
 
     member inline this.Put(value: 'a) =
         this._value <- value
-        if this._notify.Notify()
+        if not (this._notify.Notify())
         then this._value <- Unchecked.defaultof<'a>
 
     member inline this.Poll(ctx: IContext) : NaivePoll<'a> =

@@ -2,9 +2,11 @@ module FSharp.Control.Futures.Tests.BuilderTests
 
 open Expecto
 open FSharp.Control.Futures
+open Xunit
 
 
-let returnTest = test "Builder return" {
+[<Fact>]
+let ``Builder return``() =
     let fut = future {
         return 12
     }
@@ -14,9 +16,9 @@ let returnTest = test "Builder return" {
     ]
     let x = runWithPatternCheck patterns fut
     Expect.equal x (Ok ()) ""
-}
 
-let returnBangTest = test "Builder return!" {
+[<Fact>]
+let ``Builder return!``() =
     let fut = future {
         return! Future.ready 12
     }
@@ -26,9 +28,9 @@ let returnBangTest = test "Builder return!" {
     ]
     let x = runWithPatternCheck patterns fut
     Expect.equal x (Ok ()) ""
-}
 
-let zeroTest = test "Builder zero" {
+[<Fact>]
+let ``Builder zero``() =
     let fut = future { () }
     let patterns = [
         PollPattern.Transit
@@ -36,9 +38,9 @@ let zeroTest = test "Builder zero" {
     ]
     let x = runWithPatternCheck patterns fut
     Expect.equal x (Ok ()) ""
-}
 
-let bindTest = test "Builder bind" {
+[<Fact>]
+let ``Builder bind``() =
     let fut = future {
         let! a = future { return 1 }
         let! b = future { return 11 }
@@ -52,9 +54,9 @@ let bindTest = test "Builder bind" {
     ]
     let x = runWithPatternCheck patterns fut
     Expect.equal x (Ok ()) ""
-}
 
-let mergeTest = test "Builder merge" {
+[<Fact>]
+let ``Builder merge``() =
     let fut = future {
         let! a = future { return 1 }
         and! b = future { return 11 }
@@ -67,9 +69,9 @@ let mergeTest = test "Builder merge" {
     ]
     let x = runWithPatternCheck patterns fut
     Expect.equal x (Ok ()) ""
-}
 
-let forTest = test "Builder for cycle" {
+[<Fact>]
+let ``Builder for cycle``() =
     let mutable sum = 0
     let seq = [1; 2; 3; 4; 5]
     let fut = future {
@@ -91,15 +93,3 @@ let forTest = test "Builder for cycle" {
 
     let expected = Seq.sum seq
     Expect.equal sum expected "Future return illegal value"
-}
-
-[<Tests>]
-let tests =
-    testList "Future builder" [
-        returnTest
-        returnBangTest
-        zeroTest
-        bindTest
-        mergeTest
-        forTest
-    ]

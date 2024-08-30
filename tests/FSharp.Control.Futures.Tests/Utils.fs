@@ -63,5 +63,11 @@ let runWithPatternCheck (patterns: PollPattern<'a> list) (fut: Future<'a>) : Res
 
 
 [<RequireQualifiedAccess>]
+module Tests =
+    let repeat (n: int) (f: unit -> unit) =
+        for _ in 1..n do f ()
+
+
+[<RequireQualifiedAccess>]
 module Result =
     let get (r: Result<'a, 'e>) = match r with Ok x -> x | Error e -> failwith $"{e}"

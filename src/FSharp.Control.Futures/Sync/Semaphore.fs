@@ -168,7 +168,7 @@ type Semaphore =
                 while (isNotNull this.acquiresQueue.startNode) && this.state >= this.acquiresQueue.startNode.permits do
                     let next = this.acquiresQueue.PopFront()
                     this.state <- this.state - next.permits
-                    next.primaryNotify.Notify()
+                    do next.primaryNotify.Notify() |> ignore
 
     // </Internal>
 

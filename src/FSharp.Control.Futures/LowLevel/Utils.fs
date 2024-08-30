@@ -27,4 +27,5 @@ type [<Struct>] ExnResult<'a> =
     new(value: 'a, ex: exn) = { value = value; ex = ex }
     static member inline Ok(v) = ExnResult(v, Unchecked.defaultof<_>)
     static member inline Exn(e) = ExnResult(Unchecked.defaultof<_>, e)
+    static member inline Uninit() = ExnResult(Unchecked.defaultof<_>, nullObj)
     member inline this.Value = if isNull this.ex then this.value else raise this.ex
