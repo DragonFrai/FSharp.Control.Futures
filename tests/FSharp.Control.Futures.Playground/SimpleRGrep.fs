@@ -63,7 +63,7 @@ let scanAllRec (path: string) (content: string) (runtime: IRuntime) (parallelism
     }
 
     let rec scanFileWorker () = future {
-        match! files.Read(_.TryDequeue()) with
+        match! files.Lock(_.TryDequeue()) with
         | true, file ->
             // do! consoleMutex.Lock()
             // printfn $"Scanning file: {file}"

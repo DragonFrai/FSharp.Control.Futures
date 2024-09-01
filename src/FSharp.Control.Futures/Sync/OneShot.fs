@@ -14,25 +14,38 @@ open FSharp.Control.Futures.LowLevel
 ///
 /// If you need send value greater that one to one tasks, use other synchronisation primitives or channels.
 /// </summary>
+///
 /// <example>
 /// ```fsharp
-/// let os = OneShot()
+/// future {
+///     let os = OneShot()
+///     ThreadPoolRuntime.spawn (future {
+///         do! Future.sleepMs 1000
+///         os.Send(12)
+///         return ()
+///     })
+///
+///     let! x = os
+///     do printfn $"> {x}"
+/// }
 ///
 ///
 /// ```
 /// </example>
 [<Class>]
 type OneShot<'a> =
-    val mutable internal value: ExnResult<'a>
+    val mutable internal value: 'a
     val mutable internal notify: PrimaryNotify
 
-    new () =
-        { value = ExnResult.Uninit()
-          notify = PrimaryNotify(false) }
+    new(closed: bool) =
+        { value = Unchecked.defaultof<'a>; notify = PrimaryNotify(false, closed) }
+
+    new() =
+        OneShot(false)
 
     member this.IsClosed: bool = this.notify.IsTerminated
 
-    member inline internal this.SendResult(result: ExnResult<'a>): bool =
+    member inline internal this.SendResult(result: 'a): bool =
         if this.notify.IsNotified then invalidOp "OneShot already contains value"
         this.value <- result
         let isSuccess = this.notify.Notify()
@@ -46,15 +59,7 @@ type OneShot<'a> =
     /// </summary>
     /// <param name="msg"></param>
     member this.Send(msg: 'a): bool =
-        this.SendResult(ExnResult.Ok(msg))
-
-    /// <summary>
-    /// Send exception to receiver (receiver throw exception when receive) and return true.
-    /// If Receiver closed, return false
-    /// </summary>
-    /// <param name="msg"></param>
-    member this.SendExn(ex: exn): bool =
-        this.SendResult(ExnResult.Exn(ex))
+        this.SendResult(msg)
 
     member this.Close() : unit =
         do this.notify.Drop() |> ignore
@@ -62,7 +67,9 @@ type OneShot<'a> =
     interface Future<'a> with
         member this.Poll(ctx: IContext) : Poll<'a> =
             if this.notify.Poll(ctx)
-            then Poll.Ready this.value.Value
+            then
+                this.value <- Unchecked.defaultof<'a>
+                Poll.Ready this.value
             else Poll.Pending
 
         member this.Drop() : unit =
@@ -76,9 +83,6 @@ module OneShot =
 
     let inline send (msg: 'a) (oneshot: OneShot<'a>) : bool =
         oneshot.Send(msg)
-
-    let inline sendExn (ex: exn) (oneshot: OneShot<'a>) : bool =
-        oneshot.SendExn(ex)
 
     let inline isClosed (oneshot: OneShot<'a>) : bool =
         oneshot.IsClosed

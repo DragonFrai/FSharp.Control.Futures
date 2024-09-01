@@ -23,7 +23,7 @@ type internal SemaphoreAcquire =
         { semaphore = semaphore
           permits = permits
           queued = false
-          primaryNotify = PrimaryNotify(false) }
+          primaryNotify = PrimaryNotify(false, false) }
 
     interface IFuture<unit> with
         member this.Poll(ctx) =
