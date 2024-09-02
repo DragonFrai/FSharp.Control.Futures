@@ -1,4 +1,4 @@
-module FSharp.Control.Futures.Tests.BindTests
+module FSharp.Control.Futures.Tests.Combinators.Bind
 
 open System
 open Expecto

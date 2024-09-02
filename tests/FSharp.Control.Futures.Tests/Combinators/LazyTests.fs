@@ -1,4 +1,4 @@
-module FSharp.Control.Futures.Tests.LazyTests
+module FSharp.Control.Futures.Tests.Combinators.Lazy
 
 open Expecto
 open FSharp.Control.Futures

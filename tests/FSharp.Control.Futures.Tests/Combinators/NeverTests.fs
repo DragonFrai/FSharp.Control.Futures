@@ -1,4 +1,4 @@
-module FSharp.Control.Futures.Tests.NeverTests
+module FSharp.Control.Futures.Tests.Combinators.Never
 
 open Expecto
 open FSharp.Control.Futures

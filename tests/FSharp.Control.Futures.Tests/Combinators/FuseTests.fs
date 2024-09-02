@@ -1,4 +1,4 @@
-module FSharp.Control.Futures.Tests.FuseTests
+module FSharp.Control.Futures.Tests.Combinators.Fuse
 
 open Expecto
 

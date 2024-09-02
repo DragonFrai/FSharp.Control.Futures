@@ -1,4 +1,4 @@
-module FSharp.Control.Futures.Tests.IVarTests
+module FSharp.Control.Futures.Tests.Sync.IVar
 
 open System
 open Expecto

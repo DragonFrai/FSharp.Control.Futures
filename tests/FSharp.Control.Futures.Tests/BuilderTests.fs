@@ -1,4 +1,4 @@
-module FSharp.Control.Futures.Tests.BuilderTests
+module FSharp.Control.Futures.Tests.Builder
 
 open Expecto
 open FSharp.Control.Futures
