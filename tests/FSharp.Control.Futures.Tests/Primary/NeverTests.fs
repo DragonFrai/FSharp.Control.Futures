@@ -9,7 +9,7 @@ open Xunit
 [<Fact>]
 let ``Future.never future returns Pending``() =
     let fut: Future<int> = Future.never
-    let ctx = mockContextWithWake (fun () -> Expect.isTrue false "Future.never shouldn't call waker on poll")
+    let ctx = Context.mockContextWithWake (fun () -> Expect.isTrue false "Future.never shouldn't call waker on poll")
     for i in 1..12 do
         let expected = Poll.Pending
         let actual = Future.poll ctx fut

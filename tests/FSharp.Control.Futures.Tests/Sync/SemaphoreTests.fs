@@ -1,14 +1,15 @@
-module FSharp.Control.Futures.Tests.SemaphoreTests
+module FSharp.Control.Futures.Tests.Sync.SemaphoreTests
 
-open Expecto
 open FSharp.Control.Futures
 open FSharp.Control.Futures.Runtime
 open FSharp.Control.Futures.Sync
 open Xunit
 
 
+// TODO: Add drop future test as in mutex
+
 [<Fact>]
-let ``Semaphore without permits can be instanced``() =
+let ``Semaphore creating with 0 permits``() =
     let _s = Semaphore(0)
     ()
 
@@ -16,23 +17,55 @@ let ``Semaphore without permits can be instanced``() =
 let ``Try acquire``() =
     let s = Semaphore(1)
     do
-        do Expect.isTrue (s.TryAcquire()) ""
-        do Expect.isFalse (s.TryAcquire()) ""
+        do Assert.True(s.TryAcquire())
+        do Assert.False(s.TryAcquire())
         do s.Release()
-    do Expect.isTrue (s.TryAcquire()) ""
+    do Assert.True(s.TryAcquire())
+
+[<Theory>]
+[<Repeat(100)>]
+let ``Acquire``() =
+    let s = Semaphore(1)
+    do Assert.True(s.TryAcquire())
+    let fTask = ThreadPoolRuntime.spawn (future {
+        return! s.Acquire()
+    })
+    s.Release(1)
+    Assert.Equal(Ok (), fTask.Await() |> Future.runBlocking)
+    ()
 
 [<Fact>]
-let ``Acquire``() =
-    Tests.repeat 100 (fun () ->
-        let s = Semaphore(1)
-        do Expect.isTrue (s.TryAcquire())
-        let fTask = ThreadPoolRuntime.spawn (future {
-            return! s.Acquire()
-        })
-        s.Release(1)
-        Expect.equal (fTask.Await() |> Future.runBlocking) (Ok ()) ""
+let ``Semaphore max permits``() =
+    let _s = Semaphore(Semaphore.MaxPermits)
+    let s' = Semaphore(Semaphore.MaxPermits - 1)
+    s'.Release(1)
+
+[<Fact>]
+let ``Semaphore max permits overflow``() =
+    let _ex = Assert.ThrowsAny(fun () ->
+        let _s = Semaphore(Semaphore.MaxPermits + 1)
         ()
     )
+    ()
+
+[<Fact>]
+let ``Semaphore add max permits``() =
+    let s = Semaphore(0)
+    s.Release(Semaphore.MaxPermits)
+    Assert.Equal(Semaphore.MaxPermits, s.AvailablePermits)
+
+[<Fact>]
+let ``Semaphore add permits overflow 1``() =
+    let s = Semaphore(1)
+    let _ex = Assert.ThrowsAny(fun () -> s.Release(Semaphore.MaxPermits))
+    ()
+
+[<Fact>]
+let ``Semaphore add permits overflow 2``() =
+    let s = Semaphore(Semaphore.MaxPermits - 1)
+    do s.Release(1)
+    let _ex = Assert.ThrowsAny(fun () -> s.Release(1))
+    ()
 
 [<Fact>]
 let ``Semaphore counter stress test``() =
@@ -57,7 +90,7 @@ let ``Semaphore counter stress test``() =
     for wTask in workerTasks do
         wTask.Await() |> Future.runBlocking
 
-    Expect.equal counter expectedResult "Counter not synchronized"
+    Assert.Equal(expectedResult, counter)
 
 [<Fact>]
 let ``Semaphore stress test``() =
@@ -80,5 +113,5 @@ let ``Semaphore stress test``() =
     for wTask in workerTasks do
         wTask.Await() |> Future.runBlocking
 
-    Expect.isTrue (semaphore.TryAcquire(5)) ""
-    Expect.isFalse (semaphore.TryAcquire(1)) ""
+    Assert.True(semaphore.TryAcquire(5))
+    Assert.False(semaphore.TryAcquire(1))

@@ -19,6 +19,15 @@ module NaivePoll =
         | NaivePoll.Ready result -> Poll.Ready result.Value
         | NaivePoll.Pending -> Poll.Pending
 
+    let inline isReady (naivePoll: NaivePoll<'a>) : bool =
+        match naivePoll with
+        | NaivePoll.Ready _ -> true
+        | _ -> false
+
+    let inline isPending (naivePoll: NaivePoll<'a>) : bool =
+        match naivePoll with
+        | NaivePoll.Pending -> true
+        | _ -> false
 
 /// Утилита автоматически обрабатывающая Transit от опрашиваемой футуры.
 /// На данный момент, один из бонусов -- обработка переходов в терминальное состояние
@@ -38,7 +47,9 @@ type NaiveFuture<'a> =
         while doLoop do
             let poll =
                 try this.Internal.Poll(ctx)
-                with e -> this.Terminate(); reraise ()
+                with e ->
+                    this.Internal <- nullObj
+                    reraise ()
 
             match poll with
             | Poll.Ready r ->

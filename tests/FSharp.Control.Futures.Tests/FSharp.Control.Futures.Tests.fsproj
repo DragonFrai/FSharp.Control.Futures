@@ -17,6 +17,8 @@
         <Compile Include="IVarTests.fs" />
         <Compile Include="FutureProperties\Combinators.fs" />
         <Compile Include="Sync\SemaphoreTests.fs" />
+        <Compile Include="Sync\BarrierTests.fs" />
+        <Compile Include="Sync\MutexTests.fs" />
         <Compile Include="Runtime\LowLevelStateTests.fs" />
         <Compile Include="Runtime\ThreadPoolRuntimeTests.fs" />
         <Compile Include="Main.fs" />

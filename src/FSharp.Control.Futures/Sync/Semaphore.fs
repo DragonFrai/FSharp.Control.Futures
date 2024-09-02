@@ -142,6 +142,15 @@ type Semaphore =
                 else
                     acquire.queued <- true
                     this.acquiresQueue.PushBack(acquire)
+            else
+                if not acquire.primaryNotify.IsNotified then
+                    let state = SemaphoreState(this.state)
+                    state.AssertNotClosed()
+                    if state.Permits >= acquire.permits then
+                        this.state <- state.AddPermits(-acquire.permits).AsInt
+                        acquire.primaryNotify.Notify() |> ignore
+                    else
+                        ()
 
         if acquire.primaryNotify.Poll(ctx)
         then
@@ -151,24 +160,30 @@ type Semaphore =
             else Poll.Ready ()
         else Poll.Pending
 
+    member internal this.ReleasePermitsNoLock(permits: int): unit =
+        this.state <- SemaphoreState(this.state).AssertNotClosedPipe().AddPermits(permits).AsInt
+        while (isNotNull this.acquiresQueue.startNode) && this.state >= this.acquiresQueue.startNode.permits do
+            let next = this.acquiresQueue.PopFront()
+            this.state <- this.state - next.permits
+            do next.primaryNotify.Notify() |> ignore
+
     member internal this.DropAcquire(acquire: SemaphoreAcquire): unit =
         if not acquire.queued then
             ()
         else
             lock this.syncObj ^fun () ->
-                // Acquire future wait permits. Adding permits not required
-                this.acquiresQueue.Remove(acquire) |> ignore
+                let wasInQueue = this.acquiresQueue.Remove(acquire)
+                if wasInQueue then
+                    // Acquire future wait permits. Adding permits not required
+                    ()
+                else
+                    this.ReleasePermitsNoLock(acquire.permits)
 
     member internal this.ReleasePermits(permits: int) =
         if permits = 0 then ()
         else
             lock this.syncObj ^fun () ->
-                this.state <- SemaphoreState(this.state).AssertNotClosedPipe().AddPermits(permits).AsInt
-
-                while (isNotNull this.acquiresQueue.startNode) && this.state >= this.acquiresQueue.startNode.permits do
-                    let next = this.acquiresQueue.PopFront()
-                    this.state <- this.state - next.permits
-                    do next.primaryNotify.Notify() |> ignore
+                this.ReleasePermitsNoLock(permits)
 
     // </Internal>
 
