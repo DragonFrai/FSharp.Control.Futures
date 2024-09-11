@@ -13,9 +13,11 @@ open Microsoft.FSharp.Core
 /// Примитив синхронизации который может заменить
 /// `EventWaitHandle` в режиме работы `ResetEventMode.Auto` из стандартной библиотеки.
 /// </summary>
+[<Class>]
+[<Sealed>]
 type Notify =
-    val mutable waitCounter: int // 1 - set, 0 - unset, < 0 - has waiters
-    val semaphore: Semaphore
+    val mutable private waitCounter: int // 1 - set, 0 - unset, < 0 - has waiters
+    val private semaphore: Semaphore
 
     new(notified: bool) =
         { waitCounter = if notified then 1 else 0

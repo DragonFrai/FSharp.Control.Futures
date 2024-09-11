@@ -20,6 +20,7 @@
         <Compile Include="Sync\MutexTests.fs" />
         <Compile Include="Sync\Notify.fs" />
         <Compile Include="Sync\IVarTests.fs" />
+        <Compile Include="Sync\OneShot.fs" />
         <Compile Include="Runtime\LowLevelStateTests.fs" />
         <Compile Include="Runtime\ThreadPoolRuntimeTests.fs" />
         <Compile Include="Main.fs" />

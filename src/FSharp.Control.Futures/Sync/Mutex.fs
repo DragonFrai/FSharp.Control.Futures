@@ -5,7 +5,7 @@ open FSharp.Control.Futures
 
 
 type Mutex =
-    val semaphore: Semaphore
+    val private semaphore: Semaphore
 
     new() =
         { semaphore = Semaphore(1) }

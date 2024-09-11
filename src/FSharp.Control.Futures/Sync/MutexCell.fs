@@ -4,6 +4,7 @@ open FSharp.Control.Futures
 
 
 [<Class>]
+[<Sealed>]
 type MutexCell<'a> =
 
     val private mutex: Mutex
@@ -117,11 +118,11 @@ module MutexCell =
     let inline set (value: 'a) (mCell: MutexCell<'a>) : Future<unit> =
         mCell.Set(value)
 
-    let inline lock (reader: 'a -> 'b) (mCell: MutexCell<'a>) : Future<'b> =
-        mCell.Lock(reader)
+    let inline lock (locker: 'a -> 'b) (mCell: MutexCell<'a>) : Future<'b> =
+        mCell.Lock(locker)
 
-    let inline lockIn (reader: 'a -> Future<'b>) (mCell: MutexCell<'a>) : Future<'b> =
-        mCell.LockIn(reader)
+    let inline lockIn (locker: 'a -> Future<'b>) (mCell: MutexCell<'a>) : Future<'b> =
+        mCell.LockIn(locker)
 
     let inline update (updater: 'a -> 'a) (mCell: MutexCell<'a>) : Future<unit> =
         mCell.Update(updater)

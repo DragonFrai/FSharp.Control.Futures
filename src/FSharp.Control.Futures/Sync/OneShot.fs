@@ -8,13 +8,12 @@ open FSharp.Control.Futures.LowLevel
 /// Single Produces Single Consumer (SPSC) channel for only one msg.
 /// OneShot used for sending single message between two Futures.
 ///
-/// OneShot can be used only one Rx future and one Tx future,
+/// OneShot can be used only in one Rx future and one Tx future,
 /// Tx future must call only tx-methods, Rx future must call only rx-methods.
 /// use OneShot in other cases is invalid.
 ///
 /// If you need send value greater that one to one tasks, use other synchronisation primitives or channels.
 /// </summary>
-///
 /// <example>
 /// ```fsharp
 /// future {
@@ -33,6 +32,7 @@ open FSharp.Control.Futures.LowLevel
 /// ```
 /// </example>
 [<Class>]
+[<Sealed>]
 type OneShot<'a> =
     val mutable internal value: 'a
     val mutable internal notify: PrimaryNotify
@@ -42,6 +42,10 @@ type OneShot<'a> =
 
     new() =
         OneShot(false)
+
+    member inline this.AsSender: OneShotSender<'a> = OneShotSender(this)
+    member inline this.AsReceiver: OneShotReceiver<'a> = OneShotReceiver(this)
+    member inline this.AsPair: OneShotSender<'a> * OneShotReceiver<'a> = this.AsSender, this.AsReceiver
 
     member this.IsClosed: bool = this.notify.IsTerminated
 
@@ -61,6 +65,9 @@ type OneShot<'a> =
     member this.Send(msg: 'a): bool =
         this.SendResult(msg)
 
+    /// <summary>
+    /// Close receiving. This method can prevent sending from sender.
+    /// </summary>
     member this.Close() : unit =
         do this.notify.Drop() |> ignore
 
@@ -68,12 +75,29 @@ type OneShot<'a> =
         member this.Poll(ctx: IContext) : Poll<'a> =
             if this.notify.Poll(ctx)
             then
+                let value = this.value
                 this.value <- Unchecked.defaultof<'a>
-                Poll.Ready this.value
+                Poll.Ready value
             else Poll.Pending
 
         member this.Drop() : unit =
             do this.notify.Drop() |> ignore
+
+[<Struct>]
+type OneShotSender<'a> =
+    val private oneshot: OneShot<'a>
+    new(os: OneShot<'a>) = { oneshot = os }
+
+    member this.IsClosed: bool = this.oneshot.IsClosed
+    member this.Send(msg): bool = this.oneshot.Send(msg)
+
+[<Struct>]
+type OneShotReceiver<'a> =
+    val private oneshot: OneShot<'a>
+    new(os: OneShot<'a>) = { oneshot = os }
+
+    member this.Receive(): Future<'a> = this.oneshot
+    member this.Close(): unit = this.oneshot.Close()
 
 
 [<RequireQualifiedAccess>]
