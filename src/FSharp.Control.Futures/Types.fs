@@ -69,3 +69,6 @@ module Poll =
 
     let inline isTransit (poll: Poll<'a>) : bool =
         match poll with Poll.Transit _ -> true | _ -> false
+
+    // let inline get (poll: Poll<'a>) : 'a =
+    //     match poll with Poll.Ready x -> x | _ -> failwith "Poll not ready"

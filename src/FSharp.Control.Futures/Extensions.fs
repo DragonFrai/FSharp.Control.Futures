@@ -14,7 +14,7 @@ module Future =
     // TODO: move to internal internals module
     type internal Sleep(duration: TimeSpan) =
         let mutable _timer: Timer = nullObj
-        let mutable _notify: PrimaryNotify = PrimaryNotify(false)
+        let mutable _notify: PrimaryNotify = PrimaryNotify(false, false)
 
         member internal this.OnWake() : unit =
             let _isSuccess = _notify.Notify()

@@ -10,7 +10,7 @@ open BenchmarkDotNet.Running
 open FSharp.Control.Futures
 
 open FSharp.Control.Futures.Benchmarks.Fibonacci
-open FSharp.Control.Futures.Scheduling
+open FSharp.Control.Futures.Runtime
 
 
 [<HtmlExporter>]

@@ -6,7 +6,7 @@ open System.Text
 open System.Threading.Tasks
 
 open FSharp.Control.Futures.Playground
-open FSharp.Control.Futures.Runtime.ThreadPoolRuntime
+open FSharp.Control.Futures.Runtime
 open FSharp.Control.Futures.Sync
 open FSharp.Control.Tasks
 open Hopac
@@ -248,6 +248,11 @@ let main argv =
 
     fTaskRx.Await() |> Future.runBlocking |> Result.get
     fTaskTx.Await() |> Future.runBlocking |> Result.get
+
+    let f = future {
+        do! SimpleRGrep.scanAllRec "/home/dragon/Projects/" "sleep" ThreadPoolRuntime.Instance 256
+    }
+    f |> Future.runBlocking
 
 
     // RuntimeExamples.simpleExample ()

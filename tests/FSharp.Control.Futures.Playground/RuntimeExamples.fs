@@ -1,7 +1,7 @@
 module FSharp.Control.Futures.Playground.RuntimeExamples
 
 open FSharp.Control.Futures
-open FSharp.Control.Futures.Runtime.ThreadPoolRuntime
+open FSharp.Control.Futures.Runtime
 
 
 

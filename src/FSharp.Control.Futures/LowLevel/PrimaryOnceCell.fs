@@ -11,9 +11,9 @@ type [<Struct; NoComparison; NoEquality>] PrimaryOnceCell<'a> =
     val mutable _value: 'a
 
     internal new (notify: PrimaryNotify, value: 'a) = { _notify = notify; _value = value }
-    new ((): unit) = { _notify = PrimaryNotify(false); _value = Unchecked.defaultof<'a> }
-    static member Empty() = PrimaryOnceCell(PrimaryNotify(false), Unchecked.defaultof<'a>)
-    static member WithValue(value: 'a) = PrimaryOnceCell(PrimaryNotify(true), value)
+    new ((): unit) = { _notify = PrimaryNotify(false, false); _value = Unchecked.defaultof<'a> }
+    static member Empty() = PrimaryOnceCell(PrimaryNotify(false, false), Unchecked.defaultof<'a>)
+    static member WithValue(value: 'a) = PrimaryOnceCell(PrimaryNotify(true, false), value)
 
     member inline this.HasValue = this._notify.IsNotified
     member inline this.Value = this._value

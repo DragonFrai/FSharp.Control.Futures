@@ -6,7 +6,7 @@ Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "FSharp.Control.Futures", "s
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Tests", "Tests", "{44835DE2-D38A-4533-BE69-3A06B779FF5A}"
 EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Benchs", "Benchs", "{5C394F17-6CE6-4A62-AB3B-AD614A346ECC}"
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Benches", "Benches", "{5C394F17-6CE6-4A62-AB3B-AD614A346ECC}"
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "FSharp.Control.Futures.Benchmarks", "tests\benchs\FSharp.Control.Futures.Benchmarks\FSharp.Control.Futures.Benchmarks.fsproj", "{8942F91F-8948-4679-9F81-DBD11008EEE9}"
 EndProject
@@ -15,6 +15,10 @@ EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "FSharp.Control.Futures.Streams", "src\FSharp.Control.Futures.Streams\FSharp.Control.Futures.Streams.fsproj", "{44E8B4E8-0EFE-49BD-8FF6-E34D9021C1E8}"
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "FSharp.Control.Futures.Streams.Tests", "tests\FSharp.Control.Futures.Streams.Tests\FSharp.Control.Futures.Streams.Tests.fsproj", "{66567C90-4DA2-4A78-9428-A7C4188A0DC2}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Examples", "Examples", "{F06738AF-F184-49F0-8C63-5CA259D062EB}"
+EndProject
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "FSharp.Control.Futures.Examples", "examples\FSharp.Control.Futures.Examples\FSharp.Control.Futures.Examples.fsproj", "{00BAC644-843A-4EE7-AF0E-78DFB4AA977D}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -46,12 +50,16 @@ Global
 		{66567C90-4DA2-4A78-9428-A7C4188A0DC2}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{66567C90-4DA2-4A78-9428-A7C4188A0DC2}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{66567C90-4DA2-4A78-9428-A7C4188A0DC2}.Release|Any CPU.Build.0 = Release|Any CPU
+		{00BAC644-843A-4EE7-AF0E-78DFB4AA977D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{00BAC644-843A-4EE7-AF0E-78DFB4AA977D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{00BAC644-843A-4EE7-AF0E-78DFB4AA977D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{00BAC644-843A-4EE7-AF0E-78DFB4AA977D}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{B0400CAB-0469-44D5-B0A5-93265136ABDB} = {44835DE2-D38A-4533-BE69-3A06B779FF5A}
-		{5C394F17-6CE6-4A62-AB3B-AD614A346ECC} = {44835DE2-D38A-4533-BE69-3A06B779FF5A}
 		{8942F91F-8948-4679-9F81-DBD11008EEE9} = {5C394F17-6CE6-4A62-AB3B-AD614A346ECC}
 		{10A6C033-D1B7-48F8-882D-FB2094BC7BD7} = {44835DE2-D38A-4533-BE69-3A06B779FF5A}
 		{66567C90-4DA2-4A78-9428-A7C4188A0DC2} = {44835DE2-D38A-4533-BE69-3A06B779FF5A}
+		{00BAC644-843A-4EE7-AF0E-78DFB4AA977D} = {F06738AF-F184-49F0-8C63-5CA259D062EB}
 	EndGlobalSection
 EndGlobal

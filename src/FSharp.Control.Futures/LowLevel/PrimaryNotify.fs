@@ -50,8 +50,16 @@ type [<Struct; NoComparison; NoEquality>] PrimaryNotify =
     val mutable _state: int
     val mutable _context: IContext
 
-    new (isNotified: bool) =
-        let state = if isNotified then NotifyState.N else NotifyState.I
+    new (isNotified: bool, isTerminated: bool) =
+        let state =
+            if isNotified then
+                if isTerminated
+                then NotifyState.TN
+                else NotifyState.N
+            else
+                if isTerminated
+                then NotifyState.T
+                else NotifyState.I
         { _state = state; _context = nullObj }
 
     member inline this.IsInitOnly =

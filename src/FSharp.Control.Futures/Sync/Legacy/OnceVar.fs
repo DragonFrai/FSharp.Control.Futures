@@ -67,7 +67,7 @@ type [<Sealed>] internal IVarGetFuture<'a> =
     val mutable internal notify: PrimaryNotify
 
     new (ivar: OnceVar<'a>) =
-        { inherit IntrusiveNode<IVarGetFuture<'a>>(); ivar = ivar; notify = PrimaryNotify(false) }
+        { inherit IntrusiveNode<IVarGetFuture<'a>>(); ivar = ivar; notify = PrimaryNotify(false, false) }
 
     interface Future<'a> with
         member this.Poll(ctx) = OnceVarImpl.PollGet(this.ivar, this, ctx)

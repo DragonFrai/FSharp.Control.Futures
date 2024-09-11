@@ -11,9 +11,9 @@ open Microsoft.FSharp.Core
 /// </summary>
 type Barrier =
 
-    val barrierLimit: int
-    val mutable barrierLeft: int
-    val semaphore: Semaphore
+    val private barrierLimit: int
+    val mutable private barrierLeft: int
+    val private semaphore: Semaphore
 
     new(barrierLimit: int) =
         if barrierLimit < 0 then

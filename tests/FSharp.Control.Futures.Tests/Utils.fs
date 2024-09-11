@@ -1,9 +1,14 @@
 [<AutoOpen>]
 module Utils
 
+open System.Collections.Generic
+open System.Diagnostics
+open System.Reflection
 open System.Threading
 open FSharp.Control.Futures
 open System.Collections.Concurrent
+open FSharp.Control.Futures.LowLevel
+open Xunit.Sdk
 
 type OrderChecker() =
     let points = ConcurrentBag<int>()
@@ -19,15 +24,47 @@ type OrderChecker() =
         (points, points') ||> Seq.forall2 (=)
 
 
-let nonAwakenedContext: IContext =
-    { new IContext with
-        member _.Wake() = invalidOp "Context was wake" }
-let mockContext: IContext =
-    { new IContext with
-        member _.Wake() = do () }
-let mockContextWithWake (wake: unit -> unit) =
-    { new IContext with
-        member _.Wake() = wake () }
+type SpinCondVar =
+    val mutable allowed: int
+    new() = { allowed = 0 }
+
+    member inline this.Set(): unit =
+        this.allowed <- 1
+
+    member inline this.Wait(): unit =
+        while this.allowed = 0 do
+            ()
+
+[<RequireQualifiedAccess>]
+module Context =
+
+    [<Class>]
+    type MockContext =
+        val mutable state: int
+        val mutable wake: (unit -> unit) option
+
+        new() = { state = 0; wake = None }
+        new(wake: unit -> unit) = { state = 0; wake = Some wake }
+
+        member this.Waked: int = this.state
+
+        /// <summary>
+        /// Reset Waked counter to 0 and return wake count
+        /// </summary>
+        member this.Reset(): int =
+            let prev = Interlocked.Exchange(&this.state, 0)
+            prev
+
+        interface IContext with
+            member this.Wake() =
+                Interlocked.Increment(&this.state) |> ignore
+
+    let mockContext () : MockContext = MockContext()
+    let mockContextWithWake (wake: unit -> unit) : MockContext = MockContext(wake)
+
+    let nonAwakenedContext : IContext =
+        { new IContext with
+            member _.Wake() = invalidOp "Context was wake" }
 
 
 [<RequireQualifiedAccess>]
@@ -63,11 +100,56 @@ let runWithPatternCheck (patterns: PollPattern<'a> list) (fut: Future<'a>) : Res
 
 
 [<RequireQualifiedAccess>]
-module Tests =
-    let repeat (n: int) (f: unit -> unit) =
-        for _ in 1..n do f ()
-
-
-[<RequireQualifiedAccess>]
 module Result =
     let get (r: Result<'a, 'e>) = match r with Ok x -> x | Error e -> failwith $"{e}"
+
+type RepeatAttribute =
+    inherit DataAttribute
+
+    val mutable private count: int
+
+    new(count: int) =
+        Trace.Assert(count >= 1, "Repeat count must be >= 1")
+        { count = count }
+
+    override this.GetData(_methodInfo: MethodInfo) : obj array seq =
+        Seq.init this.count (fun _i -> [| |])
+
+[<RequireQualifiedAccess>]
+type PollAssert =
+    | Waked
+    | NotWaked
+    | None
+
+type TestFutureTask<'a> =
+    val mutable private isInitial: bool
+    val private context: Context.MockContext
+    val mutable private fut: NaiveFuture<'a>
+    new(fut: Future<'a>) =
+        {
+            isInitial = true
+            context = Context.MockContext()
+            fut = NaiveFuture(fut)
+        }
+
+    member this.IsWaked: bool = this.context.Waked <> 0
+
+    member this.Poll(assertWaked: bool): NaivePoll<'a> =
+        let wakes = this.context.Reset()
+        match (this.isInitial, wakes) with
+        | true, _ ->
+            this.isInitial <- false
+            this.fut.Poll(this.context)
+        | false, 0 when assertWaked ->
+            failwith "TestFutureTask polled repeatedly without waking"
+        | false, _ ->
+            this.fut.Poll(this.context)
+
+    member this.Poll(): NaivePoll<'a> =
+        this.Poll(true)
+
+    member this.Drop(): unit =
+        this.fut.Drop()
+
+let spawn (fut: Future<'a>): TestFutureTask<'a> =
+    TestFutureTask(fut)
