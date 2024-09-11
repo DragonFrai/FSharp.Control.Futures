@@ -18,6 +18,7 @@
         <Compile Include="Sync\SemaphoreTests.fs" />
         <Compile Include="Sync\BarrierTests.fs" />
         <Compile Include="Sync\MutexTests.fs" />
+        <Compile Include="Sync\Notify.fs" />
         <Compile Include="Sync\IVarTests.fs" />
         <Compile Include="Runtime\LowLevelStateTests.fs" />
         <Compile Include="Runtime\ThreadPoolRuntimeTests.fs" />

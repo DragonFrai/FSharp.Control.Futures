@@ -83,7 +83,7 @@ type IntrusiveList<'a> when 'a :> IntrusiveNode<'a> and 'a : not struct with
             else
                 this.startNode <- this.startNode.next
             true
-        elif refEq this.startNode.next null then
+        elif isNotNull this.startNode.next then
             let rec findParent (childToRemove: obj) (parent: 'a) (child: 'a) =
                 if refEq childToRemove child then parent
                 elif isNull child.next then nullObj

@@ -100,12 +100,6 @@ let runWithPatternCheck (patterns: PollPattern<'a> list) (fut: Future<'a>) : Res
 
 
 [<RequireQualifiedAccess>]
-module Tests =
-    let repeat (n: int) (f: unit -> unit) =
-        for _ in 1..n do f ()
-
-
-[<RequireQualifiedAccess>]
 module Result =
     let get (r: Result<'a, 'e>) = match r with Ok x -> x | Error e -> failwith $"{e}"
 
@@ -121,6 +115,11 @@ type RepeatAttribute =
     override this.GetData(_methodInfo: MethodInfo) : obj array seq =
         Seq.init this.count (fun _i -> [| |])
 
+[<RequireQualifiedAccess>]
+type PollAssert =
+    | Waked
+    | NotWaked
+    | None
 
 type TestFutureTask<'a> =
     val mutable private isInitial: bool
@@ -151,3 +150,6 @@ type TestFutureTask<'a> =
 
     member this.Drop(): unit =
         this.fut.Drop()
+
+let spawn (fut: Future<'a>): TestFutureTask<'a> =
+    TestFutureTask(fut)

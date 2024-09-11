@@ -26,12 +26,12 @@ type Notify =
 
 
     member this.Wait() : Future<unit> = future {
-        let prevWaitCounter = Interlocked.Add(&this.waitCounter, -1)
-        Trace.Assert(prevWaitCounter <= 1)
-        if prevWaitCounter < 1 then
-            do! this.semaphore.Acquire()
+        let newWaitCounter = Interlocked.Add(&this.waitCounter, -1)
+        Trace.Assert(newWaitCounter <= 0)
+        if newWaitCounter = 0 then
+            return ()
         else
-            ()
+            return! this.semaphore.Acquire()
     }
 
     member this.Notify() : unit =
@@ -41,7 +41,7 @@ type Notify =
             if waitCounter = 1 then false
             else
             let newWaitCounter = waitCounter + 1
-            let prev = Interlocked.CompareExchange(&this.waitCounter, waitCounter, newWaitCounter)
+            let prev = Interlocked.CompareExchange(&this.waitCounter, newWaitCounter, waitCounter)
             if prev <> waitCounter then incCounter this prev
             else
                 waitCounter < 0
@@ -57,7 +57,7 @@ type Notify =
             if waitCounter >= 0 then 0
             else
                 let newWaitCounter = 0
-                let prev = Interlocked.CompareExchange(&this.waitCounter, waitCounter, newWaitCounter)
+                let prev = Interlocked.CompareExchange(&this.waitCounter, newWaitCounter, waitCounter)
                 if prev <> waitCounter then resetWaiters this prev
                 else -waitCounter
 
