@@ -4,6 +4,16 @@ open FSharp.Control.Futures
 open FSharp.Control.Futures.LowLevel
 
 
+[<Interface>]
+type IOneShotVar<'a> =
+    inherit IFuture<'a>
+    abstract Close: unit -> unit
+
+[<Interface>]
+type IOneShotSink<'a> =
+    abstract IsClosed: bool
+    abstract Send: msg: 'a -> bool
+
 /// <summary>
 /// Single Produces Single Consumer (SPSC) channel for only one msg.
 /// OneShot used for sending single message between two Futures.
@@ -20,7 +30,7 @@ open FSharp.Control.Futures.LowLevel
 ///     let os = OneShot()
 ///     ThreadPoolRuntime.spawn (future {
 ///         do! Future.sleepMs 1000
-///         os.Send(12)
+///         os.AsSink.Send(12)
 ///         return ()
 ///     })
 ///
@@ -43,11 +53,9 @@ type OneShot<'a> =
     new() =
         OneShot(false)
 
-    member inline this.AsSender: OneShotSender<'a> = OneShotSender(this)
-    member inline this.AsReceiver: OneShotReceiver<'a> = OneShotReceiver(this)
-    member inline this.AsPair: OneShotSender<'a> * OneShotReceiver<'a> = this.AsSender, this.AsReceiver
-
-    member this.IsClosed: bool = this.notify.IsTerminated
+    member inline this.AsSink: IOneShotSink<'a> = this
+    member inline this.AsVar: IOneShotVar<'a> = this
+    member inline this.AsPair: IOneShotSink<'a> * IOneShotVar<'a> = this.AsSink, this.AsVar
 
     member inline internal this.SendResult(result: 'a): bool =
         if this.notify.IsNotified then invalidOp "OneShot already contains value"
@@ -57,21 +65,26 @@ type OneShot<'a> =
             this.value <- Unchecked.defaultof<_>
         isSuccess
 
-    /// <summary>
-    /// Send msg to receiver and return true.
-    /// If Receiver closed, return false
-    /// </summary>
-    /// <param name="msg"></param>
-    member this.Send(msg: 'a): bool =
-        this.SendResult(msg)
+    interface IOneShotSink<'a> with
 
-    /// <summary>
-    /// Close receiving. This method can prevent sending from sender.
-    /// </summary>
-    member this.Close() : unit =
-        do this.notify.Drop() |> ignore
+        member this.IsClosed: bool =
+            this.notify.IsTerminated
 
-    interface Future<'a> with
+        /// <summary>
+        /// Send msg to receiver and return true.
+        /// If Receiver closed, return false
+        /// </summary>
+        /// <param name="msg"></param>
+        member this.Send(msg: 'a): bool =
+            this.SendResult(msg)
+
+    interface IOneShotVar<'a> with
+        /// <summary>
+        /// Close receiving. This method can prevent sending from sender.
+        /// </summary>
+        member this.Close() : unit =
+            do this.notify.Drop() |> ignore
+
         member this.Poll(ctx: IContext) : Poll<'a> =
             if this.notify.Poll(ctx)
             then
@@ -83,34 +96,19 @@ type OneShot<'a> =
         member this.Drop() : unit =
             do this.notify.Drop() |> ignore
 
-[<Struct>]
-type OneShotSender<'a> =
-    val private oneshot: OneShot<'a>
-    new(os: OneShot<'a>) = { oneshot = os }
-
-    member this.IsClosed: bool = this.oneshot.IsClosed
-    member this.Send(msg): bool = this.oneshot.Send(msg)
-
-[<Struct>]
-type OneShotReceiver<'a> =
-    val private oneshot: OneShot<'a>
-    new(os: OneShot<'a>) = { oneshot = os }
-
-    member this.Receive(): Future<'a> = this.oneshot
-    member this.Close(): unit = this.oneshot.Close()
-
-
 [<RequireQualifiedAccess>]
 module OneShot =
 
     let create<'a> () : OneShot<'a> = OneShot()
 
-    let inline send (msg: 'a) (oneshot: OneShot<'a>) : bool =
+    let inline send (msg: 'a) (oneshot: IOneShotSink<'a>) : bool =
         oneshot.Send(msg)
 
-    let inline isClosed (oneshot: OneShot<'a>) : bool =
+    let inline isClosed (oneshot: IOneShotSink<'a>) : bool =
         oneshot.IsClosed
 
-    let inline close (oneshot: OneShot<'a>) : unit =
+    let inline close (oneshot: IOneShotVar<'a>) : unit =
         oneshot.Close()
 
+    // let inline await (oneshot: IOneShotVar<'a>) : Future<'a> =
+    //     oneshot

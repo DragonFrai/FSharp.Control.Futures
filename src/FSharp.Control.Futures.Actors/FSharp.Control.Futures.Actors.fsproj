@@ -1,0 +1,23 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net8.0</TargetFramework>
+        <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <Compile Include="Msg.fs" />
+        <Compile Include="SendingErrors.fs" />
+        <Compile Include="Address.fs" />
+        <Compile Include="ActorAddress.fs" />
+        <Compile Include="Actor.fs" />
+        <Compile Include="HandlerActor.fs" />
+        <Compile Include="Arbiter.fs" />
+        <Compile Include="Library.fs"/>
+    </ItemGroup>
+
+    <ItemGroup>
+      <ProjectReference Include="..\FSharp.Control.Futures\FSharp.Control.Futures.fsproj" />
+    </ItemGroup>
+
+</Project>

@@ -18,6 +18,10 @@ Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "FSharp.Control.Futures.Exam
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "FSharp.Control.Futures.Benchmarks", "benches\FSharp.Control.Futures.Benchmarks\FSharp.Control.Futures.Benchmarks.fsproj", "{5919F2FC-E207-45BF-9159-71720F71004D}"
 EndProject
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "FSharp.Control.Futures.Actors", "src\FSharp.Control.Futures.Actors\FSharp.Control.Futures.Actors.fsproj", "{AD517DBF-4D4D-488D-9A7C-8145C89DA2B2}"
+EndProject
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "FSharp.Control.Futures.Actors.Playground", "examples\FSharp.Control.Futures.Actors.Playground\FSharp.Control.Futures.Actors.Playground.fsproj", "{5983781E-8F81-410B-B184-F1B9ADB26CA3}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -48,11 +52,20 @@ Global
 		{5919F2FC-E207-45BF-9159-71720F71004D}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{5919F2FC-E207-45BF-9159-71720F71004D}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{5919F2FC-E207-45BF-9159-71720F71004D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{AD517DBF-4D4D-488D-9A7C-8145C89DA2B2}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{AD517DBF-4D4D-488D-9A7C-8145C89DA2B2}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{AD517DBF-4D4D-488D-9A7C-8145C89DA2B2}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{AD517DBF-4D4D-488D-9A7C-8145C89DA2B2}.Release|Any CPU.Build.0 = Release|Any CPU
+		{5983781E-8F81-410B-B184-F1B9ADB26CA3}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{5983781E-8F81-410B-B184-F1B9ADB26CA3}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{5983781E-8F81-410B-B184-F1B9ADB26CA3}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{5983781E-8F81-410B-B184-F1B9ADB26CA3}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{10A6C033-D1B7-48F8-882D-FB2094BC7BD7} = {44835DE2-D38A-4533-BE69-3A06B779FF5A}
 		{66567C90-4DA2-4A78-9428-A7C4188A0DC2} = {44835DE2-D38A-4533-BE69-3A06B779FF5A}
 		{0CCF385C-4CA8-4C72-B9D2-3B653E8B86C5} = {F06738AF-F184-49F0-8C63-5CA259D062EB}
 		{5919F2FC-E207-45BF-9159-71720F71004D} = {5C394F17-6CE6-4A62-AB3B-AD614A346ECC}
+		{5983781E-8F81-410B-B184-F1B9ADB26CA3} = {F06738AF-F184-49F0-8C63-5CA259D062EB}
 	EndGlobalSection
 EndGlobal

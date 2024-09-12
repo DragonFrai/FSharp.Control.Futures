@@ -8,7 +8,7 @@ open Xunit
 [<Fact>]
 let ``Send, receive`` () =
     let tx, rx = OneShot().AsPair
-    let fTask = spawn (rx.Receive())
+    let fTask = spawn rx
 
     Assert.Equal(NaivePoll.Pending, fTask.Poll())
     Assert.True(tx.Send(12))
@@ -17,7 +17,7 @@ let ``Send, receive`` () =
 [<Fact>]
 let ``Drop rx`` () =
     let tx, rx = OneShot().AsPair
-    let fTask = spawn (rx.Receive())
+    let fTask = spawn rx
 
     Assert.Equal(NaivePoll.Pending, fTask.Poll())
     fTask.Drop()

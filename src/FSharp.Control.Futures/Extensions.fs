@@ -71,3 +71,8 @@ module Future =
 
     let timeout (duration: TimeSpan) (fut: Future<'a>) : Future<Result<'a, TimeoutException>> =
         Future.first (fut |> Future.map Ok) (sleep duration |> Future.map (fun _ -> Error (TimeoutException())))
+
+
+type IEnvironmentContext =
+    inherit IContext
+    abstract Environments: obj seq
