@@ -5,6 +5,7 @@ open System
 open System.Threading
 open FSharp.Control.Futures
 open FSharp.Control.Futures.LowLevel
+open FSharp.Control.Futures.Sync
 
 
 [<AutoOpen>]
@@ -195,7 +196,7 @@ module FutureTaskTransforms =
                     elif task.IsCanceled then Error task.Exception
                     elif task.IsCompletedSuccessfully then Ok task.Result
                     else invalidOp "Unreachable"
-                txrx.Send(taskResult)
+                txrx.AsSink.Send(taskResult)
             ) |> ignore
 
             txrx |> Future.map (function Ok x -> x | Error ex -> raise ex)

@@ -9,8 +9,8 @@ exception MailboxMultipleReceiveAtSameTimeException
 
 [<Struct>]
 type Reply<'a> =
-    val private tx: OneShot<'a>
-    internal new(tx: OneShot<'a>) = { tx = tx }
+    val private tx: IOneShotSink<'a>
+    internal new(tx: IOneShotSink<'a>) = { tx = tx }
     member this.IsNeedsReply: bool =
         not this.tx.IsClosed
     member this.Reply(reply: 'a): unit =
