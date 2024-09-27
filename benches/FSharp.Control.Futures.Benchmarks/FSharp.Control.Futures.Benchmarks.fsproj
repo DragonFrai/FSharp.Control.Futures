@@ -17,7 +17,7 @@
     </ItemGroup>
 
     <ItemGroup>
-      <ProjectReference Include="..\..\..\src\FSharp.Control.Futures\FSharp.Control.Futures.fsproj" />
+      <ProjectReference Include="..\..\src\FSharp.Control.Futures\FSharp.Control.Futures.fsproj" />
     </ItemGroup>
 
 </Project>
