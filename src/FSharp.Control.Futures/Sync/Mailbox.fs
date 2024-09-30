@@ -9,8 +9,8 @@ exception MailboxMultipleReceiveAtSameTimeException
 
 [<Struct>]
 type Reply<'a> =
-    val private tx: IOneShotSink<'a>
-    internal new(tx: IOneShotSink<'a>) = { tx = tx }
+    val private tx: IOneShotTx<'a>
+    internal new(tx: IOneShotTx<'a>) = { tx = tx }
     member this.IsNeedsReply: bool =
         not this.tx.IsClosed
     member this.Reply(reply: 'a): unit =
@@ -39,7 +39,7 @@ type [<Sealed>] Mailbox<'a> =
         let oneshot = OneShot.create()
         let msg = msgBuilder (Reply(oneshot))
         this.Post(msg)
-        let! r = oneshot
+        let! r = oneshot.Await()
         return r
     }
 

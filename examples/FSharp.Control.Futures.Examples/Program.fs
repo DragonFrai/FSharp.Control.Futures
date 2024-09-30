@@ -230,10 +230,10 @@ module Result =
 [<EntryPoint>]
 let main argv =
 
-    let ch = OneShot()
+    let ch = OneShot.Create()
 
     let receiver = future {
-        let! msg = ch
+        let! msg = ch.Await()
         printfn $"Hello, {msg}"
         ()
     }
