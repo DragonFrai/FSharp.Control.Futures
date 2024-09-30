@@ -4,14 +4,67 @@ open FSharp.Control.Futures
 open FSharp.Control.Futures.LowLevel
 
 
+/// <summary>
+/// Приемник одного асинхронного значения.
+/// Может быть преобразован в Future путем вызова <c> rx.Await() </c>
+/// </summary>
 [<Interface>]
-type IOneShotVar<'a> =
-    inherit IFuture<'a>
+type IOneShotRx<'a> =
+
+    /// <summary>
+    /// Проверяет закрыт ли OneShot.
+    /// </summary>
+    abstract IsClosed: bool
+
+    /// <summary>
+    /// Начинает асинхронное ожидание.
+    /// </summary>
+    /// <remarks>
+    /// Может быть вызван только один раз.
+    /// </remarks>
+    /// <remarks>
+    /// Вызов <c>Drop</c> возвращенной Future приведет к закрытию (как вызов <c>Close</c>).
+    /// </remarks>
+    abstract Await: unit -> Future<'a>
+
+    /// <summary>
+    /// Закрывает получение значения.
+    /// </summary>
+    /// <remarks>
+    /// Future возвращенная вызовом <c>Await()</c> будет завершаться исключением после закрытия.
+    /// Поэтому если <c>Await()</c> уже был вызван, предпочтительным способом отмены ожидания будет использование
+    /// <c> rxFuture.Drop() </c> вместо прямой отмены.
+    /// Этого можно добиться используя её компибацию с Future определяющей условие отмены.
+    /// Например:
+    /// <code>
+    /// future {
+    ///     let tx, rx = OnoShot.createTxRx ()
+    ///     do ThreadPoolScheduler.spawn (createSenderFuture tx)
+    ///     let valueWithTimeout =
+    ///         Future.first (Future.map Ok rx.Await()) (Future.sleepMs 1000 |> Future.map (fun () -> Error "timeout"))
+    /// }
+    /// </code>
+    /// </remarks>
     abstract Close: unit -> unit
 
+/// <summary>
+/// Отправитель одного асинхронного значения.
+/// </summary>
 [<Interface>]
-type IOneShotSink<'a> =
+type IOneShotTx<'a> =
+
+    /// <summary>
+    /// Проверяет закрыт ли OneShot.
+    /// </summary>
     abstract IsClosed: bool
+
+    /// <summary>
+    /// Отправляет значение приемнику.
+    /// </summary>
+    /// <param name="msg"> Передаваемое значение </param>
+    /// <returns>
+    /// true, если сообщение было успешно отправлено и false, если OneShot уже был закрыт.
+    /// </returns>
     abstract Send: msg: 'a -> bool
 
 /// <summary>
@@ -34,28 +87,53 @@ type IOneShotSink<'a> =
 ///         return ()
 ///     })
 ///
-///     let! x = os
+///     let! x = os.Await()
 ///     do printfn $"> {x}"
 /// }
 ///
 ///
 /// ```
 /// </example>
+[<AbstractClass>]
+type OneShot<'a> internal () =
+
+    // TODO?: Add AggressiveInlining + InternalCall
+
+    static member Create(): OneShot<'a> = OneShotImpl()
+    static member Create(closed: bool): OneShot<'a> = OneShotImpl(closed)
+
+    abstract IsClosed: bool
+    abstract Send: msg: 'a -> bool
+    abstract Close: unit -> unit
+    abstract Await: unit -> Future<'a>
+
+    member inline this.AsTx: IOneShotTx<'a> = this
+    member inline this.AsRx: IOneShotRx<'a> = this
+    member inline this.AsTxRx: IOneShotTx<'a> * IOneShotRx<'a> = this, this
+
+    interface IOneShotTx<'a> with
+        member this.IsClosed = this.IsClosed
+        member this.Send(msg) = this.Send(msg)
+
+    interface IOneShotRx<'a> with
+        member this.IsClosed = this.IsClosed
+        member this.Await() = this.Await()
+        member this.Close() = this.Close()
+
 [<Class>]
 [<Sealed>]
-type OneShot<'a> =
+type internal OneShotImpl<'a> =
+    inherit OneShot<'a>
+
     val mutable internal value: 'a
     val mutable internal notify: PrimaryNotify
 
     new(closed: bool) =
-        { value = Unchecked.defaultof<'a>; notify = PrimaryNotify(false, closed) }
+        { value = Unchecked.defaultof<'a>
+          notify = PrimaryNotify(false, closed) }
 
     new() =
-        OneShot(false)
-
-    member inline this.AsSink: IOneShotSink<'a> = this
-    member inline this.AsVar: IOneShotVar<'a> = this
-    member inline this.AsPair: IOneShotSink<'a> * IOneShotVar<'a> = this.AsSink, this.AsVar
+        OneShotImpl(false)
 
     member inline internal this.SendResult(result: 'a): bool =
         if this.notify.IsNotified then invalidOp "OneShot already contains value"
@@ -65,26 +143,7 @@ type OneShot<'a> =
             this.value <- Unchecked.defaultof<_>
         isSuccess
 
-    interface IOneShotSink<'a> with
-
-        member this.IsClosed: bool =
-            this.notify.IsTerminated
-
-        /// <summary>
-        /// Send msg to receiver and return true.
-        /// If Receiver closed, return false
-        /// </summary>
-        /// <param name="msg"></param>
-        member this.Send(msg: 'a): bool =
-            this.SendResult(msg)
-
-    interface IOneShotVar<'a> with
-        /// <summary>
-        /// Close receiving. This method can prevent sending from sender.
-        /// </summary>
-        member this.Close() : unit =
-            do this.notify.Drop() |> ignore
-
+    interface Future<'a> with
         member this.Poll(ctx: IContext) : Poll<'a> =
             if this.notify.Poll(ctx)
             then
@@ -96,19 +155,30 @@ type OneShot<'a> =
         member this.Drop() : unit =
             do this.notify.Drop() |> ignore
 
+    // [ Impl OneShot base class ]
+    override this.IsClosed: bool = this.notify.IsTerminated
+    override this.Send(msg: 'a): bool = this.SendResult(msg)
+    override this.Close() : unit = do this.notify.Drop() |> ignore
+    override this.Await() : Future<'a> = this
+
+
 [<RequireQualifiedAccess>]
 module OneShot =
 
-    let create<'a> () : OneShot<'a> = OneShot()
+    let inline create<'a> () : OneShot<'a> = OneShot.Create()
+    let inline closed<'a> () : OneShot<'a> = OneShot.Create(true)
 
-    let inline send (msg: 'a) (oneshot: IOneShotSink<'a>) : bool =
+    let inline createTxRx<'a> () : IOneShotTx<'a> * IOneShotRx<'a> = (create ()).AsTxRx
+    let inline closedTxRx<'a> () : IOneShotTx<'a> * IOneShotRx<'a> = (closed ()).AsTxRx
+
+    let inline send (msg: 'a) (oneshot: IOneShotTx<'a>) : bool =
         oneshot.Send(msg)
 
-    let inline isClosed (oneshot: IOneShotSink<'a>) : bool =
+    let inline isClosed (oneshot: IOneShotTx<'a>) : bool =
         oneshot.IsClosed
 
-    let inline close (oneshot: IOneShotVar<'a>) : unit =
+    let inline close (oneshot: IOneShotRx<'a>) : unit =
         oneshot.Close()
 
-    // let inline await (oneshot: IOneShotVar<'a>) : Future<'a> =
-    //     oneshot
+    let inline await (oneshot: IOneShotRx<'a>) : Future<'a> =
+        oneshot.Await()

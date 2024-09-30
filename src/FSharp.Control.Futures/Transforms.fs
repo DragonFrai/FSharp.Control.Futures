@@ -188,7 +188,7 @@ module FutureTaskTransforms =
         open FSharp.Control.Futures.Sync
 
         let ofTask (task: Task<'a>) : Future<'a> =
-            let txrx = OneShot()
+            let txrx = OneShot.Create()
 
             task.ContinueWith(fun (task: Task<'a>) ->
                 let taskResult =
@@ -196,10 +196,10 @@ module FutureTaskTransforms =
                     elif task.IsCanceled then Error task.Exception
                     elif task.IsCompletedSuccessfully then Ok task.Result
                     else invalidOp "Unreachable"
-                txrx.AsSink.Send(taskResult)
+                txrx.AsTx.Send(taskResult)
             ) |> ignore
 
-            txrx |> Future.map (function Ok x -> x | Error ex -> raise ex)
+            txrx.Await() |> Future.map (function Ok x -> x | Error ex -> raise ex)
 
         let toTaskOn (scheduler: TaskScheduler) (fut: Future<'a>) : Task<'a> =
             let pollingTaskFactory = TaskFactory(scheduler)

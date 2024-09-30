@@ -45,7 +45,7 @@ type BaseAddress<'i, 'o>() =
 
         member this.Send(msg) =
             Future.delay (fun () ->
-                let os = OneShot<'o>()
-                let msg = Msg(msg, os.AsSink)
+                let os = OneShotImpl<'o>()
+                let msg = Msg(msg, os.AsTx)
                 this.Post(msg)
-                os.AsVar)
+                os.AsRx)

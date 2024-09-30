@@ -18,7 +18,7 @@ let arb = Arbiter(fun () -> HelloActor())
 
 let addr = arb.Start(ThreadPoolRuntime.instance)
 
-let os = OneShot<string>()
+let os = OneShotImpl<string>()
 do addr.Post(Msg(12, os)) |> Future.runBlocking
 let r = os |> Future.runBlocking
 printfn $"Reply is {r}"
