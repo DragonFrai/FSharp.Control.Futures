@@ -44,7 +44,7 @@ type MutexCell<'a> =
     /// <summary>
     /// Like `.Get` function, but can extract part of value
     /// </summary>
-    /// <param name="reader"></param>
+    /// <param name="f"></param>
     member this.Lock(f: 'a -> 'b): Future<'b> = future {
         do! this.mutex.Lock()
         let r = f this.value
@@ -59,48 +59,48 @@ type MutexCell<'a> =
         return r
     }
 
-    member this.Update(updater: 'a -> 'a): Future<unit> = future {
+    member this.Update(f: 'a -> 'a): Future<unit> = future {
         do! this.mutex.Lock()
-        let newValue = updater this.value
+        let newValue = f this.value
         do this.value <- newValue
         do this.mutex.Unlock()
         return ()
     }
 
-    member this.UpdateIn(updater: 'a -> Future<'a>): Future<unit> = future {
+    member this.UpdateIn(f: 'a -> Future<'a>): Future<unit> = future {
         do! this.mutex.Lock()
-        let! newValue = updater this.value
+        let! newValue = f this.value
         do this.value <- newValue
         do this.mutex.Unlock()
         return ()
     }
 
-    member this.UpdateWith(updater: 'a -> 'a * 'b): Future<'b> = future {
+    member this.UpdateWith(f: 'a -> 'a * 'b): Future<'b> = future {
         do! this.mutex.Lock()
-        let newValue, r = updater this.value
+        let newValue, r = f this.value
         do this.value <- newValue
         do this.mutex.Unlock()
         return r
     }
 
-    member this.UpdateWithIn(updater: 'a -> Future<'a * 'b>): Future<'b> = future {
+    member this.UpdateWithIn(f: 'a -> Future<'a * 'b>): Future<'b> = future {
         do! this.mutex.Lock()
-        let! newValue, r = updater this.value
+        let! newValue, r = f this.value
         do this.value <- newValue
         do this.mutex.Unlock()
         return r
     }
 
-    member this.Mutate(mutator: 'a -> unit): Future<unit> = future {
+    member this.Mutate(f: 'a -> unit): Future<unit> = future {
         do! this.mutex.Lock()
-        do mutator this.value
+        do f this.value
         do this.mutex.Unlock()
         return ()
     }
 
-    member this.MutateIn(mutator: 'a -> Future<unit>): Future<unit> = future {
+    member this.MutateIn(f: 'a -> Future<unit>): Future<unit> = future {
         do! this.mutex.Lock()
-        do! mutator this.value
+        do! f this.value
         do this.mutex.Unlock()
         return ()
     }
@@ -118,26 +118,26 @@ module MutexCell =
     let inline set (value: 'a) (mCell: MutexCell<'a>) : Future<unit> =
         mCell.Set(value)
 
-    let inline lock (locker: 'a -> 'b) (mCell: MutexCell<'a>) : Future<'b> =
-        mCell.Lock(locker)
+    let inline lock (f: 'a -> 'b) (mCell: MutexCell<'a>) : Future<'b> =
+        mCell.Lock(f)
 
-    let inline lockIn (locker: 'a -> Future<'b>) (mCell: MutexCell<'a>) : Future<'b> =
-        mCell.LockIn(locker)
+    let inline lockIn (f: 'a -> Future<'b>) (mCell: MutexCell<'a>) : Future<'b> =
+        mCell.LockIn(f)
 
-    let inline update (updater: 'a -> 'a) (mCell: MutexCell<'a>) : Future<unit> =
-        mCell.Update(updater)
+    let inline update (f: 'a -> 'a) (mCell: MutexCell<'a>) : Future<unit> =
+        mCell.Update(f)
 
-    let inline updateIn (updater: 'a -> Future<'a>) (mCell: MutexCell<'a>) : Future<unit> =
-        mCell.UpdateIn(updater)
+    let inline updateIn (f: 'a -> Future<'a>) (mCell: MutexCell<'a>) : Future<unit> =
+        mCell.UpdateIn(f)
 
-    let inline updateWith (updater: 'a -> 'a * 'b) (mCell: MutexCell<'a>) : Future<'b> =
-        mCell.UpdateWith(updater)
+    let inline updateWith (f: 'a -> 'a * 'b) (mCell: MutexCell<'a>) : Future<'b> =
+        mCell.UpdateWith(f)
 
-    let inline updateWithIn (updater: 'a -> Future<'a * 'b>) (mCell: MutexCell<'a>) : Future<'b> =
-        mCell.UpdateWithIn(updater)
+    let inline updateWithIn (f: 'a -> Future<'a * 'b>) (mCell: MutexCell<'a>) : Future<'b> =
+        mCell.UpdateWithIn(f)
 
-    let inline mutate (mutator: 'a -> unit) (mCell: MutexCell<'a>) : Future<unit> =
-        mCell.Mutate(mutator)
+    let inline mutate (f: 'a -> unit) (mCell: MutexCell<'a>) : Future<unit> =
+        mCell.Mutate(f)
 
-    let inline mutateIn (mutator: 'a -> Future<unit>) (mCell: MutexCell<'a>) : Future<unit> =
-        mCell.MutateIn(mutator)
+    let inline mutateIn (f: 'a -> Future<unit>) (mCell: MutexCell<'a>) : Future<unit> =
+        mCell.MutateIn(f)

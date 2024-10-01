@@ -1,17 +1,11 @@
 namespace FSharp.Control.Futures
 
 open System
+open System.Collections.Generic
 open FSharp.Control.Futures
 open FSharp.Control.Futures.LowLevel
 
 
-/// <summary>
-///
-/// </summary>
-/// <remarks>
-/// `poll` and `drop` are not userspace functions.
-/// Low-level functions must be defined in there namespace: <see cref="FSharp.Control.Futures.LowLevel"/>.
-/// </remarks>
 [<RequireQualifiedAccess>]
 module Future =
 
@@ -33,6 +27,8 @@ module Future =
 
     /// <summary> Creates the Future lazy evaluator for the passed function </summary>
     /// <returns> Future lazy evaluator for the passed function </returns>
+    /// <remarks>The passed function will block context switching until it is executed.
+    /// It is not recommended to wrap long functions if you are not sure what you are doing.</remarks>
     let inline lazy' (f: unit -> 'a) : Future<'a> =
         upcast Futures.Lazy(f)
 
@@ -94,32 +90,27 @@ module Future =
         |> inspect (fun _ -> do finalizer ())
         |> map (fun x -> match x with Ok r -> r | Error ex -> raise ex)
 
-    /// <summary> Creates a Future that returns control flow to the scheduler once </summary>
-    /// <returns> Future that returns control flow to the scheduler once </returns>
+    /// <summary> Creates a Future that returns control flow to the runtime once </summary>
+    /// <returns> Future that returns control flow to the runtime once </returns>
     let inline yieldWorkflow () : Future<unit> =
         upcast Futures.Yield()
 
     [<RequireQualifiedAccess>]
     module Seq =
 
-        open System.Collections.Generic
-
-        /// <summary> Creates a future iterated over a sequence </summary>
-        /// <remarks> The generated future does not substitute implicit breakpoints,
-        /// so on long iterations you should use <code>iterAsync</code> and <code>yieldWorkflow</code> </remarks>
-        let iterBlocking (seq: 'a seq) (body: 'a -> unit) =
-            lazy' (fun () -> for x in seq do body x)
+        let fold (folder: 's -> 'a -> Future<'s>) (state: 's) (source: 'a seq) : Future<'s> =
+            let rec foldAsyncLoop folder state (enumerator: IEnumerator<'a>) =
+                if enumerator.MoveNext() then
+                    bind (fun state -> foldAsyncLoop folder state enumerator) (folder state enumerator.Current)
+                else
+                    ready state
+            delay (fun () -> foldAsyncLoop folder state (source.GetEnumerator()))
 
         /// <summary> Creates a future async iterated over a sequence </summary>
         /// <remarks> The generated future does not substitute implicit breakpoints,
         /// so on long iterations you should use <code>yieldWorkflow</code> </remarks>
-        let iter (source: 'a seq) (body: 'a -> Future<unit>) =
-            let rec iterAsyncEnumerator body (enumerator: IEnumerator<'a>) =
-                if enumerator.MoveNext() then
-                    bind (fun () -> iterAsyncEnumerator body enumerator) (body enumerator.Current)
-                else
-                    unit'
-            delay (fun () -> iterAsyncEnumerator body (source.GetEnumerator()))
+        let iter (action: 'a -> Future<unit>) (source: 'a seq) : Future<unit> =
+            fold (fun () -> action) () source
 
     let inline raise (source: Future<Result<'a, exn>>) : Future<'a> =
         upcast Futures.Map(source, function Ok r -> r | Error ex -> raise ex)
@@ -150,7 +141,7 @@ type FutureBuilder() =
 
     member inline _.Delay(u2c: unit -> Future<'a>) = u2c
 
-    member inline _.For(source, body) = Future.Seq.iter source body
+    member inline _.For(source, body) = Future.Seq.iter body source
 
     member inline this.While(cond: unit -> bool, body: unit -> Future<unit>): Future<unit> =
         let whileSeq = seq { while cond () do yield () }
