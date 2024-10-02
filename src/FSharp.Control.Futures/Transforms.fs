@@ -53,9 +53,8 @@ module FutureAsyncTransforms =
 
             let wh = new EventWaitHandle(false, EventResetMode.AutoReset)
             let ctx =
-                { new IContext with
-                    member _.Wake() = wh.Set() |> ignore
-                }
+                { new NotFeaturedContext() with
+                    override _.Wake() = wh.Set() |> ignore }
 
             let mutable fut = fut
 
@@ -157,11 +156,10 @@ module FutureApmTransforms =
                     )
 
                 let ctx =
-                    { new IContext with
-                        member this.Wake() =
+                    { new NotFeaturedContext() with
+                        override this.Wake() =
                             if asyncResult.IsCompleted then invalidOp "Cannot call Wait when Future is Ready"
-                            startPollOnContext this
-                    }
+                            startPollOnContext this }
 
                 startPollOnContext ctx
 

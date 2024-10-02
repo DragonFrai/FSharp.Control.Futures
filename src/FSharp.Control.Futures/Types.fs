@@ -44,9 +44,21 @@ and Future<'a> = IFuture<'a>
 /// Allows the Future to signal its ability to move forward (awake) through the Wake method
 /// </summary>
 and IContext =
+
     /// <summary> Wake up assigned Future </summary>
     abstract Wake: unit -> unit
 
+    /// <summary> Returns future context feature provider </summary>
+    abstract Features: unit -> IFeatureProvider
+
+/// <summary>
+/// Provides a features that implemented by Future runner (runtime or poll loop or other).
+/// Useful for get more efficient implementation of time, I/O, or other functions
+/// or special actions (for example sleep in simulated time).
+/// Of course, you can use it for DI if you went.
+/// </summary>
+and IFeatureProvider =
+    abstract GetFeature<'a> : unit -> ValueOption<'a>
 
 // [Exceptions]
 

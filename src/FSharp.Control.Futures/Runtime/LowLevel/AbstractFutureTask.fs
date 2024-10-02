@@ -46,6 +46,7 @@ type AbstractFutureTask<'a> =
     val mutable private Result: FutureTaskResultState<'a>
 
     abstract member Schedule: unit -> unit
+    abstract member Features: unit -> IFeatureProvider
 
     new(fut: Future<'a>) = {
         State = Unchecked.defaultof<_>
@@ -137,6 +138,9 @@ type AbstractFutureTask<'a> =
         member this.Wake(): unit =
             let r = this.State.SetNotify()
             if r then this.Schedule()
+
+        member this.Features(): IFeatureProvider =
+            this.Features()
 
     // [/RUNTIME_PART]
 
