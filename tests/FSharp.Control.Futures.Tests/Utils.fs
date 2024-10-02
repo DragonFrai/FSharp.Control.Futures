@@ -40,11 +40,13 @@ module Context =
 
     [<Class>]
     type MockContext =
+        inherit NotFeaturedContext
+
         val mutable state: int
         val mutable wake: (unit -> unit) option
 
-        new() = { state = 0; wake = None }
-        new(wake: unit -> unit) = { state = 0; wake = Some wake }
+        new() = { inherit NotFeaturedContext(); state = 0; wake = None }
+        new(wake: unit -> unit) = { inherit NotFeaturedContext(); state = 0; wake = Some wake }
 
         member this.Waked: int = this.state
 
@@ -55,15 +57,17 @@ module Context =
             let prev = Interlocked.Exchange(&this.state, 0)
             prev
 
-        interface IContext with
-            member this.Wake() =
-                Interlocked.Increment(&this.state) |> ignore
+        // interface IContext with
+        override this.Wake() =
+            Interlocked.Increment(&this.state) |> ignore
+
+            // member this.Features() = EmptyFeatureProvider()
 
     let mockContext () : MockContext = MockContext()
     let mockContextWithWake (wake: unit -> unit) : MockContext = MockContext(wake)
 
     let nonAwakenedContext : IContext =
-        { new IContext with
+        { new NotFeaturedContext() with
             member _.Wake() = invalidOp "Context was wake" }
 
 
@@ -76,7 +80,7 @@ type PollPattern<'a> =
 let runWithPatternCheck (patterns: PollPattern<'a> list) (fut: Future<'a>) : Result<unit, string> =
     use wh = new EventWaitHandle(false, EventResetMode.AutoReset)
     // TODO: Add checks not call Wake if pattern not contains Pending
-    let ctx = { new IContext with member _.Wake() = wh.Set() |> ignore }
+    let ctx = { new NotFeaturedContext() with override _.Wake() = wh.Set() |> ignore }
     let rec pollLoop (patterns: PollPattern<'a> list) (fut: Future<'a>) =
         match patterns with
         | [] -> failwith "Future not ready, but patterns is empty"

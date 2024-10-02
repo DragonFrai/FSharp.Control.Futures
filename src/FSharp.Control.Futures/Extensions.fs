@@ -50,7 +50,9 @@ module Extensions =
             // Based on a polling cycle (polling -> waiting for awakening -> awakening -> polling -> ...)
             // until the point with the result is reached
             use wh = new EventWaitHandle(false, EventResetMode.AutoReset)
-            let ctx = { new IContext with member _.Wake() = wh.Set() |> ignore }
+            let ctx =
+                { new NotFeaturedContext() with
+                    override _.Wake() = wh.Set() |> ignore }
 
             let rec pollWhilePending (poller: NaiveFuture<'a>) =
                 let mutable poller = poller

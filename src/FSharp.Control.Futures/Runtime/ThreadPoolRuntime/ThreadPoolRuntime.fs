@@ -4,6 +4,7 @@ open System
 open System.Diagnostics
 open System.Threading
 open FSharp.Control.Futures
+open FSharp.Control.Futures.LowLevel
 open FSharp.Control.Futures.Runtime
 open FSharp.Control.Futures.Runtime.LowLevel
 
@@ -21,6 +22,7 @@ type private ThreadPoolFutureTask<'a>(fut: Future<'a>) =
             let msg = "System.Threading.ThreadPool.QueueUserWorkItem returns false"
             raise (UnreachableException(msg))
 
+    override this.Features() = EmptyFeatureProvider.Instance
 
 [<Class>]
 [<Sealed>]

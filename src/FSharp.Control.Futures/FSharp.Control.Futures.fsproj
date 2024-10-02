@@ -29,8 +29,8 @@
         <Compile Include="LowLevel\PrimaryMerge.fs" />
         <Compile Include="LowLevel\PrimaryNotify.fs" />
         <Compile Include="LowLevel\PrimaryOnceCell.fs" />
-        <Compile Include="LowLevel\Futures.fs" />
         <Compile Include="LowLevel\FuseFuture.fs" />
+        <Compile Include="LowLevel\Context.fs" />
         <Compile Include="Future.fs" />
         <Compile Include="Extensions.fs" />
         <Compile Include="Sync\Semaphore.fs" />
