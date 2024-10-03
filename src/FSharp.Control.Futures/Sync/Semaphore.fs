@@ -244,6 +244,7 @@ module Semaphore =
     let inline availablePermits (semaphore: Semaphore) : int = semaphore.AvailablePermits
     let inline acquire (semaphore: Semaphore) : Future<unit> = semaphore.Acquire()
     let inline acquireMany (permits: int) (semaphore: Semaphore) : Future<unit> = semaphore.Acquire(permits)
+    let inline acquireUp (permits: int) (semaphore: Semaphore) : int = semaphore.AcquireUp(permits)
     let inline tryAcquire (semaphore: Semaphore) : bool = semaphore.TryAcquire()
     let inline tryAcquireMany (permits: int) (semaphore: Semaphore) : bool = semaphore.TryAcquire(permits)
     let inline release (semaphore: Semaphore) : unit = semaphore.Release()
