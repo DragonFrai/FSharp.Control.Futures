@@ -1,3 +1,3 @@
 # FSharp.Control.Futures
 
-[Introduction](ru-RU/README.md)
+[Introduction](ru/README.md)
