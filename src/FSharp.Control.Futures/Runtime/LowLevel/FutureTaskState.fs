@@ -1,4 +1,4 @@
-namespace FSharp.Control.Futures.Runtime.LowLevel
+namespace FSharp.Control.Futures.LowLevel.Runtime
 
 open System
 open System.Threading
@@ -58,7 +58,7 @@ open Microsoft.FSharp.Core
 /// AwaiterExistsBit and AwaiterContextBit can be set in any states (Idle, Running, Complete).
 ///
 /// === THIS DOCUMENTATION PARTIALLY ACTUAL NOW ===
-/// </remarks>
+/// </summary>
 [<RequireQualifiedAccess>]
 module FutureTaskState =
 

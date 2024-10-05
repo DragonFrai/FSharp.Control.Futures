@@ -10,11 +10,8 @@ open FSharp.Control.Futures.LowLevel
 [<AutoOpen>]
 module Extensions =
 
-    [<RequireQualifiedAccess>]
-    module Future =
-
-        // TODO: move to internal internals module
-        type internal Sleep(duration: TimeSpan) =
+    module Futures =
+        type ClrThreadPoolTimerSleep(duration: TimeSpan) =
             let mutable _timer: Timer = nullObj
             let mutable _notify: PrimaryNotify = PrimaryNotify(false, false)
 
@@ -39,11 +36,12 @@ module Extensions =
                             _timer.Dispose()
                             _timer <- nullObj
 
-        // [run]
+    [<RequireQualifiedAccess>]
+    module Future =
 
         /// Spawn a Future on current thread and synchronously waits for its Ready
         /// The simplest implementation of the Future runtime.
-        /// Equivalent to `(Runtime.spawnOn anyRuntime).Join()`,
+        /// Equivalent to `(Runtime.spawn fut anyRuntime).Join()`,
         /// but without the cost of complex general purpose scheduler synchronization
         let runBlocking (fut: Future<'a>) : 'a =
             // The simplest implementation of the Future scheduler.
@@ -64,14 +62,19 @@ module Extensions =
 
             pollWhilePending (NaiveFuture(fut))
 
-        // [runtime based]
+        let inline private timespanMs (millisecondDuration: int) : TimeSpan =
+            TimeSpan(days=0, hours=0, minutes=0, seconds=0, milliseconds=millisecondDuration)
 
-        let sleep (duration: TimeSpan) : Future<unit> =
-            Sleep(duration)
+        let inline sleep (duration: TimeSpan) : Future<unit> =
+            Futures.ClrThreadPoolTimerSleep(duration)
 
         let sleepMs (millisecondDuration: int) =
-            let duration = TimeSpan(days=0, hours=0, minutes=0, seconds=0, milliseconds=millisecondDuration)
-            sleep duration
+            sleep (timespanMs millisecondDuration)
 
         let timeout (duration: TimeSpan) (fut: Future<'a>) : Future<Result<'a, TimeoutException>> =
-            Future.first (fut |> Future.map Ok) (sleep duration |> Future.map (fun _ -> Error (TimeoutException())))
+            Future.first
+                (fut |> Future.map Ok)
+                (sleep duration |> Future.map (fun _ -> Error (TimeoutException())))
+
+        let timeoutMs (millisecondDuration: int) (fut: Future<'a>) : Future<Result<'a, TimeoutException>> =
+            timeout (timespanMs millisecondDuration) fut

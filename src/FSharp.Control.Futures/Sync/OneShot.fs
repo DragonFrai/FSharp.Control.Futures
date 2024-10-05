@@ -39,8 +39,8 @@ type IOneShotRx<'a> =
     /// <code>
     /// future {
     ///     let tx, rx = OnoShot.createTxRx ()
-    ///     do ThreadPoolScheduler.spawn (createSenderFuture tx)
-    ///     let valueWithTimeout =
+    ///     let _fTask = ThreadPoolScheduler.spawn (createSenderFuture tx)
+    ///     let! valueWithTimeout =
     ///         Future.first (Future.map Ok rx.Await()) (Future.sleepMs 1000 |> Future.map (fun () -> Error "timeout"))
     /// }
     /// </code>
@@ -66,6 +66,12 @@ type IOneShotTx<'a> =
     /// true, если сообщение было успешно отправлено и false, если OneShot уже был закрыт.
     /// </returns>
     abstract Send: msg: 'a -> bool
+
+[<AutoOpen>]
+module IOneShotTxExtensions =
+    type IOneShotTx<'a> with
+        member inline this.DoSend(msg: 'a): unit =
+            this.Send(msg) |> ignore
 
 /// <summary>
 /// Single Produces Single Consumer (SPSC) channel for only one msg.

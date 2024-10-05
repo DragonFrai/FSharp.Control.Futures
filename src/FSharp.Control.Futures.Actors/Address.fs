@@ -43,9 +43,9 @@ type BaseAddress<'i, 'o>() =
         member this.Post(msg) =
             this.Post(msg)
 
-        member this.Send(msg) =
-            Future.delay (fun () ->
-                let os = OneShotImpl<'o>()
-                let msg = Msg(msg, os.AsTx)
-                this.Post(msg)
-                os.AsRx)
+        member this.Send(msg) = future {
+            let os = OneShot<'o>.Create()
+            let msg = Msg(msg, os)
+            do! this.Post(msg)
+            return! os.Await()
+        }

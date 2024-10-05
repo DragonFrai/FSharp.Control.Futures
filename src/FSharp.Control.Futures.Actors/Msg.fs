@@ -49,10 +49,10 @@ type Msg<'i, 'o> =
 
 [<RequireQualifiedAccess>]
 module Msg =
-    let create (msg: 'i) (reply: OneShotImpl<'o>) : Msg<'i, 'o> =
+    let create (msg: 'i) (reply: IOneShotTx<'o>) : Msg<'i, 'o> =
         Msg<'i, 'o>(msg, reply)
 
-    let createDyn (msg: 'i) (reply: OneShotImpl<'o>) : DynMsg =
+    let createDyn (msg: 'i) (reply: IOneShotTx<'o>) : DynMsg =
         Msg<'i, 'o>(msg, reply)
 
     let box (msg: Msg<'i, 'o>) : DynMsg =

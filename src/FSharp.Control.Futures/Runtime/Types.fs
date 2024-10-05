@@ -1,4 +1,4 @@
-namespace FSharp.Control.Futures.Runtime
+namespace rec FSharp.Control.Futures.Runtime
 
 open System
 open FSharp.Control.Futures
@@ -10,51 +10,74 @@ type FutureTaskAbortedException() = inherit Exception()
 type FutureTaskMultipleAwaitException() = inherit Exception()
 
 [<Struct>]
+[<RequireQualifiedAccess>]
 type AwaitMode =
     | Foreground // Abort on drop
     | Background // Not abort on drop
 
+// type AwaitException =
+//     inherit Exception
+//     val error: AwaitError
+//     new(error: AwaitError) = { inherit Exception($"{error}"); error = error }
+
 [<Struct>]
+[<RequireQualifiedAccess>]
 type AwaitError =
     | Aborted
     | Failed of exn
     // with
-    //     member this.IsAborted: bool = match this with AwaitError.Aborted -> true | _ -> false
-    //     member this.IsFailed: bool = match this with AwaitError.Failed _ -> true | _ -> false
+    //     member this.IsAborted': bool = match this with AwaitError.Aborted -> true | _ -> false
+    //     member this.IsFailed': bool = match this with AwaitError.Failed _ -> true | _ -> false
 
 type AwaitResult<'a> = Result<'a, AwaitError>
 
 /// <summary>
-/// Safe wrapper for spawned future. Allows to await and abort for a spawned Future. <br></br>
-///
+/// Safe wrapper for spawned Future. Allows to await and abort it. <br></br>
 /// </summary>
 type IFutureTask<'a> =
     /// <summary>
     /// Отменяет запущенную Future. В зависимости от реализации может как попросить планировщик вызвать <c>Drop</c> на
     /// фактической <c>Future</c> так и сделать это самостоятельно, блокируя вызывающий поток.
-    /// Допустим множественный вызов.
     /// </summary>
+    ///
+    /// <remarks>
+    /// - Учитывайте, что реализации могут и вовсе не поддерживать Abort и игнорировать его.
+    /// <br/>
+    /// - Допустим множественный вызов.
+    /// </remarks>
     abstract Abort: unit -> unit
 
     /// <summary>
-    /// Аналогичен <c>this.Await(false)</c>.
+    /// Получает Future, с помощью которой можно дождаться выполнения этой IFutureTask.
+    /// Возвращенная Future будет прерывать выполнение связанной IFutureTask при своем Drop.
+    /// (Аналогичен <c>this.Await(false)</c>)
     /// </summary>
+    ///
+    /// <remarks>
+    /// Выбор по-умолчанию обусловлен тем,
+    /// что в случае ошибок отсутствие работы обычно проще заметить, чем её игнорирование.
+    /// </remarks>
     abstract Await: unit -> Future<AwaitResult<'a>>
 
     /// <summary>
     /// Получает <c>Future</c>, с помощью которой можно дождаться выполнения этой <c>IFutureTask</c>.
-    /// В зависимости от флага <c>background</c>,
-    /// полученная <c>Future</c> (не) будет отменять задачу при своем <c>Drop</c>.
-    /// Чтобы отменить выполнение задачи, в любой момент, вызовете <c>Abort</c>.
-    /// То что ожидающая сторона не получит результат при этом не гарантируется.
+    /// Параметр <paramref name="background"/> определяет будет ли задача прекращаться при отбрасывании Future.
     /// </summary>
+    ///
+    /// <param name="background">
+    /// Режим отбрасывания возвращаемой Future.
+    /// При значении true, Drop не будет приводить к автоматическому вызову Abort запущенной задачи.
+    /// При значение false, Drop будет приводить к автоматическому вызову Abort запущенной задачи.
+    /// <br/>
+    /// Вы все еще можете вызывать Abort самостоятельно, это лишь приведет к возврату Error AwaitError.Aborted
+    /// ожидающей Future (при условии что рантайм поддерживает прекращение задач).
+    /// </param>
+    ///
     /// <remarks>
-    /// Для каждого экземпляра <c>IFutureTask</c> <c>Await</c> можно вызвать ТОЛЬКО один раз,
+    /// Для каждого экземпляра IFutureTask Await можно вызвать ТОЛЬКО один раз,
     /// (т.к. сам по себе он не обязан предоставлять механизм синхронизации множественного ожидания).
     /// Но если вам нужно ожидание единственной <c>Future</c> в нескольких местах, можете
     /// рассмотреть возможность использования <see cref="FSharp.Control.Futures.Sync.OnceVar">OnceVar</see>.
-    ///
-    /// Также реализации имеют право ничего не делать при Abort.
     /// </remarks>
     abstract Await: background: bool -> Future<AwaitResult<'a>>
 
@@ -64,8 +87,6 @@ type IFutureTask<'a> =
 /// <summary> Future Executor. Allows the Future to run for execution
 /// (for example, on its own or shared thread pool or on the current thread). </summary>
 type IRuntime =
-    inherit IDisposable
-
     abstract Spawn: future: Future<'a> -> IFutureTask<'a>
 
 

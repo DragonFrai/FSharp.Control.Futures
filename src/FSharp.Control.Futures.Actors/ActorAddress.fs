@@ -3,6 +3,7 @@ namespace FSharp.Control.Futures.Actors
 open FSharp.Control.Futures
 
 
+[<Interface>]
 type IActorAddress =
 
     /// TBD
@@ -10,6 +11,10 @@ type IActorAddress =
 
     /// TBD
     abstract Narrow<'i, 'o> : unit -> IAddress<'i, 'o>
+
+[<Interface>]
+type IActorAddress<'a> =
+    inherit IActorAddress
 
 [<RequireQualifiedAccess>]
 module ActorAddress =

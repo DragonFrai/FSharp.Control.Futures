@@ -1,26 +1,34 @@
-﻿open FSharp.Control.Futures
+﻿module FSharp.Control.Futures.Actors.Examples.Program
+
+open FSharp.Control.Futures
 open FSharp.Control.Futures.Actors
 open FSharp.Control.Futures.Runtime
 open FSharp.Control.Futures.Sync
 
 
-
 type HelloActor() =
     inherit HandlerActor()
 
-    interface IHandler<int ,string> with
+    interface IHandler<string ,string> with
         member this.Handle(_ctx, msg) = future {
-            printfn $"Hello, {msg.Msg}!"
-            msg.Reply.Send("dd")
+            msg.Reply.Send($"Hello, {msg.Msg}!") |> ignore
         }
 
-let arb = Arbiter(fun () -> HelloActor())
+let arb = Arbiter.Start({
+    Actor = HelloActor()
+    ActorId = ActorId("Hello")
+    MessageLoopRuntime = ThreadPoolRuntime.instance
+    BackgroundRuntime = ThreadPoolRuntime.instance
+})
 
-let addr = arb.Start(ThreadPoolRuntime.instance)
+let addr = arb.Address
 
-let os = OneShotImpl<string>()
-do addr.Post(Msg(12, os)) |> Future.runBlocking
-let r = os |> Future.runBlocking
-printfn $"Reply is {r}"
+let os = OneShot<string>.Create()
+do addr.Post(Msg("Steve", os)) |> Future.runBlocking
+let r = os.Await() |> Future.runBlocking
+printfn $"Reply is '{r}'"
 
-addr.Narrow<string, string>().Send("hello") |> Future.runBlocking
+future {
+    let! r = addr.Narrow<string, string>().Send("hello")
+    do printfn $"> {r}"
+} |> Future.runBlocking

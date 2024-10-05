@@ -5,22 +5,7 @@ open FSharp.Control.Futures.Runtime
 
 
 
-type ActorStatus =
-    | Starting
-    | Started
-    | Stopping
-    | Stopped
 
-    with
-        member this.IsAlive: bool =
-            match this with
-            | Starting | Started -> true
-            | Stopping | Stopped -> false
-
-        member this.IsDead: bool =
-            match this with
-            | Starting | Started -> false
-            | Stopping | Stopped -> true
 
 // [<RequireQualifiedAccess>]
 // type StopMode =
@@ -33,18 +18,14 @@ type IActorContext =
 
     abstract SelfAddress: IActorAddress
 
-    abstract Status: ActorStatus
-
     /// <summary>
     /// Stop receiving new messages and switch to Stopping status.
-    /// All already queued messages will be handled ignored if actor not restored from stopping.
+    /// All already queued messages will be ignored if actor not restored from stopping.
     /// </summary>
     abstract Stop: unit -> unit
 
     /// <summary>
     /// Stop receiving new messages and switch to Stopping status.
-    /// All already queued messages will be handled.
-    /// When all messages handled, switch to Stopped status.
     /// </summary>
     abstract Terminate: unit -> unit
 

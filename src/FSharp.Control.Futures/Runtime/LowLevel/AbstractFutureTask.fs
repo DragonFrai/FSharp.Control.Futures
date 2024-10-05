@@ -1,11 +1,11 @@
-namespace FSharp.Control.Futures.Runtime.LowLevel
+namespace FSharp.Control.Futures.LowLevel.Runtime
 
 open System
 open System.Diagnostics
 open FSharp.Control.Futures
-open FSharp.Control.Futures.LowLevel
-open FSharp.Control.Futures.Runtime.LowLevel
 open FSharp.Control.Futures.Runtime
+open FSharp.Control.Futures.LowLevel
+open FSharp.Control.Futures.LowLevel.Runtime
 open Microsoft.FSharp.Core
 
 
