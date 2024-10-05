@@ -12,7 +12,8 @@
         <Compile Include="ActorAddress.fs" />
         <Compile Include="Actor.fs" />
         <Compile Include="HandlerActor.fs" />
-        <Compile Include="Arbiter.fs" />
+        <Compile Include="Arbiter\Types.fs" />
+        <Compile Include="System.fs" />
         <Compile Include="Library.fs"/>
     </ItemGroup>
 

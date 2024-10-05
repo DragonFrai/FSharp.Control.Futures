@@ -1,12 +1,11 @@
 namespace FSharp.Control.Futures.Runtime
 
-open System
 open System.Diagnostics
 open System.Threading
 open FSharp.Control.Futures
-open FSharp.Control.Futures.LowLevel
 open FSharp.Control.Futures.Runtime
-open FSharp.Control.Futures.Runtime.LowLevel
+open FSharp.Control.Futures.LowLevel
+open FSharp.Control.Futures.LowLevel.Runtime
 
 
 [<Class>]
@@ -27,14 +26,9 @@ type private ThreadPoolFutureTask<'a>(fut: Future<'a>) =
 [<Class>]
 [<Sealed>]
 type ThreadPoolRuntime private () =
-    static member Instance: IRuntime = new ThreadPoolRuntime()
+    static member Instance: IRuntime = ThreadPoolRuntime()
 
     interface IRuntime with
-        member this.Dispose() =
-            let tyName = nameof(ThreadPoolRuntime)
-            let msg = $"{tyName} is a global singleton and cannot be disposed"
-            raise (InvalidOperationException(msg))
-
         member this.Spawn(fut): IFutureTask<'a> =
             let task = ThreadPoolFutureTask(fut)
             do task.Start()

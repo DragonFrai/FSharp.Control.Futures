@@ -16,7 +16,11 @@ type Reply<'a> =
     member this.Reply(reply: 'a): unit =
         this.tx.Send(reply) |> ignore
 
-/// <summary> Multiple Producer Single Consumer (MPSC) synchronisation channel designed like F# MailboxProcessor </summary>
+/// <summary> Multiple Producer Single Consumer (MPSC) synchronisation channel designed like F# MailboxProcessor.
+/// Mailbox does not duplicate messages between multiple recipients,
+/// but you can repeatedly call <c>Receive</c> without waiting for the previous one,
+/// each receiving will receive one of the messages in the begin waiting order. </summary>
+///
 /// <remarks> It is planned that this will be the only type of channels within the framework of the usual Future.
 /// More specialized channels will be included in FSharp.Control.Futures.Streams </remarks>
 type [<Sealed>] Mailbox<'m> =

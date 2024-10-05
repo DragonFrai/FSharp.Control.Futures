@@ -48,7 +48,6 @@
         <Compile Include="Runtime\LowLevel\FutureTaskState.fs" />
         <Compile Include="Runtime\LowLevel\AbstractFutureTask.fs" />
         <Compile Include="Runtime\ThreadPoolRuntime\ThreadPoolRuntime.fs" />
-        <Compile Include="Runtime\Runtimes.fs" />
         <Compile Include="Transforms.fs" />
         <Compile Include="IO.fs" />
     </ItemGroup>
