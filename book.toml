@@ -1,0 +1,6 @@
+[book]
+title = "FSharp.Control.Futures book"
+authors = ["Vladislav Podporkin", "Prunkles"]
+description = "FSharp.Control.Futures library documentation"
+src = "docs"
+language = "ru"
