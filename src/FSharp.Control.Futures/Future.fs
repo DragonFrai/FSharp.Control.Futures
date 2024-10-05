@@ -275,6 +275,11 @@ module Future =
         |> inspect (fun _ -> do finalizer ())
         |> map (fun x -> match x with Ok r -> r | Error ex -> raise ex)
 
+    // let inline tryFinallyM (body: Future<'a>) (finalizer: unit -> Future<unit>): Future<'a> =
+    //     catch body
+    //     |> inspectM (fun _ -> finalizer ())
+    //     |> map (fun x -> match x with Ok r -> r | Error ex -> raise ex)
+
     /// <summary> Creates a Future that returns control flow to the runtime once </summary>
     /// <returns> Future that returns control flow to the runtime once </returns>
     let inline yieldWorkflow () : Future<unit> =
@@ -337,6 +342,9 @@ type FutureBuilder() =
 
     member inline _.TryFinally(body: unit -> Future<'a>, finalizer: unit -> unit): Future<'a> =
         Future.tryFinally (Future.delay body) finalizer
+
+    // member inline _.TryFinally(body: unit -> Future<'a>, finalizer: unit -> Future<unit>): Future<'a> =
+    //     Future.tryFinallyM (Future.delay body) finalizer
 
     member inline _.Using<'d, 'a when 'd :> IDisposable>(disposable: 'd, body: 'd -> Future<'a>): Future<'a> =
         let body' = fun () -> body disposable
