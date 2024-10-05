@@ -158,8 +158,8 @@ module FutureApmTransforms =
                 let ctx =
                     { new NotFeaturedContext() with
                         override this.Wake() =
-                            if asyncResult.IsCompleted then invalidOp "Cannot call Wait when Future is Ready"
-                            startPollOnContext this }
+                            if not asyncResult.IsCompleted then
+                                startPollOnContext this }
 
                 startPollOnContext ctx
 
