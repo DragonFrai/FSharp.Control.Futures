@@ -1,24 +1,4 @@
-# Запуск Future
-
-
-## Запуск на текущем потоке
-
-Future можно запустить на текущем потоке используя `Future.runBlocking`.
-Переданная Future запустится, а вызывающий поток будет заблокирован
-пока не получится результат.
-```fsharp
-let fut = future {
-    let! name = Future.ready "Alex"
-    do! Future.sleepMs 1000
-    return $"Hello, {name}!"
-}
-
-let phrase = fut |> Future.runBlocking
-printfn $"{phrase}"
-```
-
-
-## Запуск используя Runtime
+# Запуск Future используя Runtime
 
 Future можно запустить на Runtime.
 Runtime это планировщик для нескольких параллельно выполняющихся Future,

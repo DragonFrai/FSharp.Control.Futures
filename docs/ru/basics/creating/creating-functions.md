@@ -1,9 +1,4 @@
-# Создание объекта Future
-
-Создать асинхронное вычисление в лице Future можно большим количеством способов.
-
-
-## Использование функций-комбинаторов
+# Создание Future используя функции-комбинаторы
 
 Используя функции модуля Future можно создать базовые и получить скомбинированные
 вариации Future. Разберем базовые функции создания.
@@ -74,7 +69,7 @@ let doManyWorkWithCrossResults =
         doWork2 val1
         |> Future.bind (fun val2 ->
             doWork3 val1 val2
-            |> Future.bind (fun val 3 -> ...)))
+            |> Future.bind (fun val3 -> ...)))
 ```
 
 Future.bind позволяет соединять асинхронные вычисления в последовательную цепочку,
@@ -116,103 +111,3 @@ let doubleFut = fut |> Future.bind (fun () -> fut)
 let doubleFut = someAsyncWork () |> Future.bind (fun () -> someAsyncWork ())
 ```
 </div>
-
-
-## Использование Future CE
-
-Future имеет свой CE, который используется также как async или task CE встроенные в F#.
-Более подробно о CE вы можете прочитать на [сайте](https://learn.microsoft.com/en-us/dotnet/fsharp/language-reference/computation-expressions).
-
-Например, мы можем заменить базовые функции создания на future CE:
-```fsharp
-let ready = future { return "Hello, world!" } // ~ Future.ready "Hello, world!"
-let lazy' = future { return (foo ()) } // ~ Future.lazy' (fun () -> foo ())
-```
-
-Наиболее важным свойством CE является упрощение работы с bind.
-Пример чтения-записи можно переписать используя CE так:
-
-```fsharp
-// readFileAsync: filePath: string -> Future<string>
-// writeFileAsync: filePath: string -> content: string -> Future<unit>
-let readAndWriteFuture = futur {
-    let! content = readFileAsync "my-file.txt"
-    return! writeFileAsync "other-file.txt" content
-}
-```
-
-Видимым преимуществом CE является возможность "уплощить" цепочка bind, зависимых между собой.
-Пример множественно зависимых bind можно переписать так:
-
-```fsharp
-let doManyWorkWithCrossResults = future {
-    let! val1 = doWork1 ()
-    let! val2 = doWork2 val1
-    let! val3 = doWork3 val1 val2
-    ...
-    let! valN = doWorkN val1 val2 ... valPrevN
-}
-```
-
-Также CE добавляют синтаксис и для Future.merge или Future.catch комбинаторов.
-
-```fsharp
-let parallelCE = future {
-    let! val1 = doWork1 ()
-    and! val2 = doWork2 ()
-    and! val3 = doWork3 ()
-}
-```
-
-```fsharp
-let catchCE = future {
-    try
-        do! doWork ()
-    with ex ->
-        printfn $"{ex}"
-}
-```
-
-```fsharp
-let tryFinally = future {
-    try
-        do! doWork ()
-    finally
-        do finallize ()
-}
-```
-
-
-## Преобразование из Async и Task
-
-Существующие Async и Task можно преобразовать в Future и использовать результат их работы.
-Исходные Async и Task будут запущены на своих родных системах запуска, но их результат будет
-передан через возвращенную Future.
-
-```fsharp
-let asyncToFuture = Future.ofAsync (async { ... })
-let taskToFuture = Future.ofTask (task { ... })
-```
-
-Возможны и обратные преобразования. При этом Future будут запущены на механизме запуска
-соответствующего примитива при запуске этого примитива.
-
-```fsharp
-let futureToAsync = Future.ofAsync (async { ... })
-let futureToTask = Future.ofTask (task { ... })
-```
-
-
-## Ручная реализация Future
-
-Future это всего-лишь интерфейс с методами Poll и Drop.
-Можно создать свою Future просто реализовав их.
-
-Ручная реализация Future корректным образом не такая тривиальная задача,
-требующая ручной реализации конечного или не очень автомата.
-Поэтому не рекомендуется делать это, только если Вы не разрабатываете
-API для использования механизма асинхронности на низком уровне.
-
-Объяснения и более подробные примеры следует искать в более продвинутых главах.
-
-
