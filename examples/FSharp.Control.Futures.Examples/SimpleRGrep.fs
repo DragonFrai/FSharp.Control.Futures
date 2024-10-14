@@ -28,7 +28,7 @@ let readFileLimited (sizeLimit: int64) (path: string) = future {
 }
 
 
-let findFilesRec (root: string) (files: MutexCell<Queue<string>>) (isEnded: bool ref) = future {
+let findFilesRec (root: string) (files: MutexVar<Queue<string>>) (isEnded: bool ref) = future {
     let rec scanDir dir = future {
         for file in Directory.GetFiles(dir) do
             do! files.Mutate(_.Enqueue(file))
@@ -41,7 +41,7 @@ let findFilesRec (root: string) (files: MutexCell<Queue<string>>) (isEnded: bool
 }
 
 let scanAllRec (path: string) (content: string) (runtime: IRuntime) (parallelismLevel: int) = future {
-    let files = MutexCell(Queue())
+    let files = MutexVar(Queue())
     let isEnded = ref false
     // let entries = MutexCell(Queue())
     let consoleMutex = Mutex()

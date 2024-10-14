@@ -5,7 +5,7 @@ open FSharp.Control.Futures
 
 [<Class>]
 [<Sealed>]
-type MutexCell<'a> =
+type MutexVar<'a> =
 
     val private mutex: Mutex
 
@@ -109,35 +109,35 @@ type MutexCell<'a> =
 [<RequireQualifiedAccess>]
 module MutexCell =
 
-    let inline create<'a> (initial: 'a) : MutexCell<'a> =
-        MutexCell(initial)
+    let inline create<'a> (initial: 'a) : MutexVar<'a> =
+        MutexVar(initial)
 
-    let inline get (mCell: MutexCell<'a>) : Future<'a> =
+    let inline get (mCell: MutexVar<'a>) : Future<'a> =
         mCell.Get()
 
-    let inline set (value: 'a) (mCell: MutexCell<'a>) : Future<unit> =
+    let inline set (value: 'a) (mCell: MutexVar<'a>) : Future<unit> =
         mCell.Set(value)
 
-    let inline lock (f: 'a -> 'b) (mCell: MutexCell<'a>) : Future<'b> =
+    let inline lock (f: 'a -> 'b) (mCell: MutexVar<'a>) : Future<'b> =
         mCell.Lock(f)
 
-    let inline lockIn (f: 'a -> Future<'b>) (mCell: MutexCell<'a>) : Future<'b> =
+    let inline lockIn (f: 'a -> Future<'b>) (mCell: MutexVar<'a>) : Future<'b> =
         mCell.LockIn(f)
 
-    let inline update (f: 'a -> 'a) (mCell: MutexCell<'a>) : Future<unit> =
+    let inline update (f: 'a -> 'a) (mCell: MutexVar<'a>) : Future<unit> =
         mCell.Update(f)
 
-    let inline updateIn (f: 'a -> Future<'a>) (mCell: MutexCell<'a>) : Future<unit> =
+    let inline updateIn (f: 'a -> Future<'a>) (mCell: MutexVar<'a>) : Future<unit> =
         mCell.UpdateIn(f)
 
-    let inline updateWith (f: 'a -> 'a * 'b) (mCell: MutexCell<'a>) : Future<'b> =
+    let inline updateWith (f: 'a -> 'a * 'b) (mCell: MutexVar<'a>) : Future<'b> =
         mCell.UpdateWith(f)
 
-    let inline updateWithIn (f: 'a -> Future<'a * 'b>) (mCell: MutexCell<'a>) : Future<'b> =
+    let inline updateWithIn (f: 'a -> Future<'a * 'b>) (mCell: MutexVar<'a>) : Future<'b> =
         mCell.UpdateWithIn(f)
 
-    let inline mutate (f: 'a -> unit) (mCell: MutexCell<'a>) : Future<unit> =
+    let inline mutate (f: 'a -> unit) (mCell: MutexVar<'a>) : Future<unit> =
         mCell.Mutate(f)
 
-    let inline mutateIn (f: 'a -> Future<unit>) (mCell: MutexCell<'a>) : Future<unit> =
+    let inline mutateIn (f: 'a -> Future<unit>) (mCell: MutexVar<'a>) : Future<unit> =
         mCell.MutateIn(f)
