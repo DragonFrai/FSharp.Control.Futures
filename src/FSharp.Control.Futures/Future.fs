@@ -260,12 +260,11 @@ module Future =
     let inline catch (source: Future<'a>) : Future<Result<'a, exn>> =
         upcast Futures.TryWith(Futures.Map(source, Ok), fun ex -> Futures.Ready(Error ex))
 
-    // TODO: Rename one of inspect* functions (maybe watch)
-    let inline inspectM (inspector: 'a -> Future<unit>) (fut: Future<'a>) : Future<'a> =
+    let inline inspectAsync (inspector: 'a -> Future<unit>) (fut: Future<'a>) : Future<'a> =
         fut |> bind (fun x -> inspector x |> bind (fun () -> ready x))
 
     let inline inspect (inspector: 'a -> unit) (fut: Future<'a>) : Future<'a> =
-        fut |> inspectM (fun x -> lazy' (fun () -> inspector x))
+        fut |> inspectAsync (fun x -> lazy' (fun () -> inspector x))
 
     let inline tryWith (body: Future<'a>) (handler: exn -> Future<'a>) : Future<'a> =
         upcast Futures.TryWith(body, handler)

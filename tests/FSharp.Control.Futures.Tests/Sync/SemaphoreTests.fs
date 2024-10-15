@@ -1,47 +1,107 @@
 module FSharp.Control.Futures.Tests.Sync.SemaphoreTests
 
 open FSharp.Control.Futures
+open FSharp.Control.Futures.LowLevel
 open FSharp.Control.Futures.Runtime
 open FSharp.Control.Futures.Sync
 open Xunit
 
 
-// TODO: Add drop future test as in mutex
+// [ TryAcquire ]
 
 [<Fact>]
-let ``Semaphore creating with 0 permits``() =
-    let _s = Semaphore(0)
-    ()
+let ``Try acquire (init with 0 permits)``() =
+    let s = Semaphore(0)
+    do Assert.False(s.TryAcquire())
+    do s.Release()
+    do Assert.True(s.TryAcquire())
 
 [<Fact>]
-let ``Try acquire``() =
+let ``Try acquire (init with 1 permits)``() =
     let s = Semaphore(1)
-    do
-        do Assert.True(s.TryAcquire())
-        do Assert.False(s.TryAcquire())
-        do s.Release()
+    do Assert.True(s.TryAcquire())
+    do Assert.False(s.TryAcquire())
+    do s.Release()
     do Assert.True(s.TryAcquire())
 
-[<Theory>]
-[<Repeat(100)>]
-let ``Acquire``() =
+[<Fact>]
+let ``Try acquire many``() =
     let s = Semaphore(1)
-    do Assert.True(s.TryAcquire())
-    let fTask = ThreadPoolRuntime.spawn (future {
-        return! s.Acquire()
-    })
+    do Assert.False(s.TryAcquire(3))
+    do s.Release(2)
+    do Assert.True(s.TryAcquire(3))
+
+
+// [ Acquire ]
+
+[<Fact>]
+let ``Acquire ready immediate``() =
+    let s = Semaphore(0)
+    let fTask = mkTestFutureTask (s.Acquire())
     s.Release(1)
-    Assert.Equal(Ok (), fTask.Await() |> Future.runBlocking)
+    Assert.Equal(NaivePoll.Ready (), fTask.Poll())
     ()
 
 [<Fact>]
-let ``Semaphore max permits``() =
-    let _s = Semaphore(Semaphore.MaxPermits)
-    let s' = Semaphore(Semaphore.MaxPermits - 1)
-    s'.Release(1)
+let ``Acquire pending``() =
+    let s = Semaphore(0)
+    let fTask = mkTestFutureTask (s.Acquire())
+    Assert.Equal(NaivePoll.Pending, fTask.Poll())
+    s.Release(1)
+    Assert.Equal(NaivePoll.Ready (), fTask.Poll(true))
+    ()
 
 [<Fact>]
-let ``Semaphore max permits overflow``() =
+let ``Acquire dropped acquire not take permits``() =
+    let s = Semaphore(0)
+    let fTask = mkTestFutureTask (s.Acquire())
+    Assert.Equal(NaivePoll.Pending, fTask.Poll())
+    s.Release(1)
+    Assert.True(fTask.IsWaked)
+    fTask.Drop()
+    Assert.Equal(1, s.AvailablePermits)
+    Assert.Equal(true, s.TryAcquire())
+    Assert.Equal(0, s.AvailablePermits)
+    ()
+
+[<Fact>]
+let ``Acquire next AcquireFuture waked on drop prev``() =
+    let s = Semaphore(0)
+    let fTask1 = mkTestFutureTask (s.Acquire())
+    let fTask2 = mkTestFutureTask (s.Acquire())
+    Assert.Equal(NaivePoll.Pending, fTask1.Poll())
+    Assert.Equal(NaivePoll.Pending, fTask2.Poll())
+    s.Release(1)
+    Assert.True(fTask1.IsWaked)
+    fTask1.Drop()
+    Assert.Equal(NaivePoll.Ready (), fTask2.Poll(true))
+    ()
+
+
+// [ Max permits ]
+
+[<Fact>]
+let ``Semaphore new max permits``() =
+    let s = Semaphore(Semaphore.MaxPermits)
+    Assert.Equal(Semaphore.MaxPermits, s.AvailablePermits)
+
+[<Fact>]
+let ``Semaphore add max permits (0 + max)``() =
+    let s = Semaphore(0)
+    s.Release(Semaphore.MaxPermits)
+    Assert.Equal(Semaphore.MaxPermits, s.AvailablePermits)
+
+[<Fact>]
+let ``Semaphore add max permits ((max - 1) + 1)``() =
+    let s = Semaphore(Semaphore.MaxPermits - 1)
+    s.Release(1)
+    Assert.Equal(Semaphore.MaxPermits, s.AvailablePermits)
+
+
+// [ Overflows ]
+
+[<Fact>]
+let ``Semaphore new permits overflow``() =
     let _ex = Assert.ThrowsAny(fun () ->
         let _s = Semaphore(Semaphore.MaxPermits + 1)
         ()
@@ -49,23 +109,19 @@ let ``Semaphore max permits overflow``() =
     ()
 
 [<Fact>]
-let ``Semaphore add max permits``() =
-    let s = Semaphore(0)
-    s.Release(Semaphore.MaxPermits)
-    Assert.Equal(Semaphore.MaxPermits, s.AvailablePermits)
-
-[<Fact>]
-let ``Semaphore add permits overflow 1``() =
+let ``Semaphore add permits overflow (1 + max)``() =
     let s = Semaphore(1)
     let _ex = Assert.ThrowsAny(fun () -> s.Release(Semaphore.MaxPermits))
     ()
 
 [<Fact>]
-let ``Semaphore add permits overflow 2``() =
-    let s = Semaphore(Semaphore.MaxPermits - 1)
-    do s.Release(1)
+let ``Semaphore add permits overflow (max + 1)``() =
+    let s = Semaphore(Semaphore.MaxPermits)
     let _ex = Assert.ThrowsAny(fun () -> s.Release(1))
     ()
+
+
+// [ Stress tests ]
 
 [<Fact>]
 let ``Semaphore counter stress test``() =
@@ -88,7 +144,8 @@ let ``Semaphore counter stress test``() =
 
     do semaphore.Release(1)
     for wTask in workerTasks do
-        wTask.Await() |> Future.runBlocking
+        let r = wTask.Await() |> Future.runBlocking
+        Assert.Equal(r, Ok ())
 
     Assert.Equal(expectedResult, counter)
 
@@ -111,7 +168,8 @@ let ``Semaphore stress test``() =
         workerTasks <- fTask :: workerTasks
 
     for wTask in workerTasks do
-        wTask.Await() |> Future.runBlocking
+        let r = wTask.Await() |> Future.runBlocking
+        Assert.Equal(r, Ok ())
 
     Assert.True(semaphore.TryAcquire(5))
     Assert.False(semaphore.TryAcquire(1))

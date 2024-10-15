@@ -16,7 +16,7 @@
   - [On runtime](ru/basics/running/running-runtime.md)
 
 - [Synchronisation]()
-  - ["Low-level" synchronisation primitives]()
+
     - [Semaphore]()
     - [Barrier]()
     - [Mutex]()
@@ -24,12 +24,13 @@
     - [Notify]()
     - [CondVar]()
     - [OneShot]()
-  - ["High level" synchronisation primitives]()
+
     - [OnceVar]()
     - [LazyVar]()
     - [MutexVar]()
     - [RwLockVar]()
     - [Mailbox]()
+
 
 # Advanced
 

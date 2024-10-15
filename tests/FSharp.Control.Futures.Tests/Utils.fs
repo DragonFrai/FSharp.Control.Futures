@@ -155,5 +155,5 @@ type TestFutureTask<'a> =
     member this.Drop(): unit =
         this.fut.Drop()
 
-let spawn (fut: Future<'a>): TestFutureTask<'a> =
+let mkTestFutureTask (fut: Future<'a>): TestFutureTask<'a> =
     TestFutureTask(fut)

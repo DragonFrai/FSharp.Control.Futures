@@ -10,7 +10,7 @@ open Xunit
 [<Fact>]
 let ``Notify one``() =
     let n = Notify()
-    let waitFTask = spawn (n.Wait())
+    let waitFTask = mkTestFutureTask (n.Wait())
     Assert.Equal(NaivePoll.Pending, waitFTask.Poll())
     n.Notify()
     Assert.Equal(NaivePoll.Ready (), waitFTask.Poll())
@@ -19,8 +19,8 @@ let ``Notify one``() =
 let ``Notify two``() =
     let n = Notify()
 
-    let waitFTask1 = spawn (n.Wait())
-    let waitFTask2 = spawn (n.Wait())
+    let waitFTask1 = mkTestFutureTask (n.Wait())
+    let waitFTask2 = mkTestFutureTask (n.Wait())
 
     Assert.Equal(NaivePoll.Pending, waitFTask1.Poll())
     Assert.Equal(NaivePoll.Pending, waitFTask2.Poll())
@@ -39,9 +39,9 @@ let ``Notify two``() =
 let ``Multiple notify with waiters notify only notified number waiters``() =
     let n = Notify()
 
-    let fTask1 = spawn (n.Wait())
-    let fTask2 = spawn (n.Wait())
-    let fTask3 = spawn (n.Wait())
+    let fTask1 = mkTestFutureTask (n.Wait())
+    let fTask2 = mkTestFutureTask (n.Wait())
+    let fTask3 = mkTestFutureTask (n.Wait())
 
     Assert.Equal(NaivePoll.Pending, fTask1.Poll())
     Assert.Equal(NaivePoll.Pending, fTask2.Poll())
@@ -58,8 +58,8 @@ let ``Multiple notify with waiters notify only notified number waiters``() =
 let ``Multiple notify without waiters notify only one waiter``() =
     let n = Notify()
 
-    let fTask1 = spawn (n.Wait())
-    let fTask2 = spawn (n.Wait())
+    let fTask1 = mkTestFutureTask (n.Wait())
+    let fTask2 = mkTestFutureTask (n.Wait())
 
     n.Notify()
     n.Notify()
@@ -70,8 +70,8 @@ let ``Multiple notify without waiters notify only one waiter``() =
 [<Fact>]
 let ``Creating Wait future not queued it to notification``() =
     let n = Notify()
-    let waitFTask1 = spawn (n.Wait())
-    let waitFTask2 = spawn (n.Wait())
+    let waitFTask1 = mkTestFutureTask (n.Wait())
+    let waitFTask2 = mkTestFutureTask (n.Wait())
 
     n.Notify()
     Assert.Equal(NaivePoll.Ready (), waitFTask2.Poll())
@@ -85,8 +85,8 @@ let ``Creating Wait future not queued it to notification``() =
 let ``Drop not enabled Wait future do not block queue``() =
     let n = Notify()
 
-    let fTask1 = spawn (n.Wait())
-    let fTask2 = spawn (n.Wait())
+    let fTask1 = mkTestFutureTask (n.Wait())
+    let fTask2 = mkTestFutureTask (n.Wait())
 
     fTask1.Drop()
 
@@ -98,8 +98,8 @@ let ``Drop not enabled Wait future do not block queue``() =
 let ``Drop enabled Wait future do not block queue``() =
     let n = Notify()
 
-    let fTask1 = spawn (n.Wait())
-    let fTask2 = spawn (n.Wait())
+    let fTask1 = mkTestFutureTask (n.Wait())
+    let fTask2 = mkTestFutureTask (n.Wait())
 
     Assert.Equal(NaivePoll.Pending, fTask1.Poll())
     fTask1.Drop()
@@ -112,8 +112,8 @@ let ``Drop enabled Wait future do not block queue``() =
 let ``Drop enabled and notified Wait future do not block queue``() =
     let n = Notify()
 
-    let fTask1 = spawn (n.Wait())
-    let fTask2 = spawn (n.Wait())
+    let fTask1 = mkTestFutureTask (n.Wait())
+    let fTask2 = mkTestFutureTask (n.Wait())
 
     Assert.Equal(NaivePoll.Pending, fTask1.Poll())
     Assert.Equal(NaivePoll.Pending, fTask2.Poll())
@@ -129,7 +129,7 @@ let ``Drop enabled and notified Wait future do not block queue``() =
 let ``Notify after drop all``() =
     let n = Notify()
 
-    let fTask1 = n.Wait() |> spawn
+    let fTask1 = n.Wait() |> mkTestFutureTask
 
     Assert.Equal(NaivePoll.Pending, fTask1.Poll())
 
@@ -138,7 +138,7 @@ let ``Notify after drop all``() =
 
     fTask1.Drop()
 
-    let fTask2 = n.Wait() |> spawn
+    let fTask2 = n.Wait() |> mkTestFutureTask
 
     Assert.Equal(NaivePoll.Ready (), fTask2.Poll())
 

@@ -7,6 +7,10 @@ open Xunit
 
 
 [<Fact>]
+let ``func ~ class``() =
+    Assert.True(Future.ready 12 :? Futures.Ready<int>)
+
+[<Fact>]
 let ``Future.ready future returns passed arg``() =
     let x = 12
     let fut = Future.ready x
