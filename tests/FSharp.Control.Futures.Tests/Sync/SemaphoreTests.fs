@@ -121,6 +121,52 @@ let ``Semaphore add permits overflow (max + 1)``() =
     ()
 
 
+// [ Fifo ]
+
+[<Fact>]
+let ``Single permits fifo``() =
+    let s = Semaphore(0)
+    let fTask1 = mkTestFutureTask (s.Acquire())
+    let fTask2 = mkTestFutureTask (s.Acquire())
+
+    Assert.Equal(NaivePoll.Pending, fTask1.Poll())
+    s.Release()
+    Assert.Equal(NaivePoll.Pending, fTask2.Poll())
+    Assert.Equal(NaivePoll.Ready (), fTask1.Poll())
+
+    ()
+
+[<Fact>]
+let ``Multiple permits fifo (todo: imp fifo)``() =
+    Assert.ThrowsAny(fun () ->
+        let s = Semaphore(1)
+        let fTask1 = mkTestFutureTask (s.Acquire(2))
+        let fTask2 = mkTestFutureTask (s.Acquire(1))
+
+        Assert.Equal(NaivePoll.Pending, fTask1.Poll())
+        Assert.Equal(NaivePoll.Pending, fTask2.Poll())
+        s.Release(1)
+        Assert.Equal(NaivePoll.Ready (), fTask1.Poll())
+        Assert.False(fTask2.IsWaked)
+        s.Release(1)
+        Assert.Equal(NaivePoll.Ready (), fTask2.Poll())
+    ) |> ignore
+
+    ()
+
+[<Fact>]
+let ``Multiple permits fifo not works (drain logic)``() =
+    let s = Semaphore(1)
+    let fTask1 = mkTestFutureTask (s.Acquire(2))
+    let fTask2 = mkTestFutureTask (s.Acquire(1))
+
+    Assert.Equal(NaivePoll.Pending, fTask1.Poll())
+    Assert.Equal(NaivePoll.Ready (), fTask2.Poll())
+    s.Release(2)
+    Assert.Equal(NaivePoll.Ready (), fTask1.Poll())
+    ()
+
+
 // [ Stress tests ]
 
 [<Fact>]
