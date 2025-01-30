@@ -11,22 +11,34 @@ exception SemaphoreClosedException
 exception SemaphorePermitsOverflowException
 
 
+type internal AcquireState =
+
+    static member inline IsQueued(acquire: SemaphoreAcquire) : bool =
+        acquire.state <> -1
+
+    static member inline IsNotQueued(acquire: SemaphoreAcquire) : bool =
+        acquire.state = -1
+
+
 type internal SemaphoreAcquire =
     inherit IntrusiveNode<SemaphoreAcquire>
 
     val semaphore: Semaphore
-    val permits: int
-    val mutable queued: int // -1 if not queued
+    val acquiredPermits: int
+    /// <summary>
+    /// Atomic state, that
+    /// contains remaining permits or -1 if SemaphoreAcquire not queued
+    /// </summary>
+    val mutable state: int
     val mutable primaryNotify: PrimaryNotify
+
+    member inline this.UnsatisfiedPermits = this.acquiredPermits - this.state
 
     new(semaphore: Semaphore, permits: int) =
         { semaphore = semaphore
-          permits = permits
-          queued = -1
+          acquiredPermits = permits
+          state = -1
           primaryNotify = PrimaryNotify(false, false) }
-
-    member inline this.IsQueued = this.queued <> -1
-    member inline this.IsNotQueued = this.queued = -1
 
     interface IFuture<unit> with
         member this.Poll(ctx) =
@@ -34,10 +46,10 @@ type internal SemaphoreAcquire =
         member this.Drop() =
             this.semaphore.DropAcquire(this)
 
-type SemaphoreState' = int
-[<Struct>]
+type internal SemaphoreStateT = int
+
+/// Contains non-negative permits count or -1 for closed state
 type internal SemaphoreState =
-    // Contains non-negative permits count or -1 for closed state
 
     static member inline New(permits: int): int =
         if permits < 0 then
@@ -69,6 +81,9 @@ type internal SemaphoreState =
         if state < 0 then raise SemaphorePermitsOverflowException
         else state
 
+    static member inline SubPermitsUnchecked(state: int, permits: int): int =
+        state - permits
+
     static member inline CompareExchange(stateRef: int byref, newState: int, comparandState: int): int =
         Interlocked.CompareExchange(&stateRef, newState, comparandState)
 
@@ -80,26 +95,21 @@ type internal SemaphoreState =
 //     | Lifo
 //     | Drain
 
-// TODO: Гарантировать порядок Fifo.
-//       Сейчас если пришел мелкий запрос на ресурсы после большого поставленного в очередь,
-//       мелкий будет удовлетворен независимо от наличия большего в очереди.
-//       Альтернатива: Вообще не думать о гарантировании порядка.
-//       Примечание: Запрос считается пришедшим после вызова Poll AcquireFuture, а не после вызова метода Acquire семафора.
-
 /// <summary>
 /// Async Semaphore implementation.
 /// </summary>
 type Semaphore =
 
     val mutable internal state: int // Semaphore state
-    val internal syncObj: obj
+    val internal queueLock: obj
+    // Accessing require lock on syncObj
     val mutable internal acquiresQueue: IntrusiveList<SemaphoreAcquire>
 
     static member inline MaxPermits: int = Int32.MaxValue
 
     private new(state: int, syncObj: obj, acquireQueue: IntrusiveList<SemaphoreAcquire>) =
         { state = state
-          syncObj = syncObj
+          queueLock = syncObj
           acquiresQueue = acquireQueue }
 
     new(initialPermits: int) =
@@ -115,30 +125,28 @@ type Semaphore =
     // <Internal>
 
     member internal this.PollAcquire(acquire: SemaphoreAcquire, ctx: IContext): Poll<unit> =
-        lock this.syncObj ^fun () ->
-            if acquire.IsNotQueued then
-                let state = this.state
-                SemaphoreState.AssertNotClosed(state)
-                if SemaphoreState.Permits(state) >= acquire.permits then
-                    this.state <- SemaphoreState.AddPermits(state, -acquire.permits)
-                    acquire.queued <- acquire.permits
+        let mutable acquire = acquire
+        lock this.queueLock ^fun () ->
+            if AcquireState.IsNotQueued(acquire) then
+                let semaphoreState = this.state
+                SemaphoreState.AssertNotClosed(semaphoreState)
+                let availablePermits = SemaphoreState.Permits(semaphoreState)
+                if availablePermits >= acquire.acquiredPermits then
+                    this.state <- SemaphoreState.SubPermitsUnchecked(semaphoreState, acquire.acquiredPermits)
+                    acquire.state <- acquire.acquiredPermits
                     acquire.primaryNotify.Notify() |> ignore
                 else
-                    acquire.queued <- acquire.permits
+                    this.state <- SemaphoreState.Permits(0)
+                    acquire.state <- availablePermits
                     this.acquiresQueue.PushBack(acquire)
             else
-                if not acquire.primaryNotify.IsNotified then
-                    let state = this.state
-                    SemaphoreState.AssertNotClosed(state)
-                    if SemaphoreState.Permits(state) >= acquire.permits then
-                        this.state <- SemaphoreState.AddPermits(state, -acquire.permits)
-                        acquire.primaryNotify.Notify() |> ignore
-                    else
-                        ()
+                // Already queued. Wait Notify. (permits count updated while Releasing)
+                ()
 
         if acquire.primaryNotify.Poll(ctx)
         then
             let state = this.state
+            // TODO: Determine fact of closing using notification property
             if SemaphoreState.IsClosed(state)
             then raise SemaphoreClosedException
             else Poll.Ready ()
@@ -148,28 +156,34 @@ type Semaphore =
         let mutable state = this.state
         SemaphoreState.AssertNotClosed(state)
         state <- SemaphoreState.AddPermits(state, permits)
-        while (isNotNull this.acquiresQueue.startNode) && SemaphoreState.Permits(state) >= this.acquiresQueue.startNode.permits do
-            let next = this.acquiresQueue.PopFront()
-            state <- SemaphoreState.SubPermits(state, next.permits)
-            do next.primaryNotify.Notify() |> ignore
+        let mutable doLoop = true
+        while doLoop && (isNotNull this.acquiresQueue.startNode) do
+            let availablePermits = SemaphoreState.Permits(state)
+            let nextAcquire = this.acquiresQueue.startNode
+            if availablePermits >= nextAcquire.UnsatisfiedPermits then
+                let next = this.acquiresQueue.PopFront()
+                state <- SemaphoreState.SubPermitsUnchecked(state, next.UnsatisfiedPermits)
+                do next.primaryNotify.Notify() |> ignore
+            else
+                doLoop <- false
         this.state <- state
 
     member internal this.DropAcquire(acquire: SemaphoreAcquire): unit =
-        if not (acquire.queued >= 0) then
+        if not (acquire.state >= 0) then
             ()
         else
-            lock this.syncObj ^fun () ->
+            lock this.queueLock ^fun () ->
                 let wasInQueue = this.acquiresQueue.Remove(acquire)
                 if wasInQueue then
                     // Acquire future wait permits. Adding permits not required
                     ()
                 else
-                    this.ReleasePermitsNoLock(acquire.permits)
+                    this.ReleasePermitsNoLock(acquire.acquiredPermits)
 
     member internal this.ReleasePermits(permits: int) =
         if permits = 0 then ()
         else
-            lock this.syncObj ^fun () ->
+            lock this.queueLock ^fun () ->
                 this.ReleasePermitsNoLock(permits)
 
     // </Internal>
@@ -182,7 +196,7 @@ type Semaphore =
     member this.TryAcquire(permits: int): bool =
         if permits = 0 then true
         else
-        lock this.syncObj ^fun () ->
+        lock this.queueLock ^fun () ->
             let state = this.state
             SemaphoreState.AssertNotClosed(state)
             if SemaphoreState.Permits(state) < permits then
@@ -194,15 +208,15 @@ type Semaphore =
     member this.TryAcquire(): bool =
         this.TryAcquire(1)
 
-    /// <summary>
-    /// Decrease a semaphore permits by maximum of `permits`.
-    /// If it’s not possible to reduce by `permits`,
-    /// reduce the number of permits to 0 and returns their number.
-    /// </summary>
-    /// <param name="permits"> Maximum of decreased permits </param>
-    /// <returns> Number of permits that were actually reduced </returns>
-    member this.AcquireUp(permits: int): int =
-        failwith "TODO"
+    // /// <summary>
+    // /// Decrease a semaphore permits by maximum of `permits`.
+    // /// If it’s not possible to reduce by `permits`,
+    // /// reduce the number of permits to 0 and returns their number.
+    // /// </summary>
+    // /// <param name="permits"> Maximum of decreased permits </param>
+    // /// <returns> Number of permits that were actually reduced </returns>
+    // member this.AcquireUp(permits: int): int =
+    //     failwith "TODO"
 
     member this.Acquire(permits: int): Future<unit> =
         Trace.Assert(permits <= Semaphore.MaxPermits, "MaxPermits has been exceeded")
@@ -232,7 +246,7 @@ type Semaphore =
         if SemaphoreState.IsClosed(this.state) then ()
         else
             let acquireQueue =
-                lock this.syncObj ^fun () ->
+                lock this.queueLock ^fun () ->
                     this.state <- SemaphoreState.Close(this.state)
                     this.acquiresQueue.Drain()
             acquireQueue |>

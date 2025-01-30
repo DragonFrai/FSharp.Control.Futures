@@ -36,9 +36,16 @@ let ``Try acquire many``() =
 
 [<Fact>]
 let ``Acquire ready immediate``() =
+    let s = Semaphore(1)
+    let fTask = mkTestFutureTask (s.Acquire())
+    Assert.Equal(NaivePoll.Ready (), fTask.Poll())
+    ()
+
+[<Fact>]
+let ``Acquire ready immediate with Release``() =
     let s = Semaphore(0)
     let fTask = mkTestFutureTask (s.Acquire())
-    s.Release(1)
+    s.Release()
     Assert.Equal(NaivePoll.Ready (), fTask.Poll())
     ()
 
@@ -137,34 +144,18 @@ let ``Single permits fifo``() =
     ()
 
 [<Fact>]
-let ``Multiple permits fifo (todo: imp fifo)``() =
-    Assert.ThrowsAny(fun () ->
-        let s = Semaphore(1)
-        let fTask1 = mkTestFutureTask (s.Acquire(2))
-        let fTask2 = mkTestFutureTask (s.Acquire(1))
-
-        Assert.Equal(NaivePoll.Pending, fTask1.Poll())
-        Assert.Equal(NaivePoll.Pending, fTask2.Poll())
-        s.Release(1)
-        Assert.Equal(NaivePoll.Ready (), fTask1.Poll())
-        Assert.False(fTask2.IsWaked)
-        s.Release(1)
-        Assert.Equal(NaivePoll.Ready (), fTask2.Poll())
-    ) |> ignore
-
-    ()
-
-[<Fact>]
-let ``Multiple permits fifo not works (drain logic)``() =
+let ``Multiple permits fifo``() =
     let s = Semaphore(1)
     let fTask1 = mkTestFutureTask (s.Acquire(2))
     let fTask2 = mkTestFutureTask (s.Acquire(1))
 
     Assert.Equal(NaivePoll.Pending, fTask1.Poll())
-    Assert.Equal(NaivePoll.Ready (), fTask2.Poll())
-    s.Release(2)
+    Assert.Equal(NaivePoll.Pending, fTask2.Poll())
+    s.Release(1)
     Assert.Equal(NaivePoll.Ready (), fTask1.Poll())
-    ()
+    Assert.False(fTask2.IsWaked)
+    s.Release(1)
+    Assert.Equal(NaivePoll.Ready (), fTask2.Poll())
 
 
 // [ Stress tests ]
