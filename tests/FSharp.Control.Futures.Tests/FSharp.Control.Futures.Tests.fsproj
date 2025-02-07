@@ -9,7 +9,7 @@
     <ItemGroup>
         <Compile Include="Utils.fs" />
         <Compile Include="Combinators\ReadyTests.fs" />
-        <Compile Include="Combinators\NeverTests.fs" />
+        <Compile Include="Combinators\PendingTests.fs" />
         <Compile Include="Combinators\LazyTests.fs" />
         <Compile Include="Combinators\BindTests.fs" />
         <Compile Include="Combinators\FuseTests.fs" />

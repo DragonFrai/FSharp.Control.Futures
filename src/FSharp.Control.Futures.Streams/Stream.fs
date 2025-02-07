@@ -23,8 +23,8 @@ module Streams =
             member this.Drop() = do ()
 
     [<Sealed>]
-    type Never<'a> private () =
-        static member Instance = Never<'a>()
+    type Pending<'a> private () =
+        static member Instance = Pending<'a>()
         interface IStream<'a> with
             member this.PollNext(_ctx) = PollNext.Pending
             member this.Drop() = do ()
@@ -247,8 +247,8 @@ module Stream =
     let inline always (value: 'a) : Stream<'a> =
         Streams.Always(value)
 
-    let inline never<'a> : Stream<'a> =
-        Streams.Never.Instance
+    let inline pending<'a> : Stream<'a> =
+        Streams.Pending.Instance
 
     let inline single (value: 'a) : Stream<'a> =
         Streams.Seq([value])

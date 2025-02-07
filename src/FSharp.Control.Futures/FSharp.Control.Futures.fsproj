@@ -31,6 +31,7 @@
         <Compile Include="LowLevel\PrimaryOnceCell.fs" />
         <Compile Include="LowLevel\FuseFuture.fs" />
         <Compile Include="LowLevel\Context.fs" />
+        <Compile Include="Futures.fs" />
         <Compile Include="Future.fs" />
         <Compile Include="Extensions.fs" />
         <Compile Include="Sync\Semaphore.fs" />
