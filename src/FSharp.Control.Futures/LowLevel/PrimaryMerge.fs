@@ -37,7 +37,7 @@ type PrimaryMerge<'a, 'b> =
                 | NaivePoll.Ready result -> this._PutResult1(result)
                 | NaivePoll.Pending -> ()
             with ex ->
-                this._poller1.Terminate() // TODO: NaiveFuture already terminate on exception...
+                this._poller1.SetNull() // TODO: NaiveFuture already terminate on exception...
                 this._poller2.Drop()
                 raise ex
         if this._IsNoResult2 then
@@ -46,7 +46,7 @@ type PrimaryMerge<'a, 'b> =
                 | NaivePoll.Ready result -> this._PutResult2(result)
                 | NaivePoll.Pending -> ()
             with ex ->
-                this._poller2.Terminate()
+                this._poller2.SetNull()
                 this._poller1.Drop()
                 raise ex
 

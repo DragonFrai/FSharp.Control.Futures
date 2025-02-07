@@ -128,11 +128,11 @@ module Futures =
                             | NaivePoll.Pending ->
                                 Poll.Pending
                         with ex ->
-                            poller2.Terminate()
+                            poller2.SetNull()
                             poller1.Drop()
                             raise ex
                 with _ ->
-                    poller1.Terminate()
+                    poller1.SetNull()
                     poller2.Drop()
                     reraise ()
 
@@ -178,7 +178,7 @@ module Futures =
                         handler <- nullObj
                         Poll.Ready x
                 with ex ->
-                    poller.Terminate()
+                    poller.SetNull()
                     let h = handler
                     handler <- nullObj
                     Poll.Transit (h ex)

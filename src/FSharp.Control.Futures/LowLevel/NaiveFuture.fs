@@ -29,42 +29,43 @@ module NaivePoll =
         | NaivePoll.Pending -> true
         | _ -> false
 
-/// Утилита автоматически обрабатывающая Transit от опрашиваемой футуры.
-/// На данный момент, один из бонусов -- обработка переходов в терминальное состояние
-/// для завершения с результатом или исключением и отмены.
+/// <summary>
+/// A wrapper that automatically handles Transit from inner Future.
+/// </summary>
 /// (TODO: если try без фактического исключения не абсолютно бесплатен, есть смысл убрать его отсюда)
 [<Struct; NoComparison; NoEquality>]
 type NaiveFuture<'a> =
-    val mutable public Internal: Future<'a>
-    new(fut: Future<'a>) = { Internal = fut }
+    val mutable public Inner: Future<'a>
+    new(fut: Future<'a>) = { Inner = fut }
 
-    member inline this.IsTerminated: bool = isNull this.Internal
-    member inline this.Terminate() : unit = this.Internal <- nullObj
+    member inline this.IsNull: bool = isNull this.Inner
+    member inline this.IsNotNull: bool = isNotNull this.Inner
+    member inline this.SetNull() : unit = this.Inner <- nullObj
+    static member inline Null : NaiveFuture<'a> = NaiveFuture(nullObj)
 
     member inline this.Poll(ctx: IContext) : NaivePoll<'a> =
         let mutable result = Unchecked.defaultof<_>
         let mutable doLoop = true
         while doLoop do
             let poll =
-                try this.Internal.Poll(ctx)
+                try this.Inner.Poll(ctx)
                 with e ->
-                    this.Internal <- nullObj
+                    this.Inner <- nullObj
                     reraise ()
-
             match poll with
             | Poll.Ready r ->
-                this.Internal <- nullObj
+                this.Inner <- nullObj
                 doLoop <- false
                 result <- NaivePoll.Ready r
             | Poll.Pending ->
                 doLoop <- false
                 result <- NaivePoll.Pending
             | Poll.Transit transitTo ->
-                this.Internal <- transitTo
+                this.Inner <- transitTo
         result
 
     member inline this.Drop() : unit =
         // Set null before drop call, because drop can throw exception
-        let internal' = this.Internal
-        this.Internal <- nullObj
-        internal'.Drop()
+        let inner' = this.Inner
+        this.Inner <- nullObj
+        inner'.Drop()

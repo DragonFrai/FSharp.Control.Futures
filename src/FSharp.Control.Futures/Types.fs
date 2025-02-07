@@ -17,7 +17,9 @@ type [<Struct; RequireQualifiedAccess>]
     | Transit of transitTo: IFuture<'a>
 
 /// <summary>
-///# Ideal Future poll schema:
+/// Poll based async primitive with single return value.
+///
+/// Ideal Future poll schema:
 /// 1. Complete with result:
 ///   [ Poll.Pending -> ... -> Poll.Pending ] -> Poll.Ready x -> [ ! FutureTerminatedException ]
 /// 2. Complete with transit
@@ -25,7 +27,13 @@ type [<Struct; RequireQualifiedAccess>]
 /// 3. Complete with exception (~ complete with result)
 ///   [ Poll.Pending -> ... -> Poll.Pending ] -> raise exn -> [ ! FutureTerminatedException ]
 /// </summary>
-and IFuture<'a> =
+/// <remarks>
+/// The Future is not required to throw exception in terminated state.
+/// Polling or Dropping Future in terminated state - Undefined Behaviour.
+/// </remarks>
+and [<Interface>]
+    IFuture<'a> =
+
     /// <summary> Poll the state </summary>
     /// <param name="context"> Current Computation context </param>
     /// <returns> Current state </returns>

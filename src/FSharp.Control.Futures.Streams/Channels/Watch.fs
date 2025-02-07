@@ -51,13 +51,13 @@ module Watch =
             member this.PollNext(cx) =
                 lock syncObj (fun () ->
                     if isStreamClosed then raise StreamClosedException
-                    if isSinkClosed then StreamPoll.Completed
+                    if isSinkClosed then PollNext.Completed
                     else
                         match value with
-                        | ValueSome x -> StreamPoll.Next x
+                        | ValueSome x -> PollNext.Next x
                         | ValueNone ->
                             waiter <- cx
-                            StreamPoll.Pending )
+                            PollNext.Pending )
 
     let create (): ISink<'a> * Stream<'a> =
         let ch = WatchChannel()

@@ -16,8 +16,9 @@ module Extensions =
             let mutable _notify: PrimaryNotify = PrimaryNotify(false, false)
 
             member internal this.OnWake() : unit =
-                let _isSuccess = _notify.Notify()
                 _timer <- nullObj
+                let _isSuccess = _notify.Notify()
+                ()
 
             interface Future<unit> with
                 member this.Poll(ctx) =

@@ -16,8 +16,9 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <Compile Include="Utils.fs" />
-        <Compile Include="Core.fs" />
+        <Compile Include="Types.fs" />
+        <Compile Include="LowLevel\Utils.fs" />
+        <Compile Include="LowLevel\NaiveStream.fs" />
         <Compile Include="Stream.fs" />
         <Compile Include="Builders.fs" />
         <Compile Include="FutureBuilderExtension.fs" />
