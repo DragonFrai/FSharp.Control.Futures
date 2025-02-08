@@ -40,7 +40,7 @@ type ArbiterAddress(arbiterMailbox: Mailbox<ArbiterMsg>) =
     override this.Post(msg: DynMsg): Future<unit> = future {
         // Exn if stopped
         let arbMsg = ArbiterMsg.Msg msg
-        do arbiterMailbox.Post(arbMsg)
+        do arbiterMailbox.Send(arbMsg)
         return ()
     }
 

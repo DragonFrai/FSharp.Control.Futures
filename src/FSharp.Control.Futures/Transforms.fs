@@ -194,7 +194,7 @@ module FutureTaskTransforms =
                     elif task.IsCanceled then Error task.Exception
                     elif task.IsCompletedSuccessfully then Ok task.Result
                     else invalidOp "Unreachable"
-                txrx.AsTx.Send(taskResult)
+                txrx.AsTx.TrySend(taskResult)
             ) |> ignore
 
             txrx.Await() |> Future.map (function Ok x -> x | Error ex -> raise ex)

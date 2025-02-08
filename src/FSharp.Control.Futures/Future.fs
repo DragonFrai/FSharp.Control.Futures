@@ -74,18 +74,18 @@ module Future =
     let inline catch (source: Future<'a>) : Future<Result<'a, exn>> =
         upcast Futures.TryWith(Futures.Map(source, Ok), fun ex -> Futures.Ready(Error ex))
 
-    let inline inspectAsync (inspector: 'a -> Future<unit>) (fut: Future<'a>) : Future<'a> =
+    let inline inspect (inspector: 'a -> Future<unit>) (fut: Future<'a>) : Future<'a> =
         fut |> bind (fun x -> inspector x |> bind (fun () -> ready x))
 
-    let inline inspect (inspector: 'a -> unit) (fut: Future<'a>) : Future<'a> =
-        fut |> inspectAsync (fun x -> lazy' (fun () -> inspector x))
+    let inline inspectBlocking (inspector: 'a -> unit) (fut: Future<'a>) : Future<'a> =
+        fut |> inspect (fun x -> lazy' (fun () -> inspector x))
 
     let inline tryWith (body: Future<'a>) (handler: exn -> Future<'a>) : Future<'a> =
         upcast Futures.TryWith(body, handler)
 
     let inline tryFinally (body: Future<'a>) (finalizer: unit -> unit): Future<'a> =
         catch body
-        |> inspect (fun _ -> do finalizer ())
+        |> inspectBlocking (fun _ -> do finalizer ())
         |> map (fun x -> match x with Ok r -> r | Error ex -> raise ex)
 
     // let inline tryFinallyM (body: Future<'a>) (finalizer: unit -> Future<unit>): Future<'a> =

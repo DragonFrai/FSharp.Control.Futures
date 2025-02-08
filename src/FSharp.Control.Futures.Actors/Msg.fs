@@ -25,7 +25,7 @@ type DynMsg internal () =
 [<Sealed>]
 type Msg<'i, 'o> =
     val Msg: 'i
-    val Reply: IOneShotTx<'o>
+    val Reply: OneShotTx<'o>
 
     new(msg, reply) =
         { inherit DynMsg(); Msg = msg; Reply = reply }
@@ -49,10 +49,10 @@ type Msg<'i, 'o> =
 
 [<RequireQualifiedAccess>]
 module Msg =
-    let create (msg: 'i) (reply: IOneShotTx<'o>) : Msg<'i, 'o> =
+    let create (msg: 'i) (reply: OneShotTx<'o>) : Msg<'i, 'o> =
         Msg<'i, 'o>(msg, reply)
 
-    let createDyn (msg: 'i) (reply: IOneShotTx<'o>) : DynMsg =
+    let createDyn (msg: 'i) (reply: OneShotTx<'o>) : DynMsg =
         Msg<'i, 'o>(msg, reply)
 
     let box (msg: Msg<'i, 'o>) : DynMsg =
