@@ -31,7 +31,7 @@ let readFileLimited (sizeLimit: int64) (path: string) = future {
 let findFilesRec (root: string) (files: MutexVar<Queue<string>>) (isEnded: bool ref) = future {
     let rec scanDir dir = future {
         for file in Directory.GetFiles(dir) do
-            do! files.Mutate(_.Enqueue(file))
+            do! files.MutateSync(_.Enqueue(file))
         for dir in Directory.GetDirectories(dir) do
             do! scanDir dir
         do! Future.yieldWorkflow ()
@@ -63,7 +63,7 @@ let scanAllRec (path: string) (content: string) (runtime: IRuntime) (parallelism
     }
 
     let rec scanFileWorker () = future {
-        match! files.Lock(_.TryDequeue()) with
+        match! files.LockSync(_.TryDequeue()) with
         | true, file ->
             // do! consoleMutex.Lock()
             // printfn $"Scanning file: {file}"

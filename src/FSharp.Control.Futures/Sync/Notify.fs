@@ -19,13 +19,15 @@ type Notify =
     val mutable private waitCounter: int // 1 - set, 0 - unset, < 0 - has waiters
     val private semaphore: Semaphore
 
-    new(notified: bool) =
+    private new(notified: bool) =
         { waitCounter = if notified then 1 else 0
           semaphore = Semaphore(0) }
 
     new() =
         Notify(false)
 
+    static member Notified(): Notify =
+        Notify(true)
 
     member this.Wait() : Future<unit> = future {
         let newWaitCounter = Interlocked.Add(&this.waitCounter, -1)
@@ -70,7 +72,7 @@ type Notify =
 [<RequireQualifiedAccess>]
 module Notify =
     let inline create () = Notify()
-    let inline notified () = Notify(true)
+    let inline notified () = Notify.Notified()
     let inline wait (notify: Notify) : Future<unit> = notify.Wait()
     let inline notify (notify: Notify) : unit = notify.Notify()
     let inline notifyWaiters (notify: Notify) : unit = notify.NotifyWaiters()

@@ -77,7 +77,7 @@ module Future =
     let inline inspect (inspector: 'a -> Future<unit>) (fut: Future<'a>) : Future<'a> =
         fut |> bind (fun x -> inspector x |> bind (fun () -> ready x))
 
-    let inline inspectBlocking (inspector: 'a -> unit) (fut: Future<'a>) : Future<'a> =
+    let inline inspectSync (inspector: 'a -> unit) (fut: Future<'a>) : Future<'a> =
         fut |> inspect (fun x -> lazy' (fun () -> inspector x))
 
     let inline tryWith (body: Future<'a>) (handler: exn -> Future<'a>) : Future<'a> =
@@ -85,7 +85,7 @@ module Future =
 
     let inline tryFinally (body: Future<'a>) (finalizer: unit -> unit): Future<'a> =
         catch body
-        |> inspectBlocking (fun _ -> do finalizer ())
+        |> inspectSync (fun _ -> do finalizer ())
         |> map (fun x -> match x with Ok r -> r | Error ex -> raise ex)
 
     // let inline tryFinallyM (body: Future<'a>) (finalizer: unit -> Future<unit>): Future<'a> =

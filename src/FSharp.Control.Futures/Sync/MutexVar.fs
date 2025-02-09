@@ -1,7 +1,9 @@
-namespace FSharp.Control.Futures.Sync
+namespace rec FSharp.Control.Futures.Sync
 
 open FSharp.Control.Futures
 
+
+// TODO: Add MutexVarScope and scope based locks
 
 [<Class>]
 [<Sealed>]
@@ -14,6 +16,9 @@ type MutexVar<'a> =
 
     new(value: 'a) = { mutex = Mutex(); value = value }
 
+
+    member this.MutexUnchecked: Mutex =
+        this.mutex
 
     member this.ValueUnchecked
         with get () : 'a = this.value
@@ -41,33 +46,25 @@ type MutexVar<'a> =
         return ()
     }
 
-    /// <summary>
-    /// Like `.Get` function, but can extract part of value
-    /// </summary>
-    /// <param name="f"></param>
-    member this.Lock(f: 'a -> 'b): Future<'b> = future {
-        do! this.mutex.Lock()
-        let r = f this.value
-        do this.mutex.Unlock()
-        return r
-    }
-
-    member this.LockIn(f: 'a -> Future<'b>): Future<'b> = future {
+    member this.Lock(f: 'a -> Future<'b>): Future<'b> = future {
         do! this.mutex.Lock()
         let! r = f this.value
         do this.mutex.Unlock()
         return r
     }
 
-    member this.Update(f: 'a -> 'a): Future<unit> = future {
+    /// <summary>
+    /// Like `.Get` function, but can extract part of value
+    /// </summary>
+    /// <param name="f"></param>
+    member this.LockSync(f: 'a -> 'b): Future<'b> = future {
         do! this.mutex.Lock()
-        let newValue = f this.value
-        do this.value <- newValue
+        let r = f this.value
         do this.mutex.Unlock()
-        return ()
+        return r
     }
 
-    member this.UpdateIn(f: 'a -> Future<'a>): Future<unit> = future {
+    member this.Update(f: 'a -> Future<'a>): Future<unit> = future {
         do! this.mutex.Lock()
         let! newValue = f this.value
         do this.value <- newValue
@@ -75,15 +72,15 @@ type MutexVar<'a> =
         return ()
     }
 
-    member this.UpdateWith(f: 'a -> 'a * 'b): Future<'b> = future {
+    member this.UpdateSync(f: 'a -> 'a): Future<unit> = future {
         do! this.mutex.Lock()
-        let newValue, r = f this.value
+        let newValue = f this.value
         do this.value <- newValue
         do this.mutex.Unlock()
-        return r
+        return ()
     }
 
-    member this.UpdateWithIn(f: 'a -> Future<'a * 'b>): Future<'b> = future {
+    member this.UpdateWith(f: 'a -> Future<'a * 'b>): Future<'b> = future {
         do! this.mutex.Lock()
         let! newValue, r = f this.value
         do this.value <- newValue
@@ -91,16 +88,24 @@ type MutexVar<'a> =
         return r
     }
 
-    member this.Mutate(f: 'a -> unit): Future<unit> = future {
+    member this.UpdateWithSync(f: 'a -> 'a * 'b): Future<'b> = future {
         do! this.mutex.Lock()
-        do f this.value
+        let newValue, r = f this.value
+        do this.value <- newValue
+        do this.mutex.Unlock()
+        return r
+    }
+
+    member this.Mutate(f: 'a -> Future<unit>): Future<unit> = future {
+        do! this.mutex.Lock()
+        do! f this.value
         do this.mutex.Unlock()
         return ()
     }
 
-    member this.MutateIn(f: 'a -> Future<unit>): Future<unit> = future {
+    member this.MutateSync(f: 'a -> unit): Future<unit> = future {
         do! this.mutex.Lock()
-        do! f this.value
+        do f this.value
         do this.mutex.Unlock()
         return ()
     }
@@ -118,26 +123,26 @@ module MutexCell =
     let inline set (value: 'a) (mCell: MutexVar<'a>) : Future<unit> =
         mCell.Set(value)
 
-    let inline lock (f: 'a -> 'b) (mCell: MutexVar<'a>) : Future<'b> =
+    let inline lock (f: 'a -> Future<'b>) (mCell: MutexVar<'a>) : Future<'b> =
         mCell.Lock(f)
 
-    let inline lockIn (f: 'a -> Future<'b>) (mCell: MutexVar<'a>) : Future<'b> =
-        mCell.LockIn(f)
+    let inline lockSync (f: 'a -> 'b) (mCell: MutexVar<'a>) : Future<'b> =
+        mCell.LockSync(f)
 
-    let inline update (f: 'a -> 'a) (mCell: MutexVar<'a>) : Future<unit> =
+    let inline update (f: 'a -> Future<'a>) (mCell: MutexVar<'a>) : Future<unit> =
         mCell.Update(f)
 
-    let inline updateIn (f: 'a -> Future<'a>) (mCell: MutexVar<'a>) : Future<unit> =
-        mCell.UpdateIn(f)
+    let inline updateSync (f: 'a -> 'a) (mCell: MutexVar<'a>) : Future<unit> =
+        mCell.UpdateSync(f)
 
-    let inline updateWith (f: 'a -> 'a * 'b) (mCell: MutexVar<'a>) : Future<'b> =
+    let inline updateWith (f: 'a -> Future<'a * 'b>) (mCell: MutexVar<'a>) : Future<'b> =
         mCell.UpdateWith(f)
 
-    let inline updateWithIn (f: 'a -> Future<'a * 'b>) (mCell: MutexVar<'a>) : Future<'b> =
-        mCell.UpdateWithIn(f)
+    let inline updateWithSync (f: 'a -> 'a * 'b) (mCell: MutexVar<'a>) : Future<'b> =
+        mCell.UpdateWithSync(f)
 
-    let inline mutate (f: 'a -> unit) (mCell: MutexVar<'a>) : Future<unit> =
+    let inline mutate (f: 'a -> Future<unit>) (mCell: MutexVar<'a>) : Future<unit> =
         mCell.Mutate(f)
 
-    let inline mutateIn (f: 'a -> Future<unit>) (mCell: MutexVar<'a>) : Future<unit> =
-        mCell.MutateIn(f)
+    let inline mutateSync (f: 'a -> unit) (mCell: MutexVar<'a>) : Future<unit> =
+        mCell.MutateSync(f)

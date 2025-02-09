@@ -4,6 +4,7 @@ open System
 open FSharp.Control.Futures
 
 
+[<Sealed>]
 type Mutex =
     val private semaphore: Semaphore
 
@@ -20,9 +21,9 @@ type Mutex =
         this.Lock() |> Future.runBlocking
 
     member this.Unlock(): unit =
-        // TODO: Not correct checking invalid mutex usage
+        // TODO: Not thread safe checking invalid mutex usage
         if this.semaphore.AvailablePermits > 0 then invalidOp "Unlocking not locked mutex"
-        this.semaphore.Release()
+        this.semaphore.Release() // TODO: Implement ReleaseUp in Semaphore
 
 
 [<RequireQualifiedAccess>]

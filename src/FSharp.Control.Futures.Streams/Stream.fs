@@ -279,7 +279,7 @@ module Stream =
     let inline bind binder source =
         collect binder source
 
-    let inline iterBlocking (action: 'a -> unit) (source: Stream<'a>) : IFuture<unit> =
+    let inline iterSync (action: 'a -> unit) (source: Stream<'a>) : IFuture<unit> =
         let action value =
             do action value
             Future.unit'
@@ -288,7 +288,7 @@ module Stream =
     let inline iter (action: 'a -> IFuture<unit>) (source: Stream<'a>) : IFuture<unit> =
         Futures.IterAsync(action, source)
 
-    let inline foldBlocking (folder: 's -> 'a -> 's) (initState: 's) (source: Stream<'a>): IFuture<'s> =
+    let inline foldSync (folder: 's -> 'a -> 's) (initState: 's) (source: Stream<'a>): IFuture<'s> =
         let folder state value =
             let state = folder state value
             Future.ready state

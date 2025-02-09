@@ -98,6 +98,7 @@ type internal SemaphoreState =
 /// <summary>
 /// Async Semaphore implementation.
 /// </summary>
+[<Sealed>]
 type Semaphore =
 
     val mutable internal state: int // Semaphore state

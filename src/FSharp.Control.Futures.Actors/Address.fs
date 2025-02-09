@@ -6,8 +6,29 @@ open FSharp.Control.Futures.Sync
 
 type IAddress<'i, 'o> =
 
-    // TODO: Add immediate not async version
-    abstract Post: Msg<'i, 'o> -> Future<unit>
+    // [ Basis functions ]
+
+    /// <summary>
+    /// Sends the message and waits for it to be accepted
+    /// (the sender will wait until the recipient's input queue is full).
+    /// </summary>
+    abstract SendMsg: Msg<'i, 'o> -> Future<unit>
+
+    // /// <summary>
+    // /// Send message but ignore queue capacity
+    // /// </summary>
+    // abstract PushMsg: Msg<'i, 'o> -> unit
+    //
+    // /// <summary>
+    // /// Send message if message queue is not full.
+    // /// </summary>
+    // /// <returns>
+    // /// - true if message was sent <br></br>
+    // /// - false if message ignored
+    // /// </returns>
+    // abstract TrySendMsg: Msg<'i, 'o> -> bool
+
+    // [ Derived functions ]
 
     /// <summary>
     /// Отправляет сообщение актору и ожидает ответа.
@@ -40,12 +61,12 @@ type BaseAddress<'i, 'o>() =
 
     interface IAddress<'i, 'o> with
 
-        member this.Post(msg) =
+        member this.SendMsg(msg) =
             this.Post(msg)
 
         member this.Send(msg) = future {
             let os = OneShot<'o>.Create()
-            let msg = Msg(msg, os)
+            let msg = Msg(msg, os.AsTx)
             do! this.Post(msg)
             return! os.Await()
         }
