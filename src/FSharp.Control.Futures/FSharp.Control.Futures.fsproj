@@ -41,11 +41,12 @@
         <Compile Include="Sync\Mutex.fs" />
         <Compile Include="Sync\RwLock.fs" />
         <Compile Include="Sync\Notify.fs" />
-        <Compile Include="Sync\OneShot.fs" />
         <Compile Include="Sync\OnceVar.fs" />
         <Compile Include="Sync\MutexVar.fs" />
         <Compile Include="Sync\RwLockVar.fs" />
-        <Compile Include="Sync\Mailbox.fs" />
+        <Compile Include="Sync\Channels\Channel.fs" />
+        <Compile Include="Sync\Channels\OneShot.fs" />
+        <Compile Include="Sync\Channels\Mailbox.fs" />
         <Compile Include="Runtime\Types.fs" />
         <Compile Include="Runtime\TaskId.fs" />
         <Compile Include="Runtime\LowLevel\FutureTaskState.fs" />
