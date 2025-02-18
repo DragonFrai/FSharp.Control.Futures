@@ -32,6 +32,7 @@
         <Compile Include="LowLevel\FuseFuture.fs" />
         <Compile Include="LowLevel\Context.fs" />
         <Compile Include="LowLevel\OneShotImpl.fs" />
+        <Compile Include="Cancelling.fs" />
         <Compile Include="Futures.fs" />
         <Compile Include="Future.fs" />
         <Compile Include="Extensions.fs" />

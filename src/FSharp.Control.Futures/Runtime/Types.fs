@@ -2,6 +2,7 @@ namespace rec FSharp.Control.Futures.Runtime
 
 open System
 open FSharp.Control.Futures
+open FSharp.Control.Futures.Cancelling
 
 
 // [ Exception ]
@@ -35,6 +36,7 @@ type AwaitResult<'a> = Result<'a, AwaitError>
 /// Safe wrapper for spawned Future. Allows to await and cancel it. <br></br>
 /// </summary>
 type IFutureTask<'a> =
+
     /// <summary>
     /// Отменяет запущенную Future. В зависимости от реализации может как попросить планировщик вызвать <c>Drop</c> на
     /// фактической <c>Future</c> так и сделать это самостоятельно, блокируя вызывающий поток.
@@ -46,6 +48,8 @@ type IFutureTask<'a> =
     /// - Допустим множественный вызов.
     /// </remarks>
     abstract Cancel: unit -> unit
+
+    abstract CancelHandle: ICancelHandle
 
     /// <summary>
     /// Получает Future, с помощью которой можно дождаться выполнения этой IFutureTask.

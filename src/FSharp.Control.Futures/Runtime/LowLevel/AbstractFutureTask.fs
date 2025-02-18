@@ -3,6 +3,7 @@ namespace FSharp.Control.Futures.LowLevel.Runtime
 open System
 open System.Diagnostics
 open FSharp.Control.Futures
+open FSharp.Control.Futures.Cancelling
 open FSharp.Control.Futures.Runtime
 open FSharp.Control.Futures.LowLevel
 open FSharp.Control.Futures.LowLevel.Runtime
@@ -206,6 +207,14 @@ type AbstractFutureTask<'a> =
 
     // [/AWAITER_PART]
 
+    member this.CancelAndSchedule(): unit =
+        let r = this.State.SetCancelAndNotify()
+        if r then this.Schedule()
+
+    interface ICancelHandle with
+        member this.Cancel(): unit =
+            this.CancelAndSchedule()
+
     interface IFutureTask<'a> with
         member this.Await(background: bool): Future<AwaitResult<'a>> =
             if this.AwaiterState <> AwaiterState.NotAwaited then
@@ -222,6 +231,7 @@ type AbstractFutureTask<'a> =
             (this :> IFutureTask<'a>).Await(false)
 
         member this.Cancel(): unit =
-            let r = this.State.SetCancelAndNotify()
-            if r then this.Schedule()
+            this.CancelAndSchedule()
 
+        member this.CancelHandle: ICancelHandle =
+            this
