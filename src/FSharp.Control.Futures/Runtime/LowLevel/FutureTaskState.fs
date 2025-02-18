@@ -22,39 +22,39 @@ open Microsoft.FSharp.Core
 /// - NotifiedBit -- Говорит о том, что задача была уведомлена о пробуждении и должна быть исполнена планировщиком.
 ///   * Установка бита возможна только в состояниях Idle и Running.
 ///   * Сброс бита происходит при переходе Idle -> Running
-///   * Установка бита в состоянии Running+AbortBit не не имеет смысла.
+///   * Установка бита в состоянии Running+CancelBit не не имеет смысла.
 ///     Но не противоресива, т.к. будет отвергнута из-за Complete.
-/// - AbortBit -- Говорит о том, что была запрошена отмена задачи.
+/// - CancelBit -- Говорит о том, что была запрошена отмена задачи.
 ///   * Уствновка бита допустима в состояниях Idle и Running.
-///   * Если бит установлен, а состояние задачи Completed, задача считается Completed через Abort,
+///   * Если бит установлен, а состояние задачи Completed, задача считается Completed через Cancel,
 ///     результат не существует
-///   * Сброс бита не предполагается: если после состоянрия Running (с Polling'ом Future) произошел запрос на Abort,
+///   * Сброс бита не предполагается: если после состоянрия Running (с Polling'ом Future) произошел запрос на Cancel,
 ///     и Poll дал результат Poll.Ready или выбросил исключение, предполагается отброс результата и сохранение состояния
-///     Abort.
+///     Cancel.
 ///   * Установка бита также подразумевает установку NotifiedBit с добавлением в очередь для опроса.
 ///     (NOTE: Возможен дизайн игнорирующий это, но тогда отмена будет работоспособна только в точках прерывания.)
 ///
 /// Следующая схема graphviz отражает возможные переходы (без учета AwaiterContextBit):
 /// ```
 /// digraph G {
-///     Idle -> IdleAbortNotified [label=abort]
+///     Idle -> IdleCancelNotified [label=cancel]
 ///     Idle -> IdleNotified [label=notify]
 ///     IdleNotified -> Running [label=running]
-///     IdleAbortNotified -> RunningAbort [label=running_abort]
-///     RunningAbort -> CompletedAbort [label=aborted]
+///     IdleCancelNotified -> RunningCancel [label=running_cancel]
+///     RunningCancel -> CompletedCancel [label=cancelled]
 ///     Running -> RunningNotified [label=notify]
 ///     RunningNotified -> IdleNotified [label=complete_pending]
 ///     RunningNotified -> Completed [label=complete_ready]
-///     RunningNotified -> RunningAbortNotified [label=abort]
+///     RunningNotified -> RunningCancelNotified [label=cancel]
 ///     Running -> Idle [label=complete_pending]
 ///     Running -> Completed [label=complete_ready]
-///     Running -> RunningAbortNotified [label=abort]
-///     IdleNotified -> IdleAbortNotified [label=abort]
-///     RunningAbortNotified -> CompletedAbort [label=complete_any_and_running_abort]
+///     Running -> RunningCancelNotified [label=cancel]
+///     IdleNotified -> IdleCancelNotified [label=cancel]
+///     RunningCancelNotified -> CompletedCancel [label=complete_any_and_running_cancel]
 /// }
 /// ```
 ///
-/// NotifiedBit and AbortBit can be set only in Idle and Running states.
+/// NotifiedBit and CancelBit can be set only in Idle and Running states.
 /// AwaiterExistsBit and AwaiterContextBit can be set in any states (Idle, Running, Complete).
 ///
 /// === THIS DOCUMENTATION PARTIALLY ACTUAL NOW ===
@@ -62,14 +62,14 @@ open Microsoft.FSharp.Core
 [<RequireQualifiedAccess>]
 module FutureTaskState =
 
-    /// Future completed (Poll.Ready, exn, aborted)
+    /// Future completed (Poll.Ready, exn, cancelled)
     let [<Literal>] CompletedBit      = 0b0000_0001
 
     /// Flag, tracking running task on runtime thread
     let [<Literal>] RunningBit        = 0b0000_0010
 
-    /// Flag, tracking if Future was set for aborting
-    let [<Literal>] AbortBit          = 0b0000_0100
+    /// Flag, tracking if Future was set for cancelling
+    let [<Literal>] CancelBit          = 0b0000_0100
 
     /// Flag, tracked if FutureTask must be handled by runtime
     let [<Literal>] NotifiedBit       = 0b0000_1000
@@ -89,7 +89,7 @@ module FutureTaskState =
     let inline isRunning (s: int) : bool = (s &&& RunningBit) <> 0
     let inline isCompleted (s: int) : bool = (s &&& CompletedBit) <> 0
 
-    let inline isAbort (s: int) : bool = (s &&& AbortBit) <> 0
+    let inline isCancel (s: int) : bool = (s &&& CancelBit) <> 0
     let inline isNotified (s: int) : bool = (s &&& NotifiedBit) <> 0
     let inline isAwaiterContext (s: int) : bool = (s &&& AwaiterContextBit) <> 0
     let inline isAwaiterExists (s: int) : bool = (s &&& AwaiterExistsBit) <> 0
@@ -99,10 +99,10 @@ module FutureTaskState =
 [<Struct>]
 [<RequireQualifiedAccess>]
 type TransitIdleToRunningResult =
-    /// Task successfully transit in running state. (Abort flag not set)
+    /// Task successfully transit in running state. (Cancel flag not set)
     | Ok
-    /// Task successfully transit in running state, and abort flag set
-    | OkAbortIsSet
+    /// Task successfully transit in running state, and Cancel flag set
+    | OkCancelIsSet
     /// Task already in running state
     | ErrAlreadyRunning
 
@@ -113,8 +113,8 @@ type TransitRunningToIdleResult =
     | Ok
     /// Task was notified until run
     | OkNotifyIsSet
-    /// Task was aborted until was running
-    | ErrAbortIsSet
+    /// Task was cancelled until was running
+    | ErrCancelIsSet
 
 [<Struct>]
 [<RequireQualifiedAccess>]
@@ -145,7 +145,7 @@ type TransitRunningToCompletedResult =
 // [<Struct>]
 // type WorkType =
 //     | Poll
-//     | Abort
+//     | Cancel
 
 
 /// <summary>
@@ -155,12 +155,12 @@ type TransitRunningToCompletedResult =
 ///
 /// This implementation designed for follow features:<br></br>
 /// - Any work with spawned on runtime future being done in future runtime worker thread.
-///   (Aborting also being done in future runtime worker thread.)<br></br>
+///   (Cancelling also being done in future runtime worker thread.)<br></br>
 /// - When spawned future waked until worker thread poll it, anyway future must be re-queued,<br></br>
 ///   to avoid starvation other futures<br></br>
-/// - Abort being done as soon as possible (within above points):<br></br>
-/// > * abort reschedule worker thread immediately<br></br>
-/// > * if worker thread already do work, then after it is finished, future must abort immediately<br></br>
+/// - Cancel being done as soon as possible (within above points):<br></br>
+/// > * cancel reschedule worker thread immediately<br></br>
+/// > * if worker thread already do work, then after it is finished, future must cancel immediately<br></br>
 ///
 /// <br></br>
 ///
@@ -216,7 +216,7 @@ type FutureTaskState =
     static member New = FutureTaskState(0)
 
     member inline this.IsCompleted = FutureTaskState.isCompleted this.State
-    member inline this.IsAbort = FutureTaskState.isAbort this.State
+    member inline this.IsCancel = FutureTaskState.isCancel this.State
 
     // /// <summary>
     // /// Returns state preceding successful exchange
@@ -257,8 +257,8 @@ type FutureTaskState =
                 let state' = Interlocked.CompareExchange(&this.State, newState, state)
                 if state' <> state then state <- state'
                 else
-                    if FutureTaskState.isAbort state'
-                    then result <- TransitIdleToRunningResult.OkAbortIsSet
+                    if FutureTaskState.isCancel state'
+                    then result <- TransitIdleToRunningResult.OkCancelIsSet
                     else result <- TransitIdleToRunningResult.Ok
                     doLoop <- false
         result
@@ -266,7 +266,7 @@ type FutureTaskState =
     /// <summary>
     /// Transit future task from `Running` to `Idle` state.
     ///
-    /// Fails if task flagged for abort.
+    /// Fails if task flagged for cancel.
     /// </summary>
     member inline this.TransitionRunningToIdle(): TransitRunningToIdleResult =
         let mutable doLoop = true
@@ -275,9 +275,9 @@ type FutureTaskState =
         while doLoop do
             if not (FutureTaskState.isRunning state) then raise (InvalidOperationException())
 
-            if FutureTaskState.isAbort state then
-                // FutureTask aborted.
-                result <- TransitRunningToIdleResult.ErrAbortIsSet
+            if FutureTaskState.isCancel state then
+                // FutureTask cancelled.
+                result <- TransitRunningToIdleResult.ErrCancelIsSet
                 doLoop <- false
             elif FutureTaskState.isNotified state then
                 // FutureTask notifies until was running.
@@ -354,22 +354,22 @@ type FutureTaskState =
     /// <returns>
     /// true, if FutureTask must be queued for executing
     /// </returns>
-    member inline this.SetAbortAndNotify(): bool =
+    member inline this.SetCancelAndNotify(): bool =
         let mutable doLoop = true
         let mutable state = this.State
         let mutable result = false
         while doLoop do
-            if FutureTaskState.isCompleted state || FutureTaskState.isAbort state then
-                // Future task is terminated or already mark as abort. Aborting does not make a sense.
+            if FutureTaskState.isCompleted state || FutureTaskState.isCancel state then
+                // Future task is terminated or already mark as cancel. Cancelling does not make a sense.
                 // No-op optimization.
                 result <- false
                 doLoop <- false
             elif FutureTaskState.isRunning state then
                 // FutureTask is processing.
-                // Mark it active and abort bit set.
-                // When runtime thread finish processing, it will check Abort and Processing bit
+                // Mark it active and cancel bit set.
+                // When runtime thread finish processing, it will check Cancel and Processing bit
                 // without repeated enqueue in scheduler queue.
-                let newState = state ||| FutureTaskState.AbortBit ||| FutureTaskState.NotifiedBit
+                let newState = state ||| FutureTaskState.CancelBit ||| FutureTaskState.NotifiedBit
                 let state' = Interlocked.CompareExchange(&this.State, newState, state)
                 if state' <> state then state <- state'
                 else
@@ -377,9 +377,9 @@ type FutureTaskState =
                     doLoop <- false
             else
                 // FutureTask is idle.
-                // Set active and abort bits.
+                // Set active and cancel bits.
                 // Returns enqueue flag, if active bit is not set.
-                let newState = state ||| FutureTaskState.AbortBit ||| FutureTaskState.NotifiedBit
+                let newState = state ||| FutureTaskState.CancelBit ||| FutureTaskState.NotifiedBit
                 let state' = Interlocked.CompareExchange(&this.State, newState, state)
                 if state' <> state then state <- state'
                 else

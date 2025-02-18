@@ -6,14 +6,14 @@ open FSharp.Control.Futures
 
 // [ Exception ]
 
-type FutureTaskAbortedException() = inherit Exception()
+type FutureTaskCancelledException() = inherit Exception()
 type FutureTaskMultipleAwaitException() = inherit Exception()
 
 [<Struct>]
 [<RequireQualifiedAccess>]
 type AwaitMode =
-    | Foreground // Abort on drop
-    | Background // Not abort on drop
+    | Foreground // Cancel on drop
+    | Background // Not Cancel on drop
 
 // type AwaitException =
 //     inherit Exception
@@ -23,16 +23,16 @@ type AwaitMode =
 [<Struct>]
 [<RequireQualifiedAccess>]
 type AwaitError =
-    | Aborted
+    | Cancelled
     | Failed of exn
     // with
-    //     member this.IsAborted': bool = match this with AwaitError.Aborted -> true | _ -> false
+    //     member this.IsCancelled': bool = match this with AwaitError.Cancelled -> true | _ -> false
     //     member this.IsFailed': bool = match this with AwaitError.Failed _ -> true | _ -> false
 
 type AwaitResult<'a> = Result<'a, AwaitError>
 
 /// <summary>
-/// Safe wrapper for spawned Future. Allows to await and abort it. <br></br>
+/// Safe wrapper for spawned Future. Allows to await and cancel it. <br></br>
 /// </summary>
 type IFutureTask<'a> =
     /// <summary>
@@ -41,11 +41,11 @@ type IFutureTask<'a> =
     /// </summary>
     ///
     /// <remarks>
-    /// - Учитывайте, что реализации могут и вовсе не поддерживать Abort и игнорировать его.
+    /// - Учитывайте, что реализации могут и вовсе не поддерживать Cancel и игнорировать его.
     /// <br/>
     /// - Допустим множественный вызов.
     /// </remarks>
-    abstract Abort: unit -> unit
+    abstract Cancel: unit -> unit
 
     /// <summary>
     /// Получает Future, с помощью которой можно дождаться выполнения этой IFutureTask.
@@ -66,10 +66,10 @@ type IFutureTask<'a> =
     ///
     /// <param name="background">
     /// Режим отбрасывания возвращаемой Future.
-    /// При значении true, Drop не будет приводить к автоматическому вызову Abort запущенной задачи.
-    /// При значение false, Drop будет приводить к автоматическому вызову Abort запущенной задачи.
+    /// При значении true, Drop не будет приводить к автоматическому вызову Cancel запущенной задачи.
+    /// При значение false, Drop будет приводить к автоматическому вызову Cancel запущенной задачи.
     /// <br/>
-    /// Вы все еще можете вызывать Abort самостоятельно, это лишь приведет к возврату Error AwaitError.Aborted
+    /// Вы все еще можете вызывать Cancel самостоятельно, это лишь приведет к возврату Error AwaitError.Cancelled
     /// ожидающей Future (при условии что рантайм поддерживает прекращение задач).
     /// </param>
     ///
@@ -81,8 +81,8 @@ type IFutureTask<'a> =
     /// </remarks>
     abstract Await: background: bool -> Future<AwaitResult<'a>>
 
-// type IAbortHandle =
-//     abstract Abort: unit -> unit
+// type ICancelHandle =
+//     abstract Cancel: unit -> unit
 
 /// <summary> Future Executor. Allows the Future to run for execution
 /// (for example, on its own or shared thread pool or on the current thread). </summary>
@@ -97,4 +97,4 @@ module Runtime =
 
 module FutureTask =
     let inline await (futTask: IFutureTask<'a>) : Future<AwaitResult<'a>> = futTask.Await()
-    let inline abort (futTask: IFutureTask<'a>) : unit = futTask.Abort()
+    let inline cancel (futTask: IFutureTask<'a>) : unit = futTask.Cancel()

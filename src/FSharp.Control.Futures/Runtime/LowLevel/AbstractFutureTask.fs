@@ -9,8 +9,8 @@ open FSharp.Control.Futures.LowLevel.Runtime
 open Microsoft.FSharp.Core
 
 
-type FutureAbortedWithExceptionOnDrop(innerException: exn) =
-    inherit Exception("Future task aborted with exception on drop", innerException)
+type FutureCancelledWithExceptionOnDrop(innerException: exn) =
+    inherit Exception("Future task cancelled with exception on drop", innerException)
 
 [<RequireQualifiedAccess>]
 [<Struct>]
@@ -26,7 +26,7 @@ type private FutureTaskResultState<'a> =
     | Pending
     | Ready of value: 'a
     | Failed of exn: exn
-    | Aborted
+    | Cancelled
     | Taken
     | Ignored
 
@@ -78,7 +78,7 @@ type AbstractFutureTask<'a> =
     /// Poll spawned future and notify awaiter if it exists.
     /// </summary>
     /// <returns>
-    /// true, when future was ready or aborted.
+    /// true, when future was ready or cancelled.
     /// </returns>
     member this.DoWork(): bool =
         let r = this.State.TransitionIdleToRunning()
@@ -98,25 +98,25 @@ type AbstractFutureTask<'a> =
                     | TransitRunningToIdleResult.OkNotifyIsSet ->
                         this.Schedule()
                         false
-                    | TransitRunningToIdleResult.ErrAbortIsSet ->
+                    | TransitRunningToIdleResult.ErrCancelIsSet ->
                         try
                             this.Future.Drop()
-                            this.SetResultAndComplete(FutureTaskResultState.Aborted)
+                            this.SetResultAndComplete(FutureTaskResultState.Cancelled)
                         with ex ->
                             this.SetResultAndComplete(FutureTaskResultState.Failed ex)
                         true
             with ex ->
                 this.SetResultAndComplete(FutureTaskResultState.Failed ex)
                 true
-        | TransitIdleToRunningResult.OkAbortIsSet ->
+        | TransitIdleToRunningResult.OkCancelIsSet ->
             try
                 this.Future.Drop()
-                this.SetResultAndComplete(FutureTaskResultState.Aborted)
+                this.SetResultAndComplete(FutureTaskResultState.Cancelled)
             with ex ->
                 // Drop invariant broken. Any behaviour will be correct.
                 // But leaving exception inside runtime will hide error.
                 // User anyway shouldn't build logic on strict exception set.
-                let wrappedEx = FutureAbortedWithExceptionOnDrop(ex)
+                let wrappedEx = FutureCancelledWithExceptionOnDrop(ex)
                 this.SetResultAndComplete(FutureTaskResultState.Failed wrappedEx)
             true
         | TransitIdleToRunningResult.ErrAlreadyRunning ->
@@ -153,7 +153,7 @@ type AbstractFutureTask<'a> =
         match prev with
         | FutureTaskResultState.Ready value -> Ok value
         | FutureTaskResultState.Failed ex -> Error (AwaitError.Failed ex)
-        | FutureTaskResultState.Aborted -> Error AwaitError.Aborted
+        | FutureTaskResultState.Cancelled -> Error AwaitError.Cancelled
         | FutureTaskResultState.Pending -> raise (UnreachableException("FutureTask result not ready yet."))
         | FutureTaskResultState.Taken -> raise (UnreachableException("FutureTask result already taken."))
         | FutureTaskResultState.Ignored -> raise (UnreachableException("FutureTask result ignored (awaiter not exists on completion)."))
@@ -191,7 +191,7 @@ type AbstractFutureTask<'a> =
             match this.AwaiterState with
             | AwaiterState.AwaitInForegroundMode ->
                 this.AwaiterState <- AwaiterState.Terminated
-                let r = this.State.SetAbortAndNotify()
+                let r = this.State.SetCancelAndNotify()
                 if r then this.Schedule()
             | AwaiterState.AwaitInBackgroundMode ->
                 this.AwaiterState <- AwaiterState.Terminated
@@ -221,7 +221,7 @@ type AbstractFutureTask<'a> =
         member this.Await(): Future<AwaitResult<'a>> =
             (this :> IFutureTask<'a>).Await(false)
 
-        member this.Abort(): unit =
-            let r = this.State.SetAbortAndNotify()
+        member this.Cancel(): unit =
+            let r = this.State.SetCancelAndNotify()
             if r then this.Schedule()
 

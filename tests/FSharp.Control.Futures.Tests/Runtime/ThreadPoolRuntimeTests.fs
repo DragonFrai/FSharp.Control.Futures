@@ -23,7 +23,7 @@ let ``ThreadPoolRuntime regular path``() =
     Expect.equal result 3 "Result not expected"
 
 [<Fact>]
-let ``ThreadPoolRuntime aborting``() =
+let ``ThreadPoolRuntime cancelling``() =
     use wh = new EventWaitHandle(false, EventResetMode.AutoReset)
     let mutable isCompleted = false
     let fut = future {
@@ -33,10 +33,10 @@ let ``ThreadPoolRuntime aborting``() =
     }
 
     let fTask = ThreadPoolRuntime.spawn fut
-    fTask.Abort()
+    fTask.Cancel()
     wh.Set()
 
     let result = fTask.Await() |> Future.runBlocking
 
-    Expect.equal result (Error AwaitError.Aborted) "Result not expected"
-    Expect.equal isCompleted false "Aborted future completed"
+    Expect.equal result (Error AwaitError.Cancelled) "Result not expected"
+    Expect.equal isCompleted false "Cancelled future completed"
