@@ -22,6 +22,8 @@ Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "FSharp.Control.Futures.Acto
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "FSharp.Control.Futures.Actors.Playground", "examples\FSharp.Control.Futures.Actors.Playground\FSharp.Control.Futures.Actors.Playground.fsproj", "{5983781E-8F81-410B-B184-F1B9ADB26CA3}"
 EndProject
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "DevUtils", "DevUtils\DevUtils.fsproj", "{627E72F5-3B14-4D5C-BFBE-5A172DDD5229}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -60,6 +62,10 @@ Global
 		{5983781E-8F81-410B-B184-F1B9ADB26CA3}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{5983781E-8F81-410B-B184-F1B9ADB26CA3}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{5983781E-8F81-410B-B184-F1B9ADB26CA3}.Release|Any CPU.Build.0 = Release|Any CPU
+		{627E72F5-3B14-4D5C-BFBE-5A172DDD5229}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{627E72F5-3B14-4D5C-BFBE-5A172DDD5229}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{627E72F5-3B14-4D5C-BFBE-5A172DDD5229}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{627E72F5-3B14-4D5C-BFBE-5A172DDD5229}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{10A6C033-D1B7-48F8-882D-FB2094BC7BD7} = {44835DE2-D38A-4533-BE69-3A06B779FF5A}

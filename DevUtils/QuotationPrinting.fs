@@ -1,4 +1,4 @@
-module QuotationPrinting
+module DevUtils.QuotationPrinting
 
 open FSharp.Quotations
 open System.Text

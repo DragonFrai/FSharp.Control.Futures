@@ -254,6 +254,8 @@ let main argv =
     }
     f |> Future.runBlocking
 
+    0
+
 
     // RuntimeExamples.simpleExample ()
 
@@ -372,4 +374,4 @@ let main argv =
 //    Fib.runPrimeTest 20
 //    Fib.runPrimeTest 20
 
-    0 // return an integer exit code
+    // 0 // return an integer exit code
