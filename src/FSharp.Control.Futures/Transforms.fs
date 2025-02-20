@@ -199,6 +199,21 @@ module FutureTaskTransforms =
 
             txrx.Await() |> Future.map (function Ok x -> x | Error ex -> raise ex)
 
+        let ofUnitTask (task: Task) : Future<unit> =
+            let txrx = OneShot.Create()
+
+            task.ContinueWith(fun (task: Task) ->
+                let taskResult =
+                    if task.IsFaulted then Error task.Exception
+                    elif task.IsCanceled then Error task.Exception
+                    elif task.IsCompletedSuccessfully then Ok ()
+                    else invalidOp "Unreachable"
+                txrx.AsTx.Send(taskResult)
+            ) |> ignore
+
+            txrx.Await() |> Future.map (function Ok x -> x | Error ex -> raise ex)
+
+
         let toTaskOn (scheduler: TaskScheduler) (fut: Future<'a>) : Task<'a> =
             let pollingTaskFactory = TaskFactory(scheduler)
             let startPoll poll = pollingTaskFactory.StartNew(fun () -> poll ()) |> ignore

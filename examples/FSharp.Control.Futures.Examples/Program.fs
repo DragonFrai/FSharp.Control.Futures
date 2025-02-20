@@ -5,6 +5,7 @@ open System.Diagnostics
 open System.Text
 open System.Threading.Tasks
 
+open FSharp.Control.Futures.Examples.Echo
 open FSharp.Control.Futures.Playground
 open FSharp.Control.Futures.Runtime
 open FSharp.Control.Futures.Sync
@@ -229,32 +230,39 @@ module Result =
 
 [<EntryPoint>]
 let main argv =
+    let argv = argv |> Array.toList
+    match argv with
+    | "echo-send" :: argv -> EchoSender.main argv
+    | "echo-recv" :: argv -> EchoReceiver.main argv
+    | _ ->
+        printfn "Unknown command"
+        0
 
-    let ch = OneShot.Create()
+    // let ch = OneShot.Create()
+    //
+    // let receiver = future {
+    //     let! msg = ch.Await()
+    //     printfn $"Hello, {msg}"
+    //     ()
+    // }
+    //
+    // let sender = future {
+    //     do! Future.sleepMs 1000
+    //     do ch.Send("World") |> ignore
+    // }
+    //
+    // let fTaskRx, fTaskTx =
+    //     ThreadPoolRuntime.Instance.Spawn(receiver), ThreadPoolRuntime.Instance.Spawn(sender)
+    //
+    // fTaskRx.Await() |> Future.runBlocking |> Result.get
+    // fTaskTx.Await() |> Future.runBlocking |> Result.get
+    //
+    // let f = future {
+    //     do! SimpleRGrep.scanAllRec "/home/dragon/Projects/" "sleep" ThreadPoolRuntime.Instance 256
+    // }
+    // f |> Future.runBlocking
 
-    let receiver = future {
-        let! msg = ch.Await()
-        printfn $"Hello, {msg}"
-        ()
-    }
-
-    let sender = future {
-        do! Future.sleepMs 1000
-        do ch.Send("World") |> ignore
-    }
-
-    let fTaskRx, fTaskTx =
-        ThreadPoolRuntime.Instance.Spawn(receiver), ThreadPoolRuntime.Instance.Spawn(sender)
-
-    fTaskRx.Await() |> Future.runBlocking |> Result.get
-    fTaskTx.Await() |> Future.runBlocking |> Result.get
-
-    let f = future {
-        do! SimpleRGrep.scanAllRec "/home/dragon/Projects/" "sleep" ThreadPoolRuntime.Instance 256
-    }
-    f |> Future.runBlocking
-
-    0
+    // 0
 
 
     // RuntimeExamples.simpleExample ()
