@@ -23,7 +23,7 @@ type OneShotRx<'a> internal (impl: OneShotImpl<'a>) =
 [<Struct; NoComparison; NoEquality>]
 type OneShotTx<'a> internal (impl: OneShotImpl<'a>) =
     member this.IsClosed: bool = impl.IsClosed
-    member this.TrySend(msg: 'a): bool = impl.Send(msg)
+    member this.Send(msg: 'a): bool = impl.Send(msg)
 
 
 /// <summary>
@@ -113,7 +113,7 @@ type OneShot<'a> internal (impl: OneShotImpl<'a>) =
 module OneShotTxExtensions =
     type OneShotTx<'a> with
         member inline this.Send(msg: 'a): unit =
-            this.TrySend(msg) |> ignore
+            this.Send(msg) |> ignore
 
 
 [<RequireQualifiedAccess>]
@@ -141,7 +141,7 @@ module OneShot =
 [<RequireQualifiedAccess>]
 module OneShotTx =
     let inline send (msg: 'a) (oneshot: OneShotTx<'a>) : bool =
-        oneshot.TrySend(msg)
+        oneshot.Send(msg)
 
     let inline isClosed (oneshot: OneShotTx<'a>) : bool =
         oneshot.IsClosed

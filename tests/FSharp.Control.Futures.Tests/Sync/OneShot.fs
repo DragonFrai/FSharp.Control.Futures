@@ -11,7 +11,7 @@ let ``Send, receive`` () =
     let fTask = mkTestFutureTask (rx.Await())
 
     Assert.Equal(NaivePoll.Pending, fTask.Poll())
-    Assert.True(tx.TrySend(12))
+    Assert.True(tx.Send(12))
     Assert.Equal(NaivePoll.Ready 12, fTask.Poll())
 
 [<Fact>]
@@ -22,10 +22,10 @@ let ``Drop rx`` () =
     Assert.Equal(NaivePoll.Pending, fTask.Poll())
     fTask.Drop()
 
-    Assert.False(tx.TrySend(12))
+    Assert.False(tx.Send(12))
 
 [<Fact>]
 let ``Close rx`` () =
     let tx, rx = OneShot.Create().AsTxRx
     rx.Close()
-    Assert.False(tx.TrySend(12))
+    Assert.False(tx.Send(12))

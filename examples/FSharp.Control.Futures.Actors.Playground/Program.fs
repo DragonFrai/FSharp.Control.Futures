@@ -11,7 +11,7 @@ type HelloActor() =
 
     interface IHandler<string ,string> with
         member this.Handle(_ctx, msg) = future {
-            msg.Reply.TrySend($"Hello, {msg.Msg}!") |> ignore
+            msg.Reply.Send($"Hello, {msg.Msg}!") |> ignore
         }
 
 let arb = Arbiter.Start({

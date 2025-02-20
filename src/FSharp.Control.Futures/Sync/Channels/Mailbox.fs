@@ -12,7 +12,7 @@ type Reply<'a> =
     member this.IsNeedsReply: bool =
         not this.tx.IsClosed
     member this.Reply(reply: 'a): unit =
-        this.tx.TrySend(reply) |> ignore
+        this.tx.Send(reply) |> ignore
 
 /// <summary>
 /// Multiple Producer Single Consumer (MPSC) synchronisation channel designed like F# MailboxProcessor.
