@@ -173,6 +173,6 @@ type [<Struct; NoComparison; NoEquality>] PrimaryNotify =
                 if state <> state' then state <- state'
                 else doLoop <- false; result <- true
             | NotifyState.T
-            | NotifyState.TN -> raise (FutureTerminatedException())
+            | NotifyState.TN -> ()
             | _ -> unreachable ()
         result

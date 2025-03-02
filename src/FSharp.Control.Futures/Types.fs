@@ -47,14 +47,18 @@ and [<Interface>]
 
 and Future<'a> = IFuture<'a>
 
+and [<Interface>]
+    IWaker =
+
+    /// <summary> Wake up assigned Future </summary>
+    abstract Wake: unit -> unit
+
 /// <summary>
 /// The context of the running Future.
 /// Allows the Future to signal its ability to move forward (awake) through the Wake method
 /// </summary>
 and IContext =
-
-    /// <summary> Wake up assigned Future </summary>
-    abstract Wake: unit -> unit
+    inherit IWaker
 
     /// <summary> Returns future context feature provider </summary>
     abstract Features: unit -> IFeatureProvider
@@ -63,7 +67,6 @@ and IContext =
 /// Provides a features that implemented by Future runner (runtime or poll loop or other).
 /// Useful for get more efficient implementation of time, I/O, or other functions
 /// or special actions (for example sleep in simulated time).
-/// Of course, you can use it for DI if you went.
 /// </summary>
 and IFeatureProvider =
     abstract GetFeature<'a> : unit -> ValueOption<'a>
@@ -71,7 +74,7 @@ and IFeatureProvider =
 // [Exceptions]
 
 /// Exception is thrown when future is in a terminated state:
-/// Ready, Polled with exception, Dropped
+/// Ready or Polled with exception
 type FutureTerminatedException =
     inherit Exception
     new() = { inherit Exception() }
