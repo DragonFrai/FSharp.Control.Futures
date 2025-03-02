@@ -24,10 +24,11 @@
     </ItemGroup>
 
     <ItemGroup>
-        <Compile Include="SimpleRGrep.fs" />
         <Compile Include="RuntimeExamples.fs" />
         <Compile Include="Echo\EchoSender.fs" />
         <Compile Include="Echo\EchoReceiver.fs" />
+        <Compile Include="Grep\Utils.fs" />
+        <Compile Include="Grep\SimpleRipGrep.fs" />
         <Compile Include="Program.fs" />
     </ItemGroup>
 

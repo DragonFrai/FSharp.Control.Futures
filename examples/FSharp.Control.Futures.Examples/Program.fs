@@ -7,6 +7,7 @@ open System.Threading.Tasks
 
 open FSharp.Control.Futures.Examples.Echo
 open FSharp.Control.Futures.Playground
+open FSharp.Control.Futures.Playground.SimpleRGrep
 open FSharp.Control.Futures.Runtime
 open FSharp.Control.Futures.Sync
 open FSharp.Control.Tasks
@@ -234,6 +235,7 @@ let main argv =
     match argv with
     | "echo-send" :: argv -> EchoSender.main argv
     | "echo-recv" :: argv -> EchoReceiver.main argv
+    | "grep" :: argv -> SimpleRipGrep.main argv
     | _ ->
         printfn "Unknown command"
         0

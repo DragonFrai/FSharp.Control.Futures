@@ -14,6 +14,7 @@ type Reply<'a> =
     member this.Reply(reply: 'a): unit =
         this.tx.Send(reply) |> ignore
 
+// TODO: Add closing ???
 /// <summary>
 /// Multiple Producer Single Consumer (MPSC) synchronisation channel designed like F# MailboxProcessor.
 /// Mailbox does not duplicate messages between multiple recipients,

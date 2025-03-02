@@ -32,6 +32,7 @@ type AwaitError =
 
 type AwaitResult<'a> = Result<'a, AwaitError>
 
+// TODO: inherit ICancellableFuture<'a>
 /// <summary>
 /// Safe wrapper for spawned Future. Allows to await and cancel it. <br></br>
 /// </summary>
