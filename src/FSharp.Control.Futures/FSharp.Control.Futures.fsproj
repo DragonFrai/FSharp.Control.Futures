@@ -41,6 +41,7 @@
         <Compile Include="Sync\Mutex.fs" />
         <Compile Include="Sync\RwLock.fs" />
         <Compile Include="Sync\Notify.fs" />
+        <Compile Include="Sync\Event.fs" />
         <Compile Include="Sync\OnceVar.fs" />
         <Compile Include="Sync\MutexVar.fs" />
         <Compile Include="Sync\RwLockVar.fs" />
