@@ -4,4 +4,10 @@
         <BumpedVersion>0.6.0-alpha</BumpedVersion>
     </PropertyGroup>
 
+    <PropertyGroup>
+        <UseArtifactsOutput>true</UseArtifactsOutput>
+        <!-- Actually the default, but forces to use exatly this Directory.Build.props file, instead of any nested one -->
+        <ArtifactsPath>$(MSBuildThisFileDirectory)artifacts</ArtifactsPath>
+    </PropertyGroup>
+
 </Project>
