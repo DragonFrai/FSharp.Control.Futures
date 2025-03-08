@@ -1,8 +1,8 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
-        <OutputType>Exe</OutputType>
         <TargetFramework>net8.0</TargetFramework>
+        <IsPackable>false</IsPackable>
         <GenerateProgramFile>false</GenerateProgramFile>
     </PropertyGroup>
 
@@ -23,7 +23,7 @@
         <Compile Include="Sync\OneShot.fs" />
         <Compile Include="Runtime\LowLevelStateTests.fs" />
         <Compile Include="Runtime\ThreadPoolRuntimeTests.fs" />
-        <Compile Include="Main.fs" />
+        <Compile Include="ExpectoProxy.fs" />
     </ItemGroup>
 
     <ItemGroup>

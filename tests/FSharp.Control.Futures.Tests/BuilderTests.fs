@@ -1,6 +1,5 @@
 module FSharp.Control.Futures.Tests.Builder
 
-open Expecto
 open FSharp.Control.Futures
 open Xunit
 
@@ -15,7 +14,7 @@ let ``Builder return``() =
         PollPattern.Ready 12
     ]
     let x = runWithPatternCheck patterns fut
-    Expect.equal x (Ok ()) ""
+    Assert.Equal(Ok (), x)
 
 [<Fact>]
 let ``Builder return!``() =
@@ -27,7 +26,7 @@ let ``Builder return!``() =
         PollPattern.Ready 12
     ]
     let x = runWithPatternCheck patterns fut
-    Expect.equal x (Ok ()) ""
+    Assert.Equal(Ok (), x)
 
 [<Fact>]
 let ``Builder zero``() =
@@ -37,7 +36,7 @@ let ``Builder zero``() =
         PollPattern.Ready ()
     ]
     let x = runWithPatternCheck patterns fut
-    Expect.equal x (Ok ()) ""
+    Assert.Equal(Ok (), x)
 
 [<Fact>]
 let ``Builder bind``() =
@@ -53,7 +52,7 @@ let ``Builder bind``() =
         PollPattern.Ready 12
     ]
     let x = runWithPatternCheck patterns fut
-    Expect.equal x (Ok ()) ""
+    Assert.Equal(Ok (), x)
 
 [<Fact>]
 let ``Builder merge``() =
@@ -68,7 +67,7 @@ let ``Builder merge``() =
         PollPattern.Ready 12
     ]
     let x = runWithPatternCheck patterns fut
-    Expect.equal x (Ok ()) ""
+    Assert.Equal(Ok (), x)
 
 [<Fact>]
 let ``Builder for cycle``() =
@@ -89,7 +88,7 @@ let ``Builder for cycle``() =
         PollPattern.Ready ()
     ]
     let x = runWithPatternCheck patterns fut
-    Expect.equal x (Ok ()) ""
+    Assert.Equal(Ok (), x)
 
     let expected = Seq.sum seq
-    Expect.equal sum expected "Future return illegal value"
+    Assert.Equal(expected, sum)

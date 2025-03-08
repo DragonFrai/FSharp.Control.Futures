@@ -1,6 +1,5 @@
 module FSharp.Control.Futures.Tests.Combinators.Lazy
 
-open Expecto
 open FSharp.Control.Futures
 open FSharp.Control.Futures.LowLevel
 open Xunit
@@ -13,14 +12,14 @@ let ``Future.lazy' correct call passed function order``() =
 
     let _ = Future.poll (Context.mockContext ()) fut
 
-    Expect.sequenceEqual (checker.ToSeq()) [1; 2] <| "Illegal breakpoint order"
+    Assert.Equal([1; 2], checker.ToSeq())
     ()
 
 [<Fact>]
 let ``Future.lazy' doesn't call waker``() =
     let fut = Future.lazy' (fun () -> 0)
 
-    let _ = Future.poll (Context.mockContextWithWake (fun () -> Expect.isTrue false "Future.lazy' shouldn't call waker")) fut
+    let _ = Future.poll (Context.mockContextWithWake (fun () -> Assert.Fail("Future.lazy' shouldn't call waker"))) fut
     ()
 
 [<Fact>]
@@ -31,4 +30,4 @@ let ``Future.lazy' call passed function once``() =
     let expected = Poll.Ready x
     let actual = Future.poll (Context.mockContext ()) fut
 
-    Expect.equal actual expected "Future.lazy' return not passed arg or Poll.Pending on poll"
+    Assert.Equal(expected, actual)

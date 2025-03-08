@@ -1,9 +1,8 @@
 module FSharp.Control.Futures.Tests.Combinators.Bind
 
 open System
-open Expecto
-open FSharp.Control.Futures
 open Xunit
+open FSharp.Control.Futures
 
 [<Fact>]
 let ``Future.bind combine computation``() =
@@ -17,7 +16,7 @@ let ``Future.bind combine computation``() =
 
     let x = Future.runBlocking fut
 
-    Expect.equal x 64 "bindRegular return illegal value"
+    Assert.Equal(64, x)
     ()
 
 [<Fact>]
@@ -28,7 +27,7 @@ let ``Future.bind throws exception``() =
     let exInFirst = Future.lazy' (fun () -> raise (Exception "")) |> Future.bind (fun () -> Future.ready 12) |> Future.ignore
     let exInSecond = yielded () |> Future.bind (fun () -> Future.lazy' (fun () -> raise (Exception ""); 12)) |> Future.ignore
 
-    Expect.throws (fun () -> Future.runBlocking exInBinder) "Exception in binder not throws"
-    Expect.throws (fun () -> Future.runBlocking exInFirst) "Exception in source future not throws"
-    Expect.throws (fun () -> Future.runBlocking exInSecond) "Exception in binder future not throws"
+    Assert.ThrowsAny(fun () -> Future.runBlocking exInBinder) |> ignore
+    Assert.ThrowsAny(fun () -> Future.runBlocking exInFirst) |> ignore
+    Assert.ThrowsAny(fun () -> Future.runBlocking exInSecond) |> ignore
     ()

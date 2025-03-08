@@ -1,10 +1,9 @@
 module FSharp.Control.Futures.Tests.Combinators.Fuse
 
-open Expecto
-
+open Xunit
 open FSharp.Control.Futures
 open FSharp.Control.Futures.LowLevel
-open Xunit
+
 
 // TODO: Add messages
 
@@ -14,11 +13,11 @@ let ``Future.fuse throws FutureFuseReadyException if polled after returning Read
     let fusedFut = Future.fuse sourceFut
 
     let firstPoll = Future.poll (Context.mockContext ()) fusedFut
-    Expect.equal firstPoll (Poll.Ready 1) ""
-
-    Expect.throwsT<FutureFuseReadyException>
-        (fun () -> Future.poll (Context.mockContext ()) fusedFut |> ignore)
-        ""
+    Assert.Equal(Poll.Ready 1, firstPoll)
+    Assert.Throws<FutureFuseReadyException>(
+        fun () -> Future.poll (Context.mockContext ()) fusedFut |> ignore
+    ) |> ignore
+    ()
 
 [<Fact>]
 let ``Future.fuse throws FutureFuseTransitedException if polled after returning Transit``() =
@@ -31,11 +30,11 @@ let ``Future.fuse throws FutureFuseTransitedException if polled after returning 
     let fusedFut = Future.fuse sourceFut
 
     let firstPoll = Future.poll (Context.mockContext ()) fusedFut
-    Expect.equal firstPoll (Poll.Transit transitingFut) ""
-
-    Expect.throwsT<FutureFuseTransitedException>
-        (fun () -> Future.poll (Context.mockContext ()) fusedFut |> ignore)
-        ""
+    Assert.Equal(Poll.Transit transitingFut, firstPoll)
+    Assert.Throws<FutureFuseTransitedException>(
+        fun () -> Future.poll (Context.mockContext ()) fusedFut |> ignore
+    ) |> ignore
+    ()
 
 [<Fact>]
 let ``Future.fuse throws FutureFuseCancelledException if polled after being cancelled``() =
@@ -44,6 +43,6 @@ let ``Future.fuse throws FutureFuseCancelledException if polled after being canc
 
     fusedFut |> Future.drop
 
-    Expect.throwsT<FutureFuseCancelledException>
-        (fun () -> Future.poll (Context.mockContext ()) fusedFut |> ignore)
-        ""
+    Assert.Throws<FutureFuseCancelledException>(
+        fun () -> Future.poll (Context.mockContext ()) fusedFut |> ignore
+    ) |> ignore
