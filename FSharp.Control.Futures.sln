@@ -8,10 +8,6 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Benches", "Benches", "{5C39
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "FSharp.Control.Futures.Tests", "tests\FSharp.Control.Futures.Tests\FSharp.Control.Futures.Tests.fsproj", "{10A6C033-D1B7-48F8-882D-FB2094BC7BD7}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "FSharp.Control.Futures.Streams", "src\FSharp.Control.Futures.Streams\FSharp.Control.Futures.Streams.fsproj", "{44E8B4E8-0EFE-49BD-8FF6-E34D9021C1E8}"
-EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "FSharp.Control.Futures.Streams.Tests", "tests\FSharp.Control.Futures.Streams.Tests\FSharp.Control.Futures.Streams.Tests.fsproj", "{66567C90-4DA2-4A78-9428-A7C4188A0DC2}"
-EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Examples", "Examples", "{F06738AF-F184-49F0-8C63-5CA259D062EB}"
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "FSharp.Control.Futures.Examples", "examples\FSharp.Control.Futures.Examples\FSharp.Control.Futures.Examples.fsproj", "{0CCF385C-4CA8-4C72-B9D2-3B653E8B86C5}"
@@ -38,14 +34,6 @@ Global
 		{10A6C033-D1B7-48F8-882D-FB2094BC7BD7}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{10A6C033-D1B7-48F8-882D-FB2094BC7BD7}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{10A6C033-D1B7-48F8-882D-FB2094BC7BD7}.Release|Any CPU.Build.0 = Release|Any CPU
-		{44E8B4E8-0EFE-49BD-8FF6-E34D9021C1E8}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{44E8B4E8-0EFE-49BD-8FF6-E34D9021C1E8}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{44E8B4E8-0EFE-49BD-8FF6-E34D9021C1E8}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{44E8B4E8-0EFE-49BD-8FF6-E34D9021C1E8}.Release|Any CPU.Build.0 = Release|Any CPU
-		{66567C90-4DA2-4A78-9428-A7C4188A0DC2}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{66567C90-4DA2-4A78-9428-A7C4188A0DC2}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{66567C90-4DA2-4A78-9428-A7C4188A0DC2}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{66567C90-4DA2-4A78-9428-A7C4188A0DC2}.Release|Any CPU.Build.0 = Release|Any CPU
 		{0CCF385C-4CA8-4C72-B9D2-3B653E8B86C5}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{0CCF385C-4CA8-4C72-B9D2-3B653E8B86C5}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{0CCF385C-4CA8-4C72-B9D2-3B653E8B86C5}.Release|Any CPU.ActiveCfg = Release|Any CPU
@@ -69,7 +57,6 @@ Global
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{10A6C033-D1B7-48F8-882D-FB2094BC7BD7} = {44835DE2-D38A-4533-BE69-3A06B779FF5A}
-		{66567C90-4DA2-4A78-9428-A7C4188A0DC2} = {44835DE2-D38A-4533-BE69-3A06B779FF5A}
 		{0CCF385C-4CA8-4C72-B9D2-3B653E8B86C5} = {F06738AF-F184-49F0-8C63-5CA259D062EB}
 		{5919F2FC-E207-45BF-9159-71720F71004D} = {5C394F17-6CE6-4A62-AB3B-AD614A346ECC}
 		{5983781E-8F81-410B-B184-F1B9ADB26CA3} = {F06738AF-F184-49F0-8C63-5CA259D062EB}
