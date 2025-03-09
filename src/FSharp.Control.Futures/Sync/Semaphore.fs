@@ -84,9 +84,6 @@ type internal SemaphoreState =
     static member inline SubPermitsUnchecked(state: int, permits: int): int =
         state - permits
 
-    static member inline CompareExchange(stateRef: int byref, newState: int, comparandState: int): int =
-        Interlocked.CompareExchange(&stateRef, newState, comparandState)
-
 
 // TODO?: Поддержка разных режимов порядка Fifi/Lifo/Drain
 // [<Struct>]
@@ -209,16 +206,6 @@ type Semaphore =
     member this.TryAcquire(): bool =
         this.TryAcquire(1)
 
-    // /// <summary>
-    // /// Decrease a semaphore permits by maximum of `permits`.
-    // /// If it’s not possible to reduce by `permits`,
-    // /// reduce the number of permits to 0 and returns their number.
-    // /// </summary>
-    // /// <param name="permits"> Maximum of decreased permits </param>
-    // /// <returns> Number of permits that were actually reduced </returns>
-    // member this.AcquireUp(permits: int): int =
-    //     failwith "TODO"
-
     member this.Acquire(permits: int): Future<unit> =
         Trace.Assert(permits <= Semaphore.MaxPermits, "MaxPermits has been exceeded")
         SemaphoreAcquire(this, permits)
@@ -231,17 +218,6 @@ type Semaphore =
 
     member this.Release(): unit =
         this.Release(1)
-
-    /// <summary>
-    /// Increase semaphore permits,
-    /// So that total permits did not exceed limit permits.
-    ///
-    /// </summary>
-    /// <param name="permits"> Maximum of increased permits </param>
-    /// <param name="limit"> Maximum of total permits </param>
-    /// <returns> Number of permits that were actually increased </returns>
-    member this.ReleaseUp(permits: int, limit: int): int =
-        failwith "TODO"
 
     member this.Close(): unit =
         if SemaphoreState.IsClosed(this.state) then ()
@@ -259,7 +235,6 @@ module Semaphore =
     let inline availablePermits (semaphore: Semaphore) : int = semaphore.AvailablePermits
     let inline acquire (semaphore: Semaphore) : Future<unit> = semaphore.Acquire()
     let inline acquireMany (permits: int) (semaphore: Semaphore) : Future<unit> = semaphore.Acquire(permits)
-    // let inline acquireUp (permits: int) (semaphore: Semaphore) : int = semaphore.AcquireUp(permits)
     let inline tryAcquire (semaphore: Semaphore) : bool = semaphore.TryAcquire()
     let inline tryAcquireMany (permits: int) (semaphore: Semaphore) : bool = semaphore.TryAcquire(permits)
     let inline release (semaphore: Semaphore) : unit = semaphore.Release()

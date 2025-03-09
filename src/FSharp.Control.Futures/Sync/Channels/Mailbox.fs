@@ -7,10 +7,13 @@ open FSharp.Control.Futures.LowLevel
 
 [<Struct>]
 type Reply<'a> =
-    val private tx: OneShotTx<'a>
-    internal new(tx: OneShotTx<'a>) = { tx = tx }
+    val private tx: OneShotSender<'a>
+
+    new(tx: OneShotSender<'a>) = { tx = tx }
+
     member this.IsNeedsReply: bool =
         not this.tx.IsClosed
+
     member this.Reply(reply: 'a): unit =
         this.tx.Send(reply) |> ignore
 
@@ -39,8 +42,8 @@ type [<Sealed>] Mailbox<'m> =
 
     member this.SendWithReply<'r>(msgBuilder: Reply<'r> -> 'm): Future<'r> = future {
         let oneshot = OneShot.create ()
-        let msg = msgBuilder (Reply(oneshot.AsTx))
+        let msg = msgBuilder (Reply(oneshot.Sender))
         this.Send(msg)
-        let! r = oneshot.Await()
+        let! r = oneshot.Receive()
         return r
     }

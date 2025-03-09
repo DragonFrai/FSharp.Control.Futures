@@ -5,28 +5,6 @@ open FSharp.Control.Futures.LowLevel
 
 
 /// <summary>
-/// Приемник одного асинхронного значения.
-/// Может быть преобразован в Future путем вызова <c> rx.Await() </c>
-/// </summary>
-/// <remarks>
-/// Await может быть вызван только один раз.
-/// </remarks>
-[<Struct; NoComparison; NoEquality>]
-type OneShotRx<'a> internal (impl: OneShotImpl<'a>) =
-    member this.IsClosed: bool = impl.IsClosed
-    member this.Await(): Future<'a> = impl.Await()
-    member this.Close(): unit = impl.Close()
-
-/// <summary>
-/// Отправитель одного асинхронного значения.
-/// </summary>
-[<Struct; NoComparison; NoEquality>]
-type OneShotTx<'a> internal (impl: OneShotImpl<'a>) =
-    member this.IsClosed: bool = impl.IsClosed
-    member this.Send(msg: 'a): bool = impl.Send(msg)
-
-
-/// <summary>
 /// Single Produces Single Consumer (SPSC) channel for only one msg.
 /// OneShot used for sending single message between two Futures.
 ///
@@ -53,45 +31,48 @@ type OneShotTx<'a> internal (impl: OneShotImpl<'a>) =
 ///
 /// ```
 /// </example>
-[<Struct; NoComparison; NoEquality>]
-type OneShot<'a> internal (impl: OneShotImpl<'a>) =
+[<Class>]
+[<Sealed>]
+type OneShot<'a> =
 
-    static member Create(): OneShot<'a> = OneShot(OneShotImpl())
-    static member Closed(): OneShot<'a> = OneShot(OneShotImpl(true))
+    val mutable private value: 'a
+    val mutable private notify: PrimaryNotify
+
+    private new(closed: bool) =
+        { value = Unchecked.defaultof<'a>
+          notify = PrimaryNotify(false, closed) }
+
+    new() = OneShot(false)
+    static member Closed: OneShot<'a> = OneShot(true)
+
+    member inline this.Sender: OneShotSender<'a> = OneShotSender(this)
+    member inline this.Receiver: OneShotReceiver<'a> = OneShotReceiver(this)
+    member inline this.Pair: OneShotSender<'a> * OneShotReceiver<'a> = OneShotSender(this), OneShotReceiver(this)
 
     /// <summary>
     /// Проверяет закрыт ли OneShot.
     /// </summary>
-    member this.IsClosed: bool = impl.IsClosed
-
-    /// <summary>
-    /// Отправляет значение приемнику.
-    /// </summary>
-    /// <param name="msg"> Передаваемое значение </param>
-    /// <returns>
-    /// true, если сообщение было успешно отправлено и false, если OneShot уже был закрыт.
-    /// </returns>
-    member this.Send(msg: 'a): bool = impl.Send(msg)
+    member this.IsClosed: bool = this.notify.IsTerminated
 
     /// <summary>
     /// Закрывает получение значения.
     /// </summary>
     /// <remarks>
-    /// Future возвращенная вызовом <c>Await()</c> будет завершаться исключением после закрытия.
-    /// Поэтому если <c>Await()</c> уже был вызван, предпочтительным способом отмены ожидания будет использование
+    /// Future возвращенная вызовом <c>Receive()</c> будет завершаться исключением после закрытия.
+    /// Поэтому если <c>Receive()</c> уже был вызван, предпочтительным способом отмены ожидания будет использование
     /// <c> rxFuture.Drop() </c> вместо прямой отмены.
-    /// Этого можно добиться используя её компибацию с Future определяющей условие отмены.
+    /// Этого можно добиться используя её комбинацию с Future определяющей условие отмены.
     /// Например:
     /// <code>
     /// future {
-    ///     let tx, rx = OnoShot.createTxRx ()
+    ///     let tx, rx = OneShot.createPair ()
     ///     let _fTask = ThreadPoolScheduler.spawn (createSenderFuture tx)
     ///     let! valueWithTimeout =
-    ///         Future.first (Future.map Ok rx.Await()) (Future.sleepMs 1000 |> Future.map (fun () -> Error "timeout"))
+    ///         Future.first (Future.map Ok rx.Receive()) (Future.sleepMs 1000 |> Future.map (fun () -> Error "timeout"))
     /// }
     /// </code>
     /// </remarks>
-    member this.Close(): unit = impl.Close()
+    member this.Close() : unit = do this.notify.Drop() |> ignore
 
     /// <summary>
     /// Начинает асинхронное ожидание.
@@ -102,28 +83,68 @@ type OneShot<'a> internal (impl: OneShotImpl<'a>) =
     /// <remarks>
     /// Вызов <c>Drop</c> возвращенной Future приведет к закрытию (как вызов <c>Close</c>).
     /// </remarks>
-    member this.Await(): Future<'a> = impl.Await()
+    /// <remarks>
+    /// OneShot сам является Future и может быть использован напрямую.
+    /// </remarks>
+    member this.Receive() : Future<'a> = this
 
-    member this.AsTx: OneShotTx<'a> = OneShotTx(impl)
-    member this.AsRx: OneShotRx<'a> = OneShotRx(impl)
-    member this.AsTxRx: OneShotTx<'a> * OneShotRx<'a> = OneShotTx(impl), OneShotRx(impl)
+    /// <summary>
+    /// Отправляет значение приемнику.
+    /// </summary>
+    /// <param name="msg"> Передаваемое значение </param>
+    /// <returns>
+    /// true, если сообщение было успешно отправлено и false, если OneShot уже был закрыт.
+    /// </returns>
+    member this.Send(msg: 'a): bool =
+        if this.notify.IsNotified then invalidOp "OneShot already contains value or closed"
+        this.value <- msg
+        let isSuccess = this.notify.Notify()
+        if not isSuccess then
+            this.value <- Unchecked.defaultof<_>
+        isSuccess
+
+    interface Future<'a> with
+        member this.Poll(ctx: IContext) : Poll<'a> =
+            if this.notify.Poll(ctx)
+            then
+                let value = this.value
+                this.value <- Unchecked.defaultof<'a>
+                Poll.Ready value
+            else Poll.Pending
+
+        member this.Drop() : unit =
+            do this.notify.Drop() |> ignore
 
 
-[<AutoOpen>]
-module OneShotTxExtensions =
-    type OneShotTx<'a> with
-        member inline this.Send(msg: 'a): unit =
-            this.Send(msg) |> ignore
+/// <summary>
+/// Приемник одного асинхронного значения.
+/// Может быть преобразован в Future путем вызова <c> rx.Receive() </c>
+/// </summary>
+/// <remarks>
+/// Receive может быть вызван только один раз.
+/// </remarks>
+[<Struct; NoComparison; NoEquality>]
+type OneShotReceiver<'a>(oneshot: OneShot<'a>) =
+    member this.IsClosed: bool = oneshot.IsClosed
+    member this.Receive(): Future<'a> = oneshot.Receive()
+    member this.Close(): unit = oneshot.Close()
 
+/// <summary>
+/// Отправитель одного асинхронного значения.
+/// </summary>
+[<Struct; NoComparison; NoEquality>]
+type OneShotSender<'a>(oneshot: OneShot<'a>) =
+    member this.IsClosed: bool = oneshot.IsClosed
+    member this.Send(msg: 'a): bool = oneshot.Send(msg)
 
 [<RequireQualifiedAccess>]
 module OneShot =
 
-    let inline create<'a> () : OneShot<'a> = OneShot.Create()
-    let inline closed<'a> () : OneShot<'a> = OneShot.Closed()
+    let inline create<'a> () : OneShot<'a> = OneShot()
+    let inline createPair<'a> () : OneShotSender<'a> * OneShotReceiver<'a> = (create ()).Pair
 
-    let inline createTxRx<'a> () : OneShotTx<'a> * OneShotRx<'a> = (create ()).AsTxRx
-    let inline closedTxRx<'a> () : OneShotTx<'a> * OneShotRx<'a> = (closed ()).AsTxRx
+    let inline closed<'a> : OneShot<'a> = OneShot<'a>.Closed
+    let inline closedPair<'a> : OneShotSender<'a> * OneShotReceiver<'a> = OneShot<'a>.Closed.Pair
 
     let inline send (msg: 'a) (oneshot: OneShot<'a>) : bool =
         oneshot.Send(msg)
@@ -134,23 +155,23 @@ module OneShot =
     let inline close (oneshot: OneShot<'a>) : unit =
         oneshot.Close()
 
-    let inline await (oneshot: OneShot<'a>) : Future<'a> =
-        oneshot.Await()
+    let inline receive (oneshot: OneShot<'a>) : Future<'a> =
+        oneshot.Receive()
 
 
 [<RequireQualifiedAccess>]
-module OneShotTx =
-    let inline send (msg: 'a) (oneshot: OneShotTx<'a>) : bool =
+module OneShotSender =
+    let inline send (msg: 'a) (oneshot: OneShotSender<'a>) : bool =
         oneshot.Send(msg)
 
-    let inline isClosed (oneshot: OneShotTx<'a>) : bool =
+    let inline isClosed (oneshot: OneShotSender<'a>) : bool =
         oneshot.IsClosed
 
 
 [<RequireQualifiedAccess>]
-module OneShotRx =
-    let inline close (oneshot: OneShotRx<'a>) : unit =
+module OneShotReceiver =
+    let inline close (oneshot: OneShotReceiver<'a>) : unit =
         oneshot.Close()
 
-    let inline await (oneshot: OneShotRx<'a>) : Future<'a> =
-        oneshot.Await()
+    let inline await (oneshot: OneShotReceiver<'a>) : Future<'a> =
+        oneshot.Receive()

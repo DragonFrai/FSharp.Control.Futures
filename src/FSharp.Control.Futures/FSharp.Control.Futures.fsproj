@@ -22,6 +22,7 @@
     <ItemGroup>
         <Compile Include="Types.fs" />
         <Compile Include="LowLevel\Utils.fs" />
+        <Compile Include="LowLevel\RefOption.fs" />
         <Compile Include="LowLevel\Future.fs" />
         <Compile Include="LowLevel\IntrusiveList.fs" />
         <Compile Include="LowLevel\Helpers.fs" />
@@ -31,7 +32,6 @@
         <Compile Include="LowLevel\PrimaryOnceCell.fs" />
         <Compile Include="LowLevel\FuseFuture.fs" />
         <Compile Include="LowLevel\Context.fs" />
-        <Compile Include="LowLevel\OneShotImpl.fs" />
         <Compile Include="Cancelling.fs" />
         <Compile Include="Futures.fs" />
         <Compile Include="Future.fs" />

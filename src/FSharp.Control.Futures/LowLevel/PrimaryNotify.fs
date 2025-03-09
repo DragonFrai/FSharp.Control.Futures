@@ -62,6 +62,12 @@ type [<Struct; NoComparison; NoEquality>] PrimaryNotify =
                 else NotifyState.I
         { _state = state; _context = nullObj }
 
+    static member inline Create() =
+        PrimaryNotify(false, false)
+
+    static member inline Create(isNotified: bool) =
+        PrimaryNotify(isNotified, false)
+
     member inline this.IsInitOnly =
         let state = this._state
         state = NotifyState.I

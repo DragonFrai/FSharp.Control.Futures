@@ -30,11 +30,11 @@ type IAddress<'i, 'o> =
 
     // [ Derived functions ]
 
-    /// <summary>
-    /// Отправляет сообщение актору и ожидает ответа.
-    /// Если получатель мертв и не обрабатывает сообщения, выкинет исключение.
-    /// </summary>
-    abstract Send: 'i -> Future<'o>
+    // /// <summary>
+    // /// Отправляет сообщение актору и ожидает ответа.
+    // /// Если получатель мертв и не обрабатывает сообщения, выкинет исключение.
+    // /// </summary>
+    // //abstract Send: 'i -> Future<'o>
 
     /// <summary>
     /// Отправляет сообщение актору и ожидает ответа.
@@ -54,6 +54,21 @@ type IAddress<'i, 'o> =
     // /// </summary>
     // abstract Push: 'i -> Result<unit, PushError>
 
+[<AutoOpen>]
+module AddressExtensions =
+    type IAddress<'i, 'o> with
+        /// <summary>
+        /// Отправляет сообщение актору и ожидает ответа.
+        /// Если получатель мертв и не обрабатывает сообщения, выкинет исключение.
+        /// </summary>
+        member this.Send(msg: 'i): Future<'o> =
+            let os = OneShot()
+            let msgBox = Msg(msg, os.Sender)
+            future {
+                do! this.SendMsg(msgBox)
+                return! os.Receiver.Receive()
+            }
+
 [<AbstractClass>]
 type BaseAddress<'i, 'o>() =
 
@@ -64,9 +79,3 @@ type BaseAddress<'i, 'o>() =
         member this.SendMsg(msg) =
             this.Post(msg)
 
-        member this.Send(msg) = future {
-            let os = OneShot<'o>.Create()
-            let msg = Msg(msg, os.AsTx)
-            do! this.Post(msg)
-            return! os.Await()
-        }

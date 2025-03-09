@@ -23,9 +23,9 @@ let arb = Arbiter.Start({
 
 let addr = arb.Address
 
-let os = OneShot<string>.Create()
-do addr.Post(Msg("Steve", os.AsTx)) |> Future.runBlocking
-let r = os.Await() |> Future.runBlocking
+let os = OneShot<string>()
+do addr.SendMsg(Msg("Steve", os.Sender)) |> Future.runBlocking
+let r = os.Receive() |> Future.runBlocking
 printfn $"Reply is '{r}'"
 
 future {

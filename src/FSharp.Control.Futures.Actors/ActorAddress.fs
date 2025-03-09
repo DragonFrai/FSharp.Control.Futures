@@ -7,7 +7,7 @@ open FSharp.Control.Futures
 type IActorAddress =
 
     /// TBD
-    abstract Post : msg: DynMsg -> Future<unit>
+    abstract SendMsg : msg: DynMsg -> Future<unit>
 
     /// TBD
     abstract Narrow<'i, 'o> : unit -> IAddress<'i, 'o>
@@ -18,8 +18,8 @@ type IActorAddress<'a> =
 
 [<RequireQualifiedAccess>]
 module ActorAddress =
-    let inline post (msg: DynMsg) (addr: IActorAddress) : Future<unit> =
-        addr.Post(msg)
+    let inline sendMsg (msg: DynMsg) (addr: IActorAddress) : Future<unit> =
+        addr.SendMsg(msg)
 
 // [ Base impl ]
 
@@ -28,14 +28,14 @@ module ActorAddress =
 type internal NarrowAddress<'i, 'o>(addr: IActorAddress) =
     inherit BaseAddress<'i, 'o>() with
     override this.Post(msg) =
-        addr.Post(msg)
+        addr.SendMsg(msg)
 
 [<AbstractClass>]
 type BaseActorAddress() =
     abstract Post : DynMsg -> Future<unit>
 
     interface IActorAddress with
-        member this.Post(msg) =
+        member this.SendMsg(msg) =
             this.Post(msg)
 
         member this.Narrow() =
