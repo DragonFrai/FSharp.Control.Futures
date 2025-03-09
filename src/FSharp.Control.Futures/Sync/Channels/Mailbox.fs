@@ -16,10 +16,9 @@ type Reply<'a> =
 
 // TODO: Add closing ???
 /// <summary>
-/// Multiple Producer Single Consumer (MPSC) synchronisation channel designed like F# MailboxProcessor.
-/// Mailbox does not duplicate messages between multiple recipients,
-/// but you can repeatedly call <c>Receive</c> without waiting for the previous one,
-/// each receiving will receive one of the messages in the beginning waiting order.
+/// Multiple Producer Multiple Consumer (MPMC) synchronisation channel designed like F# MailboxProcessor.
+/// One <c>Mailbox</c> can be shared between multiple sending and multiple receiving tasks.
+/// Each <c>Receive</c> call returns unique message and can be used without waiting previous one.
 /// </summary>
 type [<Sealed>] Mailbox<'m> =
     val internal semaphore: Semaphore

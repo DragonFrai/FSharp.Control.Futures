@@ -1,67 +1,62 @@
 module FSharp.Control.Futures.Playground.SimpleRGrep
 
-open System.Collections.Concurrent
-open System.Collections.Generic
-open System.IO
 open FSharp.Control.Futures
 open FSharp.Control.Futures.Examples.Grep
 open FSharp.Control.Futures.Runtime
 open FSharp.Control.Futures.Sync
 
 
-
-
-let findFilesRec (root: string) (files: MutexVar<Queue<string>>) (isEnded: bool ref) = future {
-    let onFind file = future {
+let findFilesRec (root: string) (files: Mailbox<string>) (filesCrawledEvent: Event) = future {
+    do! GrepUtils.allFilesRec root (fun file -> future {
         match file with
-        | None -> isEnded.Value <- true
-        | Some file ->
-            do! files.MutateSync(fun files -> files.Enqueue(file))
-    }
-    do! GrepUtils.allFilesRec root onFind
+        | None -> filesCrawledEvent.Set()
+        | Some file -> files.Send(file)
+    })
 }
 
 let scanAllRec (path: string) (pattern: string) (runtime: IRuntime) (parallelismLevel: int) = future {
-    let files = MutexVar(Queue())
-    let isEnded = ref false
-    // let entries = MutexCell(Queue())
+    let files = Mailbox<string>()
+    let filesCrawled = Event()
     let consoleMutex = Mutex()
-    let fileCrawler = Runtime.spawn runtime (findFilesRec path files isEnded)
 
+    // [ Spawn files recursive enumeration workers ]
+    let fileCrawlerTask = Runtime.spawn runtime (findFilesRec path files filesCrawled)
+
+    // [ Spawn files pattern scanning workers ]
     let rec scanFileWorker () = future {
-        match! files.LockSync(_.TryDequeue()) with
-        | true, file ->
-            let onFind (entry: Entry) = future {
-                match entry.Result with
+        let! file =
+            Future.first
+                (files.Receive() |> Future.map Some)
+                (filesCrawled.Wait() |> Future.map (fun () -> None))
+        match file with
+        | None -> return ()
+        | Some file ->
+            do! GrepUtils.scanFile file pattern (fun (result: ScanResult) -> future {
+                match result.Result with
                 | Error _err ->
-                    // do! consoleMutex.Lock()
-                    // printfn $"Error in '{file}': {err}"
-                    // do consoleMutex.Unlock()
                     ()
-                | Ok res ->
+                | Ok entry ->
                     do! consoleMutex.Lock()
-                    printfn $"Entry at at {res.Line + 1}, {res.Column + 1} in '{file}':\n{res.LineStr}\n"
+                    printfn $"Entry at at {entry.Line + 1}, {entry.Column + 1} in '{file}':\n{entry.LineStr}\n"
                     do consoleMutex.Unlock()
-            }
-            do! GrepUtils.scanFile pattern onFind file
+            })
             return! scanFileWorker ()
-        | false, _ ->
-            if isEnded.Value
-            then return ()
-            else
-                do! Future.yieldWorkflow ()
-                return! scanFileWorker ()
     }
-
     let workers = seq {
         for _ in 1..parallelismLevel do
             yield Runtime.spawn runtime (scanFileWorker ())
     }
 
+    // [ Await workers ]
+    let awaitAndThrowOnError (fTask: IFutureTask<'a>) : Future<unit> = future {
+        let! r = fTask.Await()
+        match r with
+        | Ok _ -> ()
+        | Error err -> failwith $"{err}"
+    }
     for worker in workers do
-        do! worker.Await() |> Future.ignore
-    do! fileCrawler.Await() |> Future.ignore
-
+        do! awaitAndThrowOnError worker
+    do! awaitAndThrowOnError fileCrawlerTask
 }
 
 module SimpleRipGrep =

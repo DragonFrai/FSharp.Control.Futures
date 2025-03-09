@@ -4,16 +4,19 @@ open System.IO
 open FSharp.Control.Futures
 
 
-type EntryResult =
+type Entry =
     { Line: int; Column: int; LineStr: string }
 
-type Entry =
+type ScanResult =
     { FilePath: string
-      Result: Result<EntryResult, string> }
+      Result: Result<Entry, string> }
 
 [<RequireQualifiedAccess>]
 module GrepUtils =
 
+    /// <summary>
+    /// Enumerate all files by path recursive using onFind action
+    /// </summary>
     let allFilesRec (root: string) (onFind: string option -> Future<unit>) = future {
         let rec scanDir (path: string) = future {
             let attrs = File.GetAttributes(path)
@@ -30,21 +33,24 @@ module GrepUtils =
         do! onFind None
     }
 
-    let scanString (pattern: string) (onFind: int -> Future<unit>) (str: string) = future {
-        let rec loop (currentIdx: int) (pattern: string) (str: string) = future {
+    /// <summary>
+    /// Enumerate indexes of pattern in string using onFind action
+    /// </summary>
+    let scanString (str: string) (pattern: string) (onFind: int -> Future<unit>) = future {
+        let rec loop (str: string) (pattern: string) (currentIdx: int) = future {
             let entryIdx = str.IndexOf(pattern, currentIdx)
             if entryIdx = -1 then ()
             else
                 do! onFind entryIdx
                 do! Future.yieldWorkflow ()
-                return! loop (entryIdx + 1) pattern str
+                return! loop str pattern (entryIdx + 1)
         }
-        return! loop 0 pattern str
+        return! loop str pattern 0
     }
 
-    let scanFile (pattern: string) (onFind: Entry -> Future<unit>) (path: string) = future {
+    let scanFile (path: string) (pattern: string) (onFind: ScanResult -> Future<unit>) = future {
         let sizeLimit = 1024 * 1024 * 16
-        let allowedExtension = [ "txt"; "json"; "toml"; "yml"; "yaml"; "fs"; "cs" ]
+        let allowedExtension = [ "txt"; "json"; "toml"; "yml"; "yaml"; "fs"; "fsx"; "fsi"; "cs" ]
 
         let info = FileInfo(path)
 
@@ -52,7 +58,7 @@ module GrepUtils =
             let entry = { FilePath = path; Result = Error "File to large" }
             do! onFind entry
             return ()
-        elif not (List.contains (info.Extension.Substring(1)) allowedExtension) then
+        elif not (info.Extension.Length > 1 && List.contains (info.Extension.Substring(1)) allowedExtension) then
             let entry = { FilePath = path; Result = Error "Extension not allowed for scanning" }
             do! onFind entry
             return ()
@@ -68,7 +74,7 @@ module GrepUtils =
                         let entry = { FilePath = path; Result = Ok res }
                         do! onFind entry
                     }
-                    do! scanString pattern onFind line
+                    do! scanString line pattern onFind
                     return! loop (lineNumber + 1)
             }
             return! loop 0

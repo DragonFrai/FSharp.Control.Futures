@@ -13,6 +13,8 @@ type internal EventState =
     static member inline IsUnset(state: uint32): bool = state = 0u
 
 // TODO?: Add Reset instead realloc
+// TODO?: Add registration listeners ?
+// TODO?: Creating+Dropping EventWaiter in loop not efficient, we can add cloneable EventHandle that can be called only in one async context in loop and reuse Future creating.
 [<Class>]
 [<Sealed>]
 type Event =
