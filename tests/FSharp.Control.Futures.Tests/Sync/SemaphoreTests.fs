@@ -175,7 +175,7 @@ let ``Semaphore counter stress test``() =
                 do! semaphore.Acquire()
                 counter <- counter + 1
                 do semaphore.Release()
-                do! Future.yieldWorkflow ()
+                do! Future.yield' ()
         })
         workerTasks <- fTask :: workerTasks
 
@@ -199,7 +199,7 @@ let ``Semaphore stress test``() =
             do! barrier.Wait() |> Future.ignore
 
             do! semaphore.Acquire()
-            do! Future.yieldWorkflow ()
+            do! Future.yield' ()
             do semaphore.Release()
         })
         workerTasks <- fTask :: workerTasks

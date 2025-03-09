@@ -6,8 +6,8 @@ open FSharp.Control.Futures
 
 [<Fact>]
 let ``Future.bind combine computation``() =
-    let first = Future.yieldWorkflow () |> Future.bind (fun () -> Future.unit')
-    let second = Future.yieldWorkflow () |> Future.bind (fun () -> Future.ready 8)
+    let first = Future.yield' () |> Future.bind (fun () -> Future.unit')
+    let second = Future.yield' () |> Future.bind (fun () -> Future.ready 8)
 
     let fut =
         first
@@ -21,7 +21,7 @@ let ``Future.bind combine computation``() =
 
 [<Fact>]
 let ``Future.bind throws exception``() =
-    let yielded () = Future.yieldWorkflow () |> Future.bind (fun () -> Future.unit')
+    let yielded () = Future.yield' () |> Future.bind (fun () -> Future.unit')
 
     let exInBinder = yielded () |> Future.bind (fun () -> raise (Exception ""); Future.ready 12) |> Future.ignore
     let exInFirst = Future.lazy' (fun () -> raise (Exception "")) |> Future.bind (fun () -> Future.ready 12) |> Future.ignore

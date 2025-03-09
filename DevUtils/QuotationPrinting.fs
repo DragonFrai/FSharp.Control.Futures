@@ -3,6 +3,8 @@ module DevUtils.QuotationPrinting
 open FSharp.Quotations
 open System.Text
 
+open FSharp.Control.Futures
+
 
 module Line =
     let appendIndent i s = String.replicate i " " + s
@@ -130,30 +132,35 @@ module rec Format =
         | _ -> "<UNIMPL>"
 
 
+let foo x = ()
+let expr =
+    <@
+        // async {
+        //     printfn "Start"
+        //     do! Async.Sleep(1000)
+        //     let x = 6
+        //     let! results = Async.Parallel [
+        //         async { return 1 }
+        //         async { return 2 }
+        //     ]
+        //     return x //Array.sum results
+        // }
+        future {
+            yield ()
+            foo 12
+            ()
+        }
+    @>
 
-//let expr =
-//    <@
-//        async {
-//            printfn "Start"
-//            do! Async.Sleep(1000)
-//            let x = 6
-//            let! results = Async.Parallel [
-//                async { return 1 }
-//                async { return 2 }
-//            ]
-//            return x //Array.sum results
-//        }
-//    @>
-//
-//let sexpr1 = printfn "%A" expr
-//printfn "\n"
-//printfn "<---- std ----<"
-//printf $"{sexpr1}"
-//printfn "%%"
-//printfn ">---- std ---->"
-//
-//let sexpr2 = Format.expr' expr
-//printfn "<---- my ----<"
-//printfn $"{sexpr2}"
-//printfn "%%"
-//printfn ">---- my ---->"
+let sexpr1 = printfn "%A" expr
+printfn "\n"
+printfn "<---- std ----<"
+printf $"{sexpr1}"
+printfn "%%"
+printfn ">---- std ---->"
+
+let sexpr2 = Format.expr' expr
+printfn "<---- my ----<"
+printfn $"{sexpr2}"
+printfn "%%"
+printfn ">---- my ---->"

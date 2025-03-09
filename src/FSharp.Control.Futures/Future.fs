@@ -95,7 +95,7 @@ module Future =
 
     /// <summary> Creates a Future that returns control flow to the runtime once </summary>
     /// <returns> Future that returns control flow to the runtime once </returns>
-    let inline yieldWorkflow () : Future<unit> =
+    let inline yield' () : Future<unit> =
         upcast Futures.Yield()
 
     [<RequireQualifiedAccess>]
@@ -132,6 +132,8 @@ type FutureBuilder() =
     member inline _.Return(x): Future<'a> = Future.ready x
 
     member inline _.Bind(ca: Future<'a>, a2cb: 'a -> Future<'b>) = Future.bind a2cb ca
+
+    member inline _.Yield(()): Future<unit> = Futures.Yield()
 
     member inline _.Zero(): Future<unit> = Future.unit'
 

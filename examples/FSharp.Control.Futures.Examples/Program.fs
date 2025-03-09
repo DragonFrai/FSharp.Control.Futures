@@ -61,11 +61,11 @@ module Fib =
         future {
             if n <= 1 then return n
             else
-                do! Future.yieldWorkflow ()
+                do! Future.yield' ()
                 let! a = fibFuture (n - 1)
-                do! Future.yieldWorkflow ()
+                do! Future.yield' ()
                 let! b = fibFuture (n - 2)
-                do! Future.yieldWorkflow ()
+                do! Future.yield' ()
                 return a + b
         }
 
@@ -120,9 +120,9 @@ module Fib =
             | n ->
                 future {
                     let! f1 = Future.ready 2
-                    do! Future.yieldWorkflow ()
+                    do! Future.yield' ()
                     let! f2 = loop (n - 1)
-                    do! Future.yieldWorkflow ()
+                    do! Future.yield' ()
                     let! f3 = Future.ready 3
                     return f1 + f2 + f3
                 }

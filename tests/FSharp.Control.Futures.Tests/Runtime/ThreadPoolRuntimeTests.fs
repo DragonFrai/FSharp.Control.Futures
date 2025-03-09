@@ -13,7 +13,7 @@ let ``ThreadPoolRuntime regular path``() =
 
     let fut = future {
         let! a = Future.ready 1
-        let! b = Future.yieldWorkflow () |> Future.bind (fun () -> Future.ready 2)
+        let! b = Future.yield' () |> Future.bind (fun () -> Future.ready 2)
         let c = a + b
         return c
     }
@@ -27,14 +27,14 @@ let ``ThreadPoolRuntime cancelling``() =
     use wh = new EventWaitHandle(false, EventResetMode.AutoReset)
     let mutable isCompleted = false
     let fut = future {
-        wh.WaitOne()
-        do! Future.yieldWorkflow ()
+        wh.WaitOne() |> ignore
+        do! Future.yield' ()
         isCompleted <- true
     }
 
     let fTask = ThreadPoolRuntime.spawn fut
     fTask.Cancel()
-    wh.Set()
+    do wh.Set() |> ignore
 
     let result = fTask.Await() |> Future.runBlocking
 

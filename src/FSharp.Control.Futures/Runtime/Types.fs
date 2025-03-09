@@ -10,12 +10,6 @@ open FSharp.Control.Futures.Cancelling
 type FutureTaskCancelledException() = inherit Exception()
 type FutureTaskMultipleAwaitException() = inherit Exception()
 
-[<Struct>]
-[<RequireQualifiedAccess>]
-type AwaitMode =
-    | Foreground // Cancel on drop
-    | Background // Not Cancel on drop
-
 // type AwaitException =
 //     inherit Exception
 //     val error: AwaitError

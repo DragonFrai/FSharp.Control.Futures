@@ -19,9 +19,10 @@ type Reply<'a> =
 
 // TODO: Add closing ???
 /// <summary>
-/// Multiple Producer Multiple Consumer (MPMC) synchronisation channel designed like F# MailboxProcessor.
+/// Multiple Producer Multiple Consumer (MPMC) splitting synchronisation channel designed like F# MailboxProcessor.
 /// One <c>Mailbox</c> can be shared between multiple sending and multiple receiving tasks.
 /// Each <c>Receive</c> call returns unique message and can be used without waiting previous one.
+/// It can be used for distribute work between many tasks.
 /// </summary>
 type [<Sealed>] Mailbox<'m> =
     val internal semaphore: Semaphore

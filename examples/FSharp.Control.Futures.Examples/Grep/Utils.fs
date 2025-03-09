@@ -27,7 +27,7 @@ module GrepUtils =
                     do! onFind (Some file)
                 for dir in Directory.GetDirectories(path) do
                     do! scanDir dir
-                do! Future.yieldWorkflow ()
+                do! Future.yield' ()
         }
         do! scanDir root
         do! onFind None
@@ -42,7 +42,7 @@ module GrepUtils =
             if entryIdx = -1 then ()
             else
                 do! onFind entryIdx
-                do! Future.yieldWorkflow ()
+                do! Future.yield' ()
                 return! loop str pattern (entryIdx + 1)
         }
         return! loop str pattern 0

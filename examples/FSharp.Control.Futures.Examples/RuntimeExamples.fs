@@ -11,11 +11,11 @@ let simpleExample () =
 
     let newFuture = fun (name: string) -> future {
         System.Console.WriteLine($"{name}: Future begin")
-        do! Future.yieldWorkflow ()
+        do! Future.yield' ()
         System.Console.WriteLine($"{name}: Some work...")
         do! Future.sleepMs 1000
         System.Console.WriteLine($"{name}: Work completed")
-        do! Future.yieldWorkflow ()
+        do! Future.yield' ()
         System.Console.WriteLine($"{name}: Future end")
         return name
     }

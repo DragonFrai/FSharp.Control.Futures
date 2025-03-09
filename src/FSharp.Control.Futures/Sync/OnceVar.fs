@@ -1,6 +1,40 @@
-namespace rec FSharp.Control.Futures.Sync
+namespace FSharp.Control.Futures.Sync
 
-// TODO
+open FSharp.Control.Futures.LowLevel
+
+
+// [<RequireQualifiedAccess>]
+// type internal OnceVarState =
+//     static member inline Empty = 0u
+//     static member inline Set = 1u
+//     static member inline IsSet(state: uint32): bool = state = OnceVarState.Set
+//
+//
+// // TODO: Set/Get/GetOrInit/TryGet
+// [<Class>]
+// [<Sealed>]
+// type OnceVar<'a> =
+//     val mutable value: 'a
+//     val event: Event
+//     val mutable state: uint32
+//
+//     new(value: 'a) =
+//         { value = value; event = nullObj; state = OnceVarState.Empty }
+//
+//     new() =
+//         { value = Unchecked.defaultof<'a>; event = nullObj; state = OnceVarState.Set }
+//
+//     member this.IsSet: bool = OnceVarState.IsSet(this.state)
+//
+//     member this.Set(value: 'a) : unit =
+//         let rec loop (this: OnceVar<'a>) (value: 'a) (state: 'uint32) =
+//             if OnceVarState.IsSet(state) then invalidOp "Multiple OnceVar initialisation"
+//             else
+//
+//
+//
+//
+//
 
 // open System.Threading
 // open FSharp.Control.Futures
