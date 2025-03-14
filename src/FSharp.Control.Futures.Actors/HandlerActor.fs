@@ -7,12 +7,12 @@ open FSharp.Control.Futures
 /// Actor handler interface for handle one msg type.
 /// </summary>
 type IHandler<'i, 'o> =
-    abstract Handle: ctx: IActorContext * msg: Msg<'i, 'o> -> Future<unit>
+    abstract Handle: ctx: IActorContext * msg: Envelope<'i, 'o> -> Future<unit>
 
 type internal HandlerActorVisitor() =
     static member Instance = HandlerActorVisitor()
-    interface IMsgVisitorFunc<struct (HandlerActor * IActorContext), Future<unit>> with
-        member this.Visit<'i, 'o>(msg: Msg<'i, 'o>, arg: struct (HandlerActor * IActorContext)) : Future<unit> =
+    interface IEnvelopeVisitorFunc<struct (HandlerActor * IActorContext), Future<unit>> with
+        member this.Visit<'i, 'o>(msg: Envelope<'i, 'o>, arg: struct (HandlerActor * IActorContext)) : Future<unit> =
             let struct (actor, ctx) = arg
             match box actor with
             | :? IHandler<'i, 'o> as handler ->
@@ -20,7 +20,7 @@ type internal HandlerActorVisitor() =
                 handler.Handle(ctx, msg)
             | _ ->
                 let actorTypeName = actor.GetType().Name
-                let msgTypeName = nameof Msg<'i, 'o>
+                let msgTypeName = nameof Envelope<'i, 'o>
                 let msgInTypeName = typeof<'i>.Name
                 let msgOutTypeName = typeof<'o>.Name
                 failwith $"Actor {actorTypeName} can not receive {msgTypeName}<{msgInTypeName}, {msgOutTypeName}>"
@@ -30,13 +30,13 @@ type HandlerActor =
     inherit BaseActor
     new() = {  }
 
-    abstract OnReceive: ctx: IActorContext * dynMSg: DynMsg -> unit
-    default this.OnReceive(_ctx: IActorContext, _dynMSg: DynMsg): unit =
+    abstract OnReceive: ctx: IActorContext * dynMSg: IEnvelope -> unit
+    default this.OnReceive(_ctx: IActorContext, _dynMSg: IEnvelope): unit =
         ()
 
     // TODO:
     // [<Sealed>]
     override this.Receive(ctx, dynMsg) = future {
         let visitor = HandlerActorVisitor.Instance
-        return! dynMsg.Accept(visitor, struct (this, ctx))
+        return! dynMsg.AcceptFunc(visitor, struct (this, ctx))
     }

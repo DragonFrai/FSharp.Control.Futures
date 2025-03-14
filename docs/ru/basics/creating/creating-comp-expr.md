@@ -15,7 +15,7 @@ let lazy' = future { return (foo ()) } // ~ Future.lazy' (fun () -> foo ())
 ```fsharp
 // readFileAsync: filePath: string -> Future<string>
 // writeFileAsync: filePath: string -> content: string -> Future<unit>
-let readAndWriteFuture = futur {
+let readAndWriteFuture = future {
     let! content = readFileAsync "my-file.txt"
     return! writeFileAsync "other-file.txt" content
 }

@@ -1,6 +1,12 @@
 namespace FSharp.Control.Futures.Actors.Address
 
 
+type SendError =
+    | Full
+    | Stopped
+    | Timeout
+
+
 // [<RequireQualifiedAccess>]
 // type SendError =
 //     | Closed

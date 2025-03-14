@@ -24,7 +24,7 @@ let arb = Arbiter.Start({
 let addr = arb.Address
 
 let os = OneShot<string>()
-do addr.SendMsg(Msg("Steve", os.Sender)) |> Future.runBlocking
+do addr.SendMsg(Envelope("Steve", os.Sender)) |> Future.runBlocking
 let r = os.Receive() |> Future.runBlocking
 printfn $"Reply is '{r}'"
 

@@ -2,6 +2,7 @@ namespace FSharp.Control.Futures.Actors
 
 open System.Threading
 open FSharp.Control.Futures
+open FSharp.Control.Futures.Actors.Addressing
 open FSharp.Control.Futures.Runtime
 open FSharp.Control.Futures.Sync
 
@@ -24,34 +25,38 @@ type ActorStatus =
             | Stopping | Stopped -> true
 
 
+/// <summary>
+/// "Рантайм" актора, обеспечивающий механизм приема сообщений актора.
+/// За арбитром может не быть реального актора, но предоставить способ своей остановки и отправки сообщений он обязан.
+/// </summary>
 type IArbiter =
     abstract Status: ActorStatus
-    abstract Address: IActorAddress
+    abstract Address: IDynamicAddress
     abstract Stop: unit -> Future<unit>
 
 
 type ArbiterMsg =
-    | Msg of msg: DynMsg
+    | Msg of msg: IEnvelope
 
 
 type ArbiterAddress(arbiterMailbox: Mailbox<ArbiterMsg>) =
     inherit BaseActorAddress()
 
-    override this.Post(msg: DynMsg): Future<unit> = future {
+    override this.Post(msg: IEnvelope): Future<unit> = future {
         // Exn if stopped
         let arbMsg = ArbiterMsg.Msg msg
         do arbiterMailbox.Send(arbMsg)
         return ()
     }
 
-type ArbiterContext(mailbox: Mailbox<ArbiterMsg>, selfAddress: IActorAddress, backgroundRuntime: IRuntime) =
+type ArbiterContext(mailbox: Mailbox<ArbiterMsg>, selfAddress: ITryAddress, backgroundRuntime: IRuntime) =
 
     interface IActorContext with
 
         member this.Spawn(fut: Future<'a>): IFutureTask<'a> =
             backgroundRuntime.Spawn(fut)
 
-        member this.SelfAddress: IActorAddress =
+        member this.SelfAddress: ITryAddress =
             selfAddress
 
         member this.Stop(): unit =
@@ -101,10 +106,10 @@ type Arbiter =
     val internal backgroundRuntime: IRuntime
 
     val internal mailbox: Mailbox<ArbiterMsg>
-    val internal address: IActorAddress
+    val internal address: ITryAddress
     val internal context: IActorContext
 
-    member this.Address: IActorAddress = this.address
+    member this.Address: ITryAddress = this.address
 
     private new (actor, actorId, msgLoopRuntime, backgroundRuntime, mailbox, address, context) =
         { actor = actor
