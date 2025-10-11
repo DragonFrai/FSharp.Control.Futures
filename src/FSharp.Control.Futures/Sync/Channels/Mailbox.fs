@@ -3,19 +3,8 @@ namespace FSharp.Control.Futures.Sync
 open System.Collections.Concurrent
 open FSharp.Control.Futures
 open FSharp.Control.Futures.LowLevel
+open FSharp.Control.Futures.Sync.Channels
 
-
-[<Struct>]
-type Reply<'a> =
-    val private tx: OneShotSender<'a>
-
-    new(tx: OneShotSender<'a>) = { tx = tx }
-
-    member this.IsNeedsReply: bool =
-        not this.tx.IsClosed
-
-    member this.Reply(reply: 'a): unit =
-        this.tx.Send(reply) |> ignore
 
 // TODO: Add closing ???
 /// <summary>
@@ -42,9 +31,8 @@ type [<Sealed>] Mailbox<'m> =
         do this.semaphore.Release()
 
     member this.SendWithReply<'r>(msgBuilder: Reply<'r> -> 'm): Future<'r> = future {
-        let oneshot = OneShot.create ()
-        let msg = msgBuilder (Reply(oneshot.Sender))
+        let struct (reply, future) = Reply.Create()
+        let msg = msgBuilder reply
         this.Send(msg)
-        let! r = oneshot.Receive()
-        return r
+        return! future
     }

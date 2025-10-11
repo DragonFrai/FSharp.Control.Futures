@@ -124,18 +124,22 @@ type OneShot<'a> =
 /// Receive может быть вызван только один раз.
 /// </remarks>
 [<Struct; NoComparison; NoEquality>]
-type OneShotReceiver<'a>(oneshot: OneShot<'a>) =
-    member this.IsClosed: bool = oneshot.IsClosed
-    member this.Receive(): Future<'a> = oneshot.Receive()
-    member this.Close(): unit = oneshot.Close()
+type OneShotReceiver<'a> =
+    val Inner: OneShot<'a>
+    new(oneshot: OneShot<'a>) = { Inner = oneshot }
+    member this.IsClosed: bool = this.Inner.IsClosed
+    member this.Receive(): Future<'a> = this.Inner.Receive()
+    member this.Close(): unit = this.Inner.Close()
 
 /// <summary>
 /// Отправитель одного асинхронного значения.
 /// </summary>
 [<Struct; NoComparison; NoEquality>]
-type OneShotSender<'a>(oneshot: OneShot<'a>) =
-    member this.IsClosed: bool = oneshot.IsClosed
-    member this.Send(msg: 'a): bool = oneshot.Send(msg)
+type OneShotSender<'a> =
+    val Inner: OneShot<'a>
+    new(oneshot: OneShot<'a>) = { Inner = oneshot }
+    member this.IsClosed: bool = this.Inner.IsClosed
+    member this.Send(msg: 'a): bool = this.Inner.Send(msg)
 
 [<RequireQualifiedAccess>]
 module OneShot =

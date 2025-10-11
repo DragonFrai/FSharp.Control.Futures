@@ -25,7 +25,7 @@
 
     <ItemGroup>
         <Compile Include="RuntimeExamples.fs" />
-        <Folder Include="Docs\" />
+        <Compile Include="Docs\Creating\Combinators.fs" />
         <Compile Include="Echo\EchoSender.fs" />
         <Compile Include="Echo\EchoReceiver.fs" />
         <Compile Include="Grep\Utils.fs" />

@@ -47,6 +47,7 @@
         <Compile Include="Sync\RwLockVar.fs" />
         <Compile Include="Sync\Channels\Channel.fs" />
         <Compile Include="Sync\Channels\OneShot.fs" />
+        <Compile Include="Sync\Channels\Replying.fs" />
         <Compile Include="Sync\Channels\Mailbox.fs" />
         <Compile Include="Runtime\Types.fs" />
         <Compile Include="Runtime\TaskId.fs" />
