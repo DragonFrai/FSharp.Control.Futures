@@ -6,12 +6,9 @@
     </PropertyGroup>
 
     <ItemGroup>
+        <Compile Include="Label.fs" />
+        <Compile Include="Addressing.fs" />
         <Compile Include="Envelope.fs" />
-        <Compile Include="SendingErrors.fs" />
-        <Compile Include="Addressing\Types.fs" />
-        <Compile Include="Addressing\Addresses.fs" />
-        <Compile Include="Addressing\Address.fs" />
-        <Compile Include="Addressing\DynamicAddress.fs" />
         <Compile Include="Actor.fs" />
         <Compile Include="HandlerActor.fs" />
         <Compile Include="Arbiter\Types.fs" />

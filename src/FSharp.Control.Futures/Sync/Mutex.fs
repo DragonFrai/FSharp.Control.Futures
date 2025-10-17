@@ -15,7 +15,7 @@ type Mutex =
         this.semaphore.Acquire()
 
     member this.TryLock(): bool =
-        this.semaphore.TryAcquire()
+        this.semaphore.AcquireNow().IsOk
 
     member this.LockBlocking(): unit =
         this.Lock() |> Future.runBlocking

@@ -45,9 +45,9 @@ type OneShot<'a> =
     new() = OneShot(false)
     static member Closed: OneShot<'a> = OneShot(true)
 
-    member inline this.Sender: OneShotSender<'a> = OneShotSender(this)
-    member inline this.Receiver: OneShotReceiver<'a> = OneShotReceiver(this)
-    member inline this.Pair: OneShotSender<'a> * OneShotReceiver<'a> = OneShotSender(this), OneShotReceiver(this)
+    member inline this.AsSend: OneSend<'a> = OneSend(this)
+    member inline this.AsReceive: OneReceive<'a> = OneReceive(this)
+    member inline this.AsPair: OneSend<'a> * OneReceive<'a> = OneSend(this), OneReceive(this)
 
     /// <summary>
     /// Проверяет закрыт ли OneShot.
@@ -95,13 +95,16 @@ type OneShot<'a> =
     /// <returns>
     /// true, если сообщение было успешно отправлено и false, если OneShot уже был закрыт.
     /// </returns>
-    member this.Send(msg: 'a): bool =
+    member this.Send(msg: 'a) : bool = // TODO: Semantically result
         if this.notify.IsNotified then invalidOp "OneShot already contains value or closed"
         this.value <- msg
         let isSuccess = this.notify.Notify()
         if not isSuccess then
             this.value <- Unchecked.defaultof<_>
         isSuccess
+
+    member this.DoSend(msg: 'a) : unit =
+        this.Send(msg) |> ignore
 
     interface Future<'a> with
         member this.Poll(ctx: IContext) : Poll<'a> =
@@ -124,7 +127,7 @@ type OneShot<'a> =
 /// Receive может быть вызван только один раз.
 /// </remarks>
 [<Struct; NoComparison; NoEquality>]
-type OneShotReceiver<'a> =
+type OneReceive<'a> =
     val Inner: OneShot<'a>
     new(oneshot: OneShot<'a>) = { Inner = oneshot }
     member this.IsClosed: bool = this.Inner.IsClosed
@@ -135,20 +138,21 @@ type OneShotReceiver<'a> =
 /// Отправитель одного асинхронного значения.
 /// </summary>
 [<Struct; NoComparison; NoEquality>]
-type OneShotSender<'a> =
+type OneSend<'a> =
     val Inner: OneShot<'a>
     new(oneshot: OneShot<'a>) = { Inner = oneshot }
     member this.IsClosed: bool = this.Inner.IsClosed
     member this.Send(msg: 'a): bool = this.Inner.Send(msg)
+    member this.DoSend(msg: 'a): unit = this.Inner.DoSend(msg)
 
 [<RequireQualifiedAccess>]
 module OneShot =
 
     let inline create<'a> () : OneShot<'a> = OneShot()
-    let inline createPair<'a> () : OneShotSender<'a> * OneShotReceiver<'a> = (create ()).Pair
+    let inline createPair<'a> () : OneSend<'a> * OneReceive<'a> = (create ()).AsPair
 
     let inline closed<'a> : OneShot<'a> = OneShot<'a>.Closed
-    let inline closedPair<'a> : OneShotSender<'a> * OneShotReceiver<'a> = OneShot<'a>.Closed.Pair
+    let inline closedPair<'a> : OneSend<'a> * OneReceive<'a> = OneShot<'a>.Closed.AsPair
 
     let inline send (msg: 'a) (oneshot: OneShot<'a>) : bool =
         oneshot.Send(msg)
@@ -164,18 +168,22 @@ module OneShot =
 
 
 [<RequireQualifiedAccess>]
-module OneShotSender =
-    let inline send (msg: 'a) (oneshot: OneShotSender<'a>) : bool =
+module OneSend =
+    let inline send (msg: 'a) (oneshot: OneSend<'a>) : bool =
         oneshot.Send(msg)
 
-    let inline isClosed (oneshot: OneShotSender<'a>) : bool =
+    let inline isClosed (oneshot: OneSend<'a>) : bool =
         oneshot.IsClosed
 
 
 [<RequireQualifiedAccess>]
-module OneShotReceiver =
-    let inline close (oneshot: OneShotReceiver<'a>) : unit =
+module OneReceive =
+
+    let inline isClosed (oneshot: OneReceive<'a>) : bool =
+        oneshot.IsClosed
+
+    let inline close (oneshot: OneReceive<'a>) : unit =
         oneshot.Close()
 
-    let inline await (oneshot: OneShotReceiver<'a>) : Future<'a> =
+    let inline receive (oneshot: OneReceive<'a>) : Future<'a> =
         oneshot.Receive()

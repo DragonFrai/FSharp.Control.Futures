@@ -12,24 +12,24 @@ open Xunit
 [<Fact>]
 let ``Try acquire (init with 0 permits)``() =
     let s = Semaphore(0)
-    do Assert.False(s.TryAcquire())
+    do Assert.False(s.AcquireNow().IsOk)
     do s.Release()
-    do Assert.True(s.TryAcquire())
+    do Assert.True(s.AcquireNow().IsOk)
 
 [<Fact>]
 let ``Try acquire (init with 1 permits)``() =
     let s = Semaphore(1)
-    do Assert.True(s.TryAcquire())
-    do Assert.False(s.TryAcquire())
+    do Assert.True(s.AcquireNow().IsOk)
+    do Assert.False(s.AcquireNow().IsOk)
     do s.Release()
-    do Assert.True(s.TryAcquire())
+    do Assert.True(s.AcquireNow().IsOk)
 
 [<Fact>]
 let ``Try acquire many``() =
     let s = Semaphore(1)
-    do Assert.False(s.TryAcquire(3))
+    do Assert.False(s.AcquireNow(3).IsOk)
     do s.Release(2)
-    do Assert.True(s.TryAcquire(3))
+    do Assert.True(s.AcquireNow(3).IsOk)
 
 
 // [ Acquire ]
@@ -67,7 +67,7 @@ let ``Acquire dropped acquire not take permits``() =
     Assert.True(fTask.IsWaked)
     fTask.Drop()
     Assert.Equal(1, s.AvailablePermits)
-    Assert.Equal(true, s.TryAcquire())
+    Assert.Equal(true, s.AcquireNow().IsOk)
     Assert.Equal(0, s.AvailablePermits)
     ()
 
@@ -182,7 +182,10 @@ let ``Semaphore counter stress test``() =
     do semaphore.Release(1)
     for wTask in workerTasks do
         let r = wTask.Await() |> Future.runBlocking
-        Assert.Equal(r, Ok ())
+        match r with
+        | Ok () -> ()
+        | Error err ->
+            failwith $"{err}"
 
     Assert.Equal(expectedResult, counter)
 
@@ -208,5 +211,5 @@ let ``Semaphore stress test``() =
         let r = wTask.Await() |> Future.runBlocking
         Assert.Equal(r, Ok ())
 
-    Assert.True(semaphore.TryAcquire(5))
-    Assert.False(semaphore.TryAcquire(1))
+    Assert.True(semaphore.AcquireNow(5).IsOk)
+    Assert.False(semaphore.AcquireNow(1).IsOk)

@@ -102,7 +102,7 @@ module Future =
     module Seq =
 
         let fold (folder: 's -> 'a -> Future<'s>) (state: 's) (source: 'a seq) : Future<'s> =
-            let rec foldAsyncLoop folder state (enumerator: IEnumerator<'a>) =
+            let rec foldAsyncLoop (folder: 's -> 'a -> Future<'s>) (state: 's) (enumerator: IEnumerator<'a>) : Future<'s> =
                 if enumerator.MoveNext() then
                     bind (fun state -> foldAsyncLoop folder state enumerator) (folder state enumerator.Current)
                 else

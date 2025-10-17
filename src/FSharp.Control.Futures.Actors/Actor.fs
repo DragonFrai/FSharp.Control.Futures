@@ -1,38 +1,51 @@
 namespace FSharp.Control.Futures.Actors
 
+open System
 open FSharp.Control.Futures
 open FSharp.Control.Futures.Runtime
 open FSharp.Control.Futures.Actors.Addressing
 
 
+// # Жизненный цикл актора
+//
+// 0. Inactive --
+//    Актор только создан, но не запущен
+// 1. Starting --
+//    Процедура запуска актора.
+//    Еще не может полноценно обрабатывать сообщения, но может упасть уведомив спавнера о неудачном запуске.
+// 2. Active --
+//    Актор в нормальном состоянии и обрабатывает сообщения. Спавнер знает о готовности актора
+// 3. Stopping --
+//    Актор перестает принимать сообщения, но существующие в очереди он может обработать
+// 4. Terminated --
+//    Никакие сообщения актор не может обрабатывать.
 
 
-[<RequireQualifiedAccess>]
 [<Struct>]
-type SendError =
+[<RequireQualifiedAccess>]
+type ActorStatus =
+    | Inactive
+    | Starting
+    | Active
+    | Stopping
     | Terminated
 
-type SendResult<'r> = Result<'r, SendError>
+type UnhandleableMessage =
+    inherit Exception
+    new () = { inherit Exception() }
+    new (message: string) = { inherit Exception(message) }
 
-type ITryAddress<'m, 'r> = IAddress<'m, SendResult<'r>>
-
-// HKT, GAT, anything, please...
-[<Interface>]
-type IDynamicTryAddress =
-    abstract AsDynamicAddress: IDynamicAddress
-    abstract Send<'m, 'r>: message: 'm -> Future<SendResult<'r>>
-    abstract Narrow<'m, 'r> : unit -> ITryAddress<'m, 'r>
-
-
-
-
+type UnsupportedMessageReply =
+    inherit UnhandleableMessage
+    new () = { inherit UnhandleableMessage() }
+    new (message: string) = { inherit UnhandleableMessage(message) }
 
 
 type IActorContext =
 
-    abstract Spawn: Future<'a> -> IFutureTask<'a>
-
     abstract SelfAddress: IDynamicAddress
+
+    abstract Status: ActorStatus
 
     /// <summary>
     /// Stop receiving new messages and switch to Stopping status.
@@ -40,35 +53,22 @@ type IActorContext =
     /// </summary>
     abstract Stop: unit -> unit
 
-    /// <summary>
-    /// Stop receiving new messages and switch to Stopping status.
-    /// </summary>
-    abstract Terminate: unit -> unit
 
 [<Interface>]
 type IActor =
 
-    abstract Receive: ctx: IActorContext * msg: IEnvelope -> Future<unit>
+    abstract Receive: ctx: IActorContext * envelope: IEnvelope -> Future<unit>
 
-    abstract Start: IActorContext -> unit
+    abstract Start: ctx: IActorContext -> Future<unit>
 
-    /// <summary>
-    /// Called when actor stopping.
-    /// Cancel stopping, if `cancel` flag set to true.
-    /// </summary>
-    abstract OnStop: IActorContext * cancel: byref<bool> -> unit
+    abstract Stop: ctx: IActorContext -> Future<unit>
 
-    abstract Stop: IActorContext -> unit
 
 [<AbstractClass>]
 type BaseActor() =
     abstract Receive: ctx: IActorContext * dynMsg: IEnvelope -> Future<unit>
     interface IActor with
         member this.Receive(ctx, dynMsg) =
-
-
-
             this.Receive(ctx, dynMsg)
-        member this.Start(_ctx) = ()
-        member this.OnStop(_ctx, _cancel) = ()
-        member this.Stop(_ctx) = ()
+        member this.Start(_ctx) = Future.unit'
+        member this.Stop(_ctx) = Future.unit'

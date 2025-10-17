@@ -1,105 +1,74 @@
 namespace rec FSharp.Control.Futures.Actors
 
 open System
-open System.Threading
+open FSharp.Control.Futures
 open FSharp.Control.Futures.Sync
 
 
 [<Interface>]
-type IEnvelopeVisitor =
-    abstract Visit<'i, 'o> : msg: Envelope<'i, 'o> -> unit
+type IEnvelopeAccept<'r> =
+    abstract Reply: 'r -> unit
+    abstract ReplyExn: exn -> unit
 
 [<Interface>]
-type IEnvelopeVisitorFunc<'a, 'r> =
-    abstract Visit<'i, 'o> : msg: Envelope<'i, 'o> * arg: 'a -> 'r
+type IEnvelopeVisitor =
+    abstract Visit<'m, 'r> : msg: 'm * accept: IEnvelopeAccept<'r> -> unit
 
-// [<RequireQualifiedAccess>]
-// [<Struct>]
-// type internal EnvelopeReplyValue<'r> =
-//     | Empty of isRequested: bool
-//     | Full of 'r
-//
-// [<Struct>]
-// type EnvelopeReply<'r> =
-//     val mutable private value: EnvelopeReplyValue<'r>
-//     new (isRequested: bool) = { value = EnvelopeReplyValue.Empty isRequested }
-//
-//     member this.IsRequested: bool =
-//         match this.value with
-//         | EnvelopeReplyValue.Empty isRequested -> isRequested
-//         | EnvelopeReplyValue.Full _ -> true // TODO?: Or invalidOp
-//
-//     member this.Reply(value: 'r): unit =
-//         match this.value with
-//         | EnvelopeReplyValue.Empty true ->
-//             this.value <- EnvelopeReplyValue.Full value
-//         | EnvelopeReplyValue.Empty false ->
-//             ()
-//         | EnvelopeReplyValue.Full _ ->
-//             invalidOp "Multiple reply"
+[<Interface>]
+type IEnvelopeVisitorFunc<'a, 'x> =
+    abstract Visit<'m, 'r> : msg: 'm * accept: IEnvelopeAccept<'r> * args: 'a -> 'x
 
-[<AbstractClass>]
-type IEnvelope internal () =
-    abstract MsgType: Type
-    abstract ReplyType: Type
-    abstract Accept : IEnvelopeVisitor -> unit
-    abstract AcceptFunc<'a, 'r> : visitorFunc: IEnvelopeVisitorFunc<'a, 'r> * arg: 'a -> 'r
-    abstract Cast<'i, 'o> : unit -> Envelope<'i, 'o>
-
-
+[<Interface>]
+type IEnvelope =
+    // TODO?: Remove
+    abstract MsgType : Type
+    // TODO?: Remove
+    abstract ReplyType : Type
+    abstract Accept : visitor: IEnvelopeVisitor -> unit
+    abstract AcceptFunc<'a, 'x> : visitorFunc: IEnvelopeVisitorFunc<'a, 'x> * args: 'a -> 'x
 
 
 [<Class>]
 [<Sealed>]
-type Envelope<'i, 'o> =
-    val Message: 'i
-    val ReplyValue: OneShotSender<'o>
+type Envelope<'m, 'r> =
+    val private _message: 'm
+    val private _replyCh: OneShot<Result<'r, exn>>
 
     new(msg, reply) =
-        { inherit IEnvelope(); Message = msg; ReplyValue = reply }
+        { _message = msg; _replyCh = reply }
 
-    new(msg) =
-        let os = OneShot.Closed
-        { inherit IEnvelope(); Message = msg; ReplyValue = os.Sender }
+    member this.Message: 'm = this._message
+    member this.Receive: OneSend<Result<'r, exn>> = this._replyCh.AsSend
+    member this.Awaiter: Future<Result<'r, exn>> = this._replyCh
 
-    member this.IsReplyOpened: bool =
-        not this.ReplyValue.IsClosed
+    interface IEnvelopeAccept<'r> with
 
-    member this.Reply(reply: 'o): unit =
-        do this.ReplyValue.Send(reply) |> ignore
-        ()
+        member this.Reply(reply: 'r) : unit =
+            this._replyCh.DoSend(Ok reply)
 
-    member this.ReplyWith(reply: unit -> 'o): unit =
-        if this.IsReplyOpened then
-            do this.Reply(reply ())
+        member this.ReplyExn(ex: exn) : unit =
+            this._replyCh.DoSend(Error ex)
 
-    inherit IEnvelope with
+    interface IEnvelope with
 
-        override this.MsgType: Type =
-            typeof<'i>
+        member this.MsgType: Type =
+            typeof<'m>
 
-        override this.ReplyType: Type =
-            typeof<'o>
+        member this.ReplyType: Type =
+            typeof<'r>
 
-        override this.Accept(visitor: IEnvelopeVisitor): unit =
-            visitor.Visit<'i, 'o>(this)
+        member this.Accept(visitor: IEnvelopeVisitor): unit =
+            visitor.Visit<'m, 'r>(this._message, this :> IEnvelopeAccept<'r>)
 
-        override this.AcceptFunc<'a, 'r>(visitorFunc: IEnvelopeVisitorFunc<'a, 'r>, arg: 'a): 'r =
-            visitorFunc.Visit<'i, 'o>(this, arg)
+        member this.AcceptFunc<'a, 'x>(visitorFunc: IEnvelopeVisitorFunc<'a, 'x>, arg: 'a): 'x =
+            visitorFunc.Visit<'m, 'r>(this._message, this :> IEnvelopeAccept<'r>, arg)
 
-        override this.Cast<'m, 'r>(): Envelope<'m, 'r> =
-            unbox this
 
 [<RequireQualifiedAccess>]
 module Envelope =
-    let create (msg: 'i) (reply: OneShotSender<'o>) : Envelope<'i, 'o> =
-        Envelope<'i, 'o>(msg, reply)
 
-    let createDyn (msg: 'i) (reply: OneShotSender<'o>) : IEnvelope =
-        Envelope<'i, 'o>(msg, reply)
+    let inline create<'m ,'r> (msg: 'm) : Envelope<'m, 'r> =
+        Envelope<'m, 'r>(msg, OneShot())
 
-    let box (msg: Envelope<'i, 'o>) : IEnvelope =
-        msg
-
-    let unbox<'i, 'o> (msgBox: IEnvelope) : Envelope<'i, 'o> =
-        msgBox.Cast<'i, 'o>()
+    let inline box (msg: Envelope<'i, 'o>) : IEnvelope =
+        upcast msg

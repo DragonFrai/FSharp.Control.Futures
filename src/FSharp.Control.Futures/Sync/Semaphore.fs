@@ -2,13 +2,33 @@ namespace rec FSharp.Control.Futures.Sync
 
 open System
 open System.Diagnostics
-open System.Threading
 open FSharp.Control.Futures
 open FSharp.Control.Futures.LowLevel
 
 
+// TODO: Fix new closing without drop old available permits
+
 exception SemaphoreClosedException
 exception SemaphorePermitsOverflowException
+
+
+[<Struct>]
+[<RequireQualifiedAccess>]
+type AcquireResult =
+    | Ok
+    | Closed
+    | NoPermits
+    with
+        member this.Unwrap(): unit =
+            match this with
+            | Ok -> ()
+            | Closed -> raise SemaphoreClosedException
+            | NoPermits -> raise SemaphorePermitsOverflowException
+
+        member this.IsError: bool =
+            match this with
+            | Ok -> false
+            | _ -> true
 
 
 type internal AcquireState =
@@ -42,47 +62,101 @@ type internal SemaphoreAcquire =
 
     interface IFuture<unit> with
         member this.Poll(ctx) =
-            this.semaphore.PollAcquire(this, ctx)
+            match this.semaphore.PollAcquire(this, ctx) with
+            | NaivePoll.Ready _result -> Poll.Ready ()
+            | NaivePoll.Pending -> Poll.Pending
+
         member this.Drop() =
             this.semaphore.DropAcquire(this)
 
-type internal SemaphoreStateT = int
+    interface IFuture<bool> with
+        member this.Poll(ctx) =
+            this.semaphore.PollAcquire(this, ctx) |> NaivePoll.toPoll
+        member this.Drop() =
+            this.semaphore.DropAcquire(this)
 
 /// Contains non-negative permits count or -1 for closed state
 type internal SemaphoreState =
 
+    [<Literal>]
+    static let CLOSE_BIT_MASK = 0x8000_0000
+
+    [<Literal>]
+    static let PERMITS_MASK = 0x7FFF_FFFF
+
     static member inline New(permits: int): int =
         if permits < 0 then
-            invalidArg (nameof(permits)) "InitialPermits can't be negative."
+            invalidArg (nameof(permits)) "Initial permits can't be negative."
         permits
 
-    static member inline NewClosed(): int =
-        -1
+    static member inline NewClosed(permits: int): int =
+        if permits < 0 then
+            invalidArg (nameof(permits)) "Initial permits can't be negative."
+        CLOSE_BIT_MASK ||| permits
 
     static member inline Permits(state: int): int =
-        state
+        state &&& PERMITS_MASK
 
-    static member inline Close(_state: int): int =
-        -1
+    static member inline Close(state: int): int =
+        state ||| CLOSE_BIT_MASK
+
+    /// Set permits to 0
+    static member inline DrainPermits(state: int): int =
+        (state &&& CLOSE_BIT_MASK)
+
+    static member inline SetPermitsUnchecked(state: int, permits: int): int =
+        (state &&& CLOSE_BIT_MASK) ||| permits
+
+    static member inline SetPermits(state: int, permits: int): int =
+        if permits < 0 then raise SemaphorePermitsOverflowException
+        else (state &&& CLOSE_BIT_MASK) ||| permits
 
     static member inline IsClosed(state: int): bool =
-        state = -1
+        (state &&& CLOSE_BIT_MASK) <> 0
 
     static member inline AssertNotClosed(state: int): unit =
         if SemaphoreState.IsClosed(state) then raise SemaphoreClosedException
 
     static member inline AddPermits(state: int, permits: int): int =
-        let state = state + permits
-        if state < 0 then raise SemaphorePermitsOverflowException
-        else state
+        let permits = SemaphoreState.Permits(state) + permits
+        SemaphoreState.SetPermits(state, permits)
 
     static member inline SubPermits(state: int, permits: int): int =
-        let state = state - permits
-        if state < 0 then raise SemaphorePermitsOverflowException
-        else state
+        let permits = state - SemaphoreState.Permits(permits)
+        SemaphoreState.SetPermits(state, permits)
 
     static member inline SubPermitsUnchecked(state: int, permits: int): int =
-        state - permits
+        (state &&& CLOSE_BIT_MASK) ||| (SemaphoreState.Permits(state) - permits)
+
+    static member inline TryAcquire(state: int, permits: int, newState: outref<int>): AcquireResult =
+        let availablePermits = SemaphoreState.Permits(state)
+        let closedBit = state &&& CLOSE_BIT_MASK
+        if availablePermits >= permits then
+            newState <- closedBit ||| (availablePermits - permits)
+            AcquireResult.Ok
+        elif closedBit <> 0 then
+            newState <- closedBit
+            AcquireResult.Closed
+        else
+            newState <- closedBit
+            AcquireResult.NoPermits
+
+
+    static member inline AcquireOrDrain(state: int, permits: int, newState: outref<int>, usedPermits: outref<int>): AcquireResult =
+        let availablePermits = SemaphoreState.Permits(state)
+        let closedBit = state &&& CLOSE_BIT_MASK
+        if availablePermits >= permits then
+            newState <- closedBit ||| (availablePermits - permits)
+            usedPermits <- permits
+            AcquireResult.Ok
+        elif closedBit <> 0 then
+            newState <- closedBit
+            usedPermits <- availablePermits
+            AcquireResult.Closed
+        else
+            newState <- closedBit
+            usedPermits <- availablePermits
+            AcquireResult.NoPermits
 
 
 // TODO?: Поддержка разных режимов порядка Fifi/Lifo/Drain
@@ -117,25 +191,35 @@ type Semaphore =
         Semaphore(0)
 
     /// Create closed semaphore
+    static member Closed(permits: int): Semaphore =
+        Semaphore(SemaphoreState.NewClosed(permits), obj(), IntrusiveList.Create())
+
     static member Closed(): Semaphore =
-        Semaphore(SemaphoreState.NewClosed(), obj(), IntrusiveList.Create())
+        Semaphore(SemaphoreState.NewClosed(0), obj(), IntrusiveList.Create())
 
     // <Internal>
 
-    member internal this.PollAcquire(acquire: SemaphoreAcquire, ctx: IContext): Poll<unit> =
+    member internal this.PollAcquire(acquire: SemaphoreAcquire, ctx: IContext): NaivePoll<bool> =
         let mutable acquire = acquire
         lock this.queueLock ^fun () ->
             if AcquireState.IsNotQueued(acquire) then
                 let semaphoreState = this.state
-                SemaphoreState.AssertNotClosed(semaphoreState)
-                let availablePermits = SemaphoreState.Permits(semaphoreState)
-                if availablePermits >= acquire.acquiredPermits then
-                    this.state <- SemaphoreState.SubPermitsUnchecked(semaphoreState, acquire.acquiredPermits)
+                let mutable semaphoreState' = 0
+                let mutable usedPermits = 0
+                let res = SemaphoreState.AcquireOrDrain(semaphoreState, acquire.acquiredPermits, &semaphoreState', &usedPermits)
+                match res with
+                | AcquireResult.Ok ->
+                    this.state <- semaphoreState'
                     acquire.state <- acquire.acquiredPermits
                     acquire.primaryNotify.Notify() |> ignore
-                else
-                    this.state <- SemaphoreState.Permits(0)
-                    acquire.state <- availablePermits
+                | AcquireResult.Closed ->
+                    // permits должны быть исчерпаны, чтобы следующие ожидающие не могли их использовать.
+                    // Это сохранит последовательность взятия в семафоре.
+                    this.state <- semaphoreState'
+                    acquire.state <- usedPermits
+                | AcquireResult.NoPermits ->
+                    this.state <- semaphoreState'
+                    acquire.state <- usedPermits
                     this.acquiresQueue.PushBack(acquire)
             else
                 // Already queued. Wait Notify. (permits count updated while Releasing)
@@ -146,9 +230,9 @@ type Semaphore =
             let state = this.state
             // TODO: Determine fact of closing using notification property
             if SemaphoreState.IsClosed(state)
-            then raise SemaphoreClosedException
-            else Poll.Ready ()
-        else Poll.Pending
+            then NaivePoll.Ready false
+            else NaivePoll.Ready true
+        else NaivePoll.Pending
 
     member internal this.ReleasePermitsNoLock(permits: int): unit =
         let mutable state = this.state
@@ -191,20 +275,19 @@ type Semaphore =
         SemaphoreState.AssertNotClosed(state)
         SemaphoreState.Permits(state)
 
-    member this.TryAcquire(permits: int): bool =
-        if permits = 0 then true
+    member this.AcquireNow(permits: int): AcquireResult =
+        if permits = 0 then AcquireResult.Ok
         else
         lock this.queueLock ^fun () ->
             let state = this.state
-            SemaphoreState.AssertNotClosed(state)
-            if SemaphoreState.Permits(state) < permits then
-                false
-            else
-                this.state <- SemaphoreState.SubPermits(state, permits)
-                true
+            let mutable state' = 0
+            let result = SemaphoreState.TryAcquire(state, permits, &state')
+            if result = AcquireResult.Ok then
+                this.state <- state'
+            result
 
-    member this.TryAcquire(): bool =
-        this.TryAcquire(1)
+    member this.AcquireNow(): AcquireResult =
+        this.AcquireNow(1)
 
     member this.Acquire(permits: int): Future<unit> =
         Trace.Assert(permits <= Semaphore.MaxPermits, "MaxPermits has been exceeded")
@@ -212,6 +295,13 @@ type Semaphore =
 
     member this.Acquire(): Future<unit> =
         this.Acquire(1)
+
+    member this.TryAcquire(permits: int): Future<bool> =
+        Trace.Assert(permits <= Semaphore.MaxPermits, "MaxPermits has been exceeded")
+        SemaphoreAcquire(this, permits)
+
+    member this.TryAcquire(): Future<bool> =
+        this.TryAcquire(1)
 
     member this.Release(permits: int): unit =
         this.ReleasePermits(permits)
@@ -229,14 +319,16 @@ type Semaphore =
             acquireQueue |>
             IntrusiveNode.forEach (fun acquire -> acquire.primaryNotify.Notify() |> ignore)
 
+    member this.IsClosed: bool =
+        SemaphoreState.IsClosed(this.state)
 
 module Semaphore =
     let inline create (initialPermits: int) : Semaphore = Semaphore(initialPermits)
     let inline availablePermits (semaphore: Semaphore) : int = semaphore.AvailablePermits
     let inline acquire (semaphore: Semaphore) : Future<unit> = semaphore.Acquire()
     let inline acquireMany (permits: int) (semaphore: Semaphore) : Future<unit> = semaphore.Acquire(permits)
-    let inline tryAcquire (semaphore: Semaphore) : bool = semaphore.TryAcquire()
-    let inline tryAcquireMany (permits: int) (semaphore: Semaphore) : bool = semaphore.TryAcquire(permits)
+    let inline tryAcquire (semaphore: Semaphore) : AcquireResult = semaphore.AcquireNow()
+    let inline tryAcquireMany (permits: int) (semaphore: Semaphore) : AcquireResult = semaphore.AcquireNow(permits)
     let inline release (semaphore: Semaphore) : unit = semaphore.Release()
     let inline releaseMany (permits: int) (semaphore: Semaphore) : unit = semaphore.Release(permits)
     let inline close (semaphore: Semaphore) : unit = semaphore.Close()

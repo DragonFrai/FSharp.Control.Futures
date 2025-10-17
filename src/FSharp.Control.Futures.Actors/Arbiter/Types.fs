@@ -3,6 +3,7 @@ namespace FSharp.Control.Futures.Actors
 open System.Threading
 open FSharp.Control.Futures
 open FSharp.Control.Futures.Actors.Addressing
+open FSharp.Control.Futures.Mail
 open FSharp.Control.Futures.Runtime
 open FSharp.Control.Futures.Sync
 
@@ -40,14 +41,17 @@ type ArbiterMsg =
 
 
 type ArbiterAddress(arbiterMailbox: Mailbox<ArbiterMsg>) =
-    inherit BaseActorAddress()
-
-    override this.Post(msg: IEnvelope): Future<unit> = future {
-        // Exn if stopped
-        let arbMsg = ArbiterMsg.Msg msg
-        do arbiterMailbox.Send(arbMsg)
-        return ()
-    }
+    interface IDynamicAddress with
+        member this.Send<'m, 'r>(msg: 'm): Future<'r> = future {
+            // TODO: Exn if stopped
+            let envelope = Envelope.create msg
+            let arbMsg = ArbiterMsg.Msg envelope
+            do! Mailbox.send arbMsg arbiterMailbox
+            let! res = envelope.Awaiter
+            match res with
+            | Ok value -> return value
+            | Error ex -> return raise ex
+        }
 
 type ArbiterContext(mailbox: Mailbox<ArbiterMsg>, selfAddress: ITryAddress, backgroundRuntime: IRuntime) =
 
@@ -80,7 +84,7 @@ type ActorId =
         let id =
             if addSalt then
                 let salt = ActorId.nextSalt ()
-                $"{name}-{salt}"
+                $"{name}#{salt}"
             else
                 name
         { _id = id }
