@@ -2,6 +2,7 @@
 
 open FSharp.Control.Futures
 open FSharp.Control.Futures.Actors
+open FSharp.Control.Futures.Actors.Addressing
 open FSharp.Control.Futures.Runtime
 open FSharp.Control.Futures.Sync
 
@@ -10,25 +11,31 @@ type HelloActor() =
     inherit HandlerActor()
 
     interface IHandler<string ,string> with
-        member this.Handle(_ctx, msg) = future {
-            msg.Reply.Send($"Hello, {msg.Msg}!") |> ignore
+        member this.Handle(msg, accept) = future {
+            accept.Reply($"Hello, {msg}!")
         }
 
-let arb = Arbiter.Start({
-    Actor = HelloActor()
-    ActorId = ActorId("Hello")
-    MessageLoopRuntime = ThreadPoolRuntime.instance
-    BackgroundRuntime = ThreadPoolRuntime.instance
-})
+let actorMailbox = ActorMailbox()
+actorMailbox.SetActor(HelloActor())
 
-let addr = arb.Address
+let addr: IDynamicAddress = actorMailbox
+let addrMkHello = addr.Narrow<string, string>()
 
-let os = OneShot<string>()
-do addr.SendMsg(Envelope("Steve", os.Sender)) |> Future.runBlocking
-let r = os.Receive() |> Future.runBlocking
-printfn $"Reply is '{r}'"
+ThreadPoolRuntime.instance.Spawn(actorMailbox.Start()) |> ignore
 
 future {
-    let! r = addr.Narrow<string, string>().Send("hello")
+    let! r = addrMkHello.Send("Name1")
+    do printfn $"> {r}"
+    do! Future.sleepMs 1000
+    let! r = addrMkHello.Send("Name2")
+    do printfn $"> {r}"
+    do! Future.sleepMs 1000
+    let! r = addrMkHello.Send("Name3")
+    do printfn $"> {r}"
+    do! Future.sleepMs 1000
+    let! r = addrMkHello.Send("Name4")
+    do printfn $"> {r}"
+    do! Future.sleepMs 1000
+    let! r = addrMkHello.Send("Name5")
     do printfn $"> {r}"
 } |> Future.runBlocking

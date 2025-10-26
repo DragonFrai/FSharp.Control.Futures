@@ -8,16 +8,15 @@ open FSharp.Control.Futures.Actors.Addressing
 /// Actor handler interface for handle one msg type.
 /// </summary>
 type IHandler<'i, 'o> =
-    abstract Handle: ctx: IActorContext * msg: 'i * accept: IEnvelopeAccept<'o> -> Future<unit>
+    abstract Handle: msg: 'i * accept: IEnvelopeAccept<'o> -> Future<unit>
 
 type internal HandlerActorVisitor() =
     static member Instance = HandlerActorVisitor()
-    interface IEnvelopeVisitorFunc<struct (HandlerActor * IActorContext), Future<unit>> with
-        member this.Visit<'i, 'o>(msg: 'i, accept: IEnvelopeAccept<'o>, args: struct (HandlerActor * IActorContext)) : Future<unit> = future {
-            let struct (actor, ctx) = args
+    interface IEnvelopeVisitorFunc<HandlerActor, Future<unit>> with
+        member this.Visit<'i, 'o>(msg: 'i, accept: IEnvelopeAccept<'o>, actor: HandlerActor) : Future<unit> = future {
             match box actor with
             | :? IHandler<'i, 'o> as handler ->
-                return! handler.Handle(ctx, msg, accept)
+                return! handler.Handle(msg, accept)
             | _ ->
                 let actorTypeName = actor.GetType().Name
                 let msgTypeName = typeof<Envelope<'i, 'o>>.Name
@@ -28,13 +27,13 @@ type internal HandlerActorVisitor() =
                 return ()
         }
 
-
 [<AbstractClass>]
 type HandlerActor =
-    inherit BaseActor
     new() = {  }
 
-    override this.Receive(ctx, dynMsg) = future {
-        let visitor = HandlerActorVisitor.Instance
-        return! dynMsg.AcceptFunc(visitor, struct (this, ctx))
-    }
+    interface IActor with
+
+        member this.Receive(dynMsg) = future {
+            let visitor = HandlerActorVisitor.Instance
+            return! dynMsg.AcceptFunc(visitor, this)
+        }

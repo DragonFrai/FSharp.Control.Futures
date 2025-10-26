@@ -10,8 +10,8 @@
         <Compile Include="Addressing.fs" />
         <Compile Include="Envelope.fs" />
         <Compile Include="Actor.fs" />
+        <Compile Include="ActorMainbox.fs" />
         <Compile Include="HandlerActor.fs" />
-        <Compile Include="Arbiter\Types.fs" />
         <Compile Include="System.fs" />
         <Compile Include="Library.fs"/>
     </ItemGroup>

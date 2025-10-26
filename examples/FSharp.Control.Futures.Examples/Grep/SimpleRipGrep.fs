@@ -4,18 +4,19 @@ open FSharp.Control.Futures
 open FSharp.Control.Futures.Examples.Grep
 open FSharp.Control.Futures.Runtime
 open FSharp.Control.Futures.Sync
+open FSharp.Control.Futures.Mail
 
 
-let findFilesRec (root: string) (files: Mailbox<string>) (filesCrawledEvent: Event) = future {
+let findFilesRec (root: string) (files: IMailbox<string>) (filesCrawledEvent: Event) = future {
     do! GrepUtils.allFilesRec root (fun file -> future {
         match file with
         | None -> filesCrawledEvent.Set()
-        | Some file -> files.Send(file)
+        | Some file -> do! files.Send(file)
     })
 }
 
 let scanAllRec (path: string) (pattern: string) (runtime: IRuntime) (parallelismLevel: int) = future {
-    let files = Mailbox<string>()
+    let files: IMailbox<string> = Mailbox<string>()
     let filesCrawled = Event()
     let consoleMutex = Mutex()
 
