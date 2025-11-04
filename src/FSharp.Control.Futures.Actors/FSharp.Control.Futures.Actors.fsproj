@@ -10,8 +10,9 @@
         <Compile Include="Addressing.fs" />
         <Compile Include="Envelope.fs" />
         <Compile Include="Actor.fs" />
-        <Compile Include="ActorMainbox.fs" />
+        <Compile Include="MailboxAddress.fs" />
         <Compile Include="HandlerActor.fs" />
+        <Compile Include="ActorProcess.fs" />
         <Compile Include="System.fs" />
         <Compile Include="Library.fs"/>
     </ItemGroup>

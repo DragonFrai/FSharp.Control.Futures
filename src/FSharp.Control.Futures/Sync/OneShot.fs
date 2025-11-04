@@ -49,6 +49,8 @@ type OneShot<'a> =
     member inline this.AsReceive: OneReceive<'a> = OneReceive(this)
     member inline this.AsPair: OneSend<'a> * OneReceive<'a> = OneSend(this), OneReceive(this)
 
+    member this.IsSent: bool = this.notify.IsNotified
+
     /// <summary>
     /// Проверяет закрыт ли OneShot.
     /// </summary>

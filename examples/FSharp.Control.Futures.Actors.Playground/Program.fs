@@ -10,15 +10,21 @@ open FSharp.Control.Futures.Sync
 type HelloActor() =
     inherit HandlerActor()
 
+
+    override this.Start(var0) = failwith "todo"
+    override this.Stop(var0, var1) = failwith "todo"
+
+
     interface IHandler<string ,string> with
-        member this.Handle(msg, accept) = future {
+
+        member this.Handle(context, msg, accept) = future {
             accept.Reply($"Hello, {msg}!")
         }
 
-let actorMailbox = ActorMailbox()
+let actorMailbox = ActorProcess()
 actorMailbox.SetActor(HelloActor())
 
-let addr: IDynamicAddress = actorMailbox
+let addr: IDynamicAddress = actorMailbox.Address
 let addrMkHello = addr.Narrow<string, string>()
 
 ThreadPoolRuntime.instance.Spawn(actorMailbox.Start()) |> ignore

@@ -7,6 +7,7 @@ open FSharp.Control.Futures.Sync
 
 [<Interface>]
 type IEnvelopeAccept<'r> =
+    abstract IsReplyed: bool
     abstract Reply: 'r -> unit
     abstract ReplyExn: exn -> unit
 
@@ -42,6 +43,9 @@ type Envelope<'m, 'r> =
     member this.Awaiter: Future<Result<'r, exn>> = this._replyCh
 
     interface IEnvelopeAccept<'r> with
+
+        member this.IsReplyed: bool =
+            this._replyCh.IsSent
 
         member this.Reply(reply: 'r) : unit =
             this._replyCh.DoSend(Ok reply)

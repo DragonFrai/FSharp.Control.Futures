@@ -78,3 +78,47 @@ type [<Sealed>] Mailbox<'m> =
 
     interface IMailbox<'m>
 
+
+type [<Sealed>] TransformMailbox<'from, 'into, 'inner> =
+
+    val private _mailbox: IMailbox<'inner>
+    val private _mapFrom: 'from -> 'inner
+    val private _mapInto: 'inner -> 'into
+
+    new(mailbox: IMailbox<'inner>, mapFrom: 'from -> 'inner, mapInto: 'inner -> 'into) =
+        {
+            _mailbox = mailbox
+            _mapFrom = mapFrom
+            _mapInto = mapInto
+        }
+
+    interface IMailbox with
+        member this.Count = this._mailbox.Count
+        member this.Bound = this._mailbox.Bound
+        member this.IsCompleted = this._mailbox.IsCompleted
+
+    interface IOutbox<'from> with
+        member this.TrySend(msg) = future {
+            return! this._mailbox.TrySend(this._mapFrom msg)
+        }
+
+        member this.Send(msg) = future {
+            return! this._mailbox.Send(this._mapFrom msg)
+        }
+
+        member this.Push(msg) =
+            this._mailbox.Push(this._mapFrom msg)
+
+        member this.Complete() =
+            this._mailbox.Complete()
+
+    interface IInbox<'into> with
+
+        member this.Pick() =
+            this._mailbox.Pick() |> Result.map this._mapInto
+
+        member this.Receive() =
+            this._mailbox.Receive() |> Future.map this._mapInto
+
+        member this.TryReceive() =
+            this._mailbox.TryReceive() |> Future.map (Result.map this._mapInto)
